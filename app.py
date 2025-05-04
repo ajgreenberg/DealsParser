@@ -5,12 +5,37 @@ import requests
 import json
 import re
 from bs4 import BeautifulSoup
+import boto3
 from typing import Dict
+from datetime import datetime
 
+# --- Secrets ---
 client = OpenAI(api_key=st.secrets["OPENAI_API_KEY"])
 AIRTABLE_PAT = st.secrets["AIRTABLE_PAT"]
 AIRTABLE_BASE_ID = st.secrets["AIRTABLE_BASE_ID"]
 AIRTABLE_TABLE_NAME = st.secrets["AIRTABLE_TABLE_NAME"]
+
+AWS_ACCESS_KEY_ID = st.secrets["AWS_ACCESS_KEY_ID"]
+AWS_SECRET_ACCESS_KEY = st.secrets["AWS_SECRET_ACCESS_KEY"]
+S3_BUCKET = st.secrets["S3_BUCKET"]
+S3_REGION = st.secrets["S3_REGION"]
+
+# --- AWS S3 client ---
+s3 = boto3.client(
+    "s3",
+    aws_access_key_id=AWS_ACCESS_KEY_ID,
+    aws_secret_access_key=AWS_SECRET_ACCESS_KEY,
+    region_name=S3_REGION
+)
+
+def upload_to_s3(file_data, filename):
+    try:
+        key = f"deal-uploads/{datetime.now().strftime('%Y%m%d-%H%M%S')}-{filename}"
+        s3.upload_fileobj(file_data, S3_BUCKET, key, ExtraArgs={"ACL": "public-read"})
+        return f"https://{S3_BUCKET}.s3.{S3_REGION}.amazonaws.com/{key}"
+    except Exception as e:
+        st.warning(f"S3 Upload failed for {filename}: {e}")
+        return None
 
 def extract_text_from_pdf(uploaded_file) -> str:
     doc = fitz.open(stream=uploaded_file.read(), filetype="pdf")
@@ -63,17 +88,6 @@ Return ONLY a valid JSON object with the following fields:
         st.text_area("Raw GPT Output", raw, height=300)
         raise e
 
-def upload_to_fileio(file_data, file_name):
-    try:
-        files = {'file': (file_name, file_data)}
-        upload_resp = requests.post("https://file.io", files=files)
-        if upload_resp.status_code == 200:
-            result = upload_resp.json()
-            return {"url": result['link']}
-    except Exception as e:
-        st.warning(f"Error uploading file: {e}")
-    return None
-
 def save_to_airtable(data: Dict, raw_notes: str, attachment_urls: list) -> None:
     url = f"https://api.airtable.com/v0/{AIRTABLE_BASE_ID}/{AIRTABLE_TABLE_NAME}"
     headers = {
@@ -91,14 +105,14 @@ def save_to_airtable(data: Dict, raw_notes: str, attachment_urls: list) -> None:
         "Risks": "\n".join(data.get("Risks or Red Flags", [])),
         "Summary": data.get("Summary"),
         "Raw Notes": raw_notes,
-        "Attachments": attachment_urls
+        "Attachments": [{"url": u} for u in attachment_urls if u]
     }
     response = requests.post(url, headers=headers, json={"fields": fields})
     if response.status_code != 200:
         st.error(f"Airtable error: {response.text}")
 
-# --- UI ---
-st.title("📄 Deal Parser: PDF, URL, Notes & Attachments")
+# --- Streamlit UI ---
+st.title("📄 Deal Parser with Attachments to S3")
 
 source_type = st.radio("Input Type", ["Upload PDF", "Paste URL", "Paste Page Text"])
 uploaded_pdf = None
@@ -123,11 +137,9 @@ elif source_type == "Paste Page Text":
         source_text = pasted
         source_desc = "pasted webpage content"
 
-# Paste additional notes
 st.markdown("### 📋 Paste Any Extra Notes or Email Threads")
 extra_notes = st.text_area("Additional deal context", height=200)
 
-# Upload additional files
 uploaded_files = st.file_uploader("📎 Upload Additional Attachments (PDF, XLSX, etc.)", accept_multiple_files=True)
 
 if source_text:
@@ -140,19 +152,19 @@ if source_text:
             st.markdown(f"**{key}**: {value if not isinstance(value, list) else ', '.join(value)}")
 
         if st.button("📤 Save to Airtable"):
-            uploaded_urls = []
+            s3_urls = []
 
-            # Upload main PDF
+            # Upload main PDF to S3
             if uploaded_pdf:
-                uploaded_urls.append(upload_to_fileio(uploaded_pdf.getvalue(), uploaded_pdf.name))
+                uploaded_pdf.seek(0)
+                s3_urls.append(upload_to_s3(uploaded_pdf, uploaded_pdf.name))
 
-            # Upload extra attachments
+            # Upload extra files
             for f in uploaded_files:
-                file_url = upload_to_fileio(f.getvalue(), f.name)
-                if file_url:
-                    uploaded_urls.append(file_url)
+                f.seek(0)
+                s3_urls.append(upload_to_s3(f, f.name))
 
-            save_to_airtable(summary, raw_notes=extra_notes, attachment_urls=uploaded_urls)
-            st.success("✅ Uploaded all data to Airtable!")
+            save_to_airtable(summary, raw_notes=extra_notes, attachment_urls=s3_urls)
+            st.success("✅ Uploaded to Airtable with S3-hosted attachments!")
 
         st.download_button("📥 Download JSON", data=json.dumps(summary, indent=2), file_name="deal_summary.json")
