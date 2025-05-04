@@ -21,7 +21,7 @@ def save_to_airtable(fields: dict):
         st.error(f"❌ Airtable error: {response.text}")
     return response.status_code
 
-def upload_pdf_to_fileio(pdf_url):
+def upload_pdf_to_fileio(pdf_url):\n    pass  # Removed PDF upload
     try:
         file_resp = requests.get(pdf_url)
         if file_resp.status_code == 200:
@@ -70,7 +70,7 @@ def scrape_crexi_with_pdf_filter():
             # Try to find OM PDF download link
             om_link_tag = detail_soup.find("a", href=re.compile(r".*\.pdf"))
             om_pdf_url = "https://www.crexi.com" + om_link_tag["href"] if om_link_tag else None
-            attachments = upload_pdf_to_fileio(om_pdf_url) if om_pdf_url else []
+            
 
             fields = {
                 "Property Name": title,
