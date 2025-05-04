@@ -1,12 +1,13 @@
 import streamlit as st
 import fitz  # PyMuPDF
-import openai
+from openai import OpenAI, RateLimitError
 import requests
 import json
+import re
 from typing import Dict
 
-# --- API Keys from Streamlit secrets ---
-openai.api_key = st.secrets["OPENAI_API_KEY"]
+# --- API Setup ---
+client = OpenAI(api_key=st.secrets["OPENAI_API_KEY"])
 AIRTABLE_PAT = st.secrets["AIRTABLE_PAT"]
 AIRTABLE_BASE_ID = st.secrets["AIRTABLE_BASE_ID"]
 AIRTABLE_TABLE_NAME = st.secrets["AIRTABLE_TABLE_NAME"]
@@ -19,15 +20,17 @@ def extract_text_from_pdf(uploaded_file) -> str:
         text += page.get_text()
     return text
 
-# --- GPT-4 Extraction ---
+# --- GPT-4 (or 3.5) Extraction ---
 def gpt_extract_summary(text: str) -> Dict:
     prompt = f"""
     You are an AI real estate analyst. Given the following offering memo text, extract key deal information and generate a short, neutral summary for a deal memo.
 
     Text:
-    {text[:4000]}  # limit to avoid token overload
+    {text[:4000]}
 
-    Return as JSON with the following fields:
+    Respond ONLY with valid JSON. Do not include markdown or commentary.
+
+    Fields:
     - Property Name
     - Location
     - Asset Class
@@ -36,20 +39,28 @@ def gpt_extract_summary(text: str) -> Dict:
     - Square Footage or Unit Count
     - Key Highlights (bullet points)
     - Risks or Red Flags (bullet points)
-    - Summary (neutral, 2-3 sentences)
-
-    JSON:
+    - Summary (neutral, 2–3 sentences)
     """
-    from openai import OpenAI
 
-    client = OpenAI(api_key=st.secrets["OPENAI_API_KEY"])
+    try:
+        response = client.chat.completions.create(
+            model="gpt-3.5-turbo",
+            messages=[{"role": "user", "content": prompt}],
+            temperature=0.3
+        )
 
-    response = client.chat.completions.create(
-        model="gpt-3.5-turbo",
-        messages=[{"role": "user", "content": prompt}],
-        temperature=0.3
-    )
-    return json.loads(response.choices[0].message.content)
+        raw = response.choices[0].message.content
+        cleaned = re.sub(r"```(?:json)?", "", raw).strip()
+        return json.loads(cleaned)
+
+    except RateLimitError:
+        st.error("⚠️ OpenAI rate limit reached. Please try again shortly.")
+        return {}
+
+    except json.JSONDecodeError as e:
+        st.error("❌ GPT returned malformed JSON. See raw output below.")
+        st.text_area("Raw GPT Output", raw, height=300)
+        raise e
 
 # --- Save to Airtable ---
 def save_to_airtable(data: Dict) -> None:
@@ -73,7 +84,7 @@ def save_to_airtable(data: Dict) -> None:
     if response.status_code != 200:
         st.error(f"Airtable error: {response.text}")
 
-# --- Streamlit App ---
+# --- Streamlit UI ---
 st.title("📄 PDF Deal Memo Parser")
 
 uploaded_file = st.file_uploader("Upload a Deal Memo PDF", type="pdf")
@@ -82,15 +93,16 @@ if uploaded_file:
     with st.spinner("Extracting text..."):
         text = extract_text_from_pdf(uploaded_file)
     
-    with st.spinner("Analyzing with GPT-4..."):
+    with st.spinner("Analyzing with GPT..."):
         extracted_data = gpt_extract_summary(text)
 
-    st.subheader("🔍 Extracted Deal Information")
-    for key, value in extracted_data.items():
-        st.markdown(f"**{key}**: {value if not isinstance(value, list) else ', '.join(value)}")
+    if extracted_data:
+        st.subheader("🔍 Extracted Deal Information")
+        for key, value in extracted_data.items():
+            st.markdown(f"**{key}**: {value if not isinstance(value, list) else ', '.join(value)}")
 
-    if st.button("📤 Save to Airtable"):
-        save_to_airtable(extracted_data)
-        st.success("✅ Saved to Airtable!")
+        if st.button("📤 Save to Airtable"):
+            save_to_airtable(extracted_data)
+            st.success("✅ Saved to Airtable!")
 
-    st.download_button("📥 Download JSON", data=json.dumps(extracted_data, indent=2), file_name="deal_summary.json")
+        st.download_button("📥 Download JSON", data=json.dumps(extracted_data, indent=2), file_name="deal_summary.json")
