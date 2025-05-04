@@ -145,7 +145,6 @@ uploaded_files = st.file_uploader("📎 Upload supporting files (optional)", typ
 
 if st.button("🚀 Run Deal Parser"):
     source_text = ""
-
     if uploaded_main:
         ext = uploaded_main.name.lower().split(".")[-1]
         if ext == "pdf":
@@ -165,12 +164,10 @@ if st.button("🚀 Run Deal Parser"):
             summarized_notes = summarize_notes(extra_notes)
             contact_info = extract_contact_info(combined_text)
 
-        st.subheader("🔍 Deal Summary")
-        for k, v in summary.items():
-            st.markdown(f"**{k}**: {v if not isinstance(v, list) else ', '.join(v)}")
-
-        st.markdown("**Contact Info:**")
-        st.text(contact_info)
+        st.session_state["parsed_summary"] = summary
+        st.session_state["parsed_notes"] = summarized_notes
+        st.session_state["parsed_contacts"] = contact_info
+        st.session_state["parsed_type"] = deal_type_value
 
         s3_urls = []
         if uploaded_main:
@@ -180,6 +177,21 @@ if st.button("🚀 Run Deal Parser"):
             f.seek(0)
             s3_urls.append(upload_to_s3(f, f.name))
 
-        if st.checkbox("📤 Upload this deal to Airtable?"):
-            with st.spinner("Uploading to Airtable..."):
-                create_airtable_record(summary, summarized_notes, s3_urls, deal_type_value, contact_info)
+        st.session_state["parsed_attachments"] = s3_urls
+
+        st.subheader("🔍 Deal Summary")
+        for k, v in summary.items():
+            st.markdown(f"**{k}**: {v if not isinstance(v, list) else ', '.join(v)}")
+
+        st.markdown("**Contact Info:**")
+        st.text(contact_info)
+
+        if st.button("📤 Upload this deal to Airtable"):
+            with st.spinner("Uploading..."):
+                create_airtable_record(
+                    st.session_state["parsed_summary"],
+                    st.session_state["parsed_notes"],
+                    st.session_state["parsed_attachments"],
+                    st.session_state["parsed_type"],
+                    st.session_state["parsed_contacts"]
+                )
