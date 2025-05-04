@@ -81,7 +81,7 @@ Return JSON with:
     cleaned = re.sub(r"```(?:json)?", "", raw).strip()
     return json.loads(cleaned)
 
-def create_airtable_record(data: Dict, notes: str, attachments: list):
+def create_airtable_record(data: Dict, notes: str, attachments: list, deal_type: str):
     headers = {
         "Authorization": f"Bearer {AIRTABLE_PAT}",
         "Content-Type": "application/json"
@@ -98,6 +98,7 @@ def create_airtable_record(data: Dict, notes: str, attachments: list):
             "Risks": "\n".join(data.get("Risks or Red Flags", [])),
             "Summary": data.get("Summary"),
             "Raw Notes": notes,
+            "Deal Type": [deal_type] if deal_type else [],
             "Attachments": [{"url": u} for u in attachments if u]
         }
     }
@@ -109,7 +110,10 @@ def create_airtable_record(data: Dict, notes: str, attachments: list):
         st.success("✅ New deal saved to Airtable!")
 
 # --- Streamlit UI ---
-st.title("📄 The Deal Parser")
+st.title("📄 Deal Parser")
+
+deal_type = st.radio("💼 Select Deal Type", ["🏦 Debt", "🏢 Equity"], horizontal=True)
+deal_type_value = "Debt" if "Debt" in deal_type else "Equity"
 
 uploaded_main = st.file_uploader("📄 Upload Deal Memo (optional)", type=["pdf", "doc", "docx"])
 extra_notes = st.text_area("🗒 Paste deal notes or email thread", height=200)
@@ -149,4 +153,4 @@ if st.button("🚀 Run Deal Parser"):
             s3_urls.append(upload_to_s3(f, f.name))
 
         with st.spinner("📬 Saving to Airtable..."):
-            create_airtable_record(summary, summarized_notes, s3_urls)
+            create_airtable_record(summary, summarized_notes, s3_urls, deal_type_value)
