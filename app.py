@@ -54,6 +54,17 @@ def summarize_notes(notes: str) -> str:
     return res.choices[0].message.content.strip()
 
 def extract_contact_info(text: str) -> str:
+    # Aggressive contact info extraction including fallback heuristics
+    prompt = """Extract the contact information (name, company, phone, and email) of any brokers, sponsors, or agents from the following text. Be thorough and include details even if they are buried in an email signature or footnote. Return in plain text format.
+
+Text:
+""" + text[:3500]
+    res = client.chat.completions.create(
+        model="gpt-4",
+        messages=[{"role": "user", "content": prompt}],
+        temperature=0.3
+    )
+    return res.choices[0].message.content.strip()
     prompt = f"From the following deal memo or email text, extract any contact info for brokers or sponsors. If none is found, say 'None'.\n\n{text[:3000]}"
     res = client.chat.completions.create(
         model="gpt-3.5-turbo",
@@ -190,7 +201,7 @@ if st.button("🚀 Run Deal Parser"):
         st.markdown("**Contact Info:**")
         st.text(contact_info)
 
-if st.button("📤 Upload this deal to Airtable"):
+if "summary" in st.session_state and st.button("📤 Upload this deal to Airtable"):
     if all(key in st.session_state for key in ["summary", "notes", "contacts", "attachments", "deal_type"]):
         with st.spinner("Uploading..."):
             create_airtable_record(
