@@ -1,6 +1,7 @@
 import streamlit as st
 import fitz
 import docx
+import textract
 from openai import OpenAI
 import requests
 import json
@@ -39,6 +40,9 @@ def extract_text_from_docx(file) -> str:
     doc = docx.Document(file)
     return "\n".join([para.text for para in doc.paragraphs])
 
+def extract_text_from_doc(file) -> str:
+    return textract.process(file.name).decode("utf-8")
+
 def extract_text_from_url(url: str) -> str:
     headers = {"User-Agent": "Mozilla/5.0"}
     response = requests.get(url, headers=headers)
@@ -56,7 +60,7 @@ def summarize_notes(notes: str) -> str:
     )
     return res.choices[0].message.content.strip()
 
-def gpt_extract_summary(text: str, source_desc: str = "a memo or webpage") -> Dict:
+def gpt_extract_summary(text: str, source_desc: str = "a deal memo or webpage") -> Dict:
     prompt = f"""You are an AI real estate analyst. You are reviewing text from {source_desc}.
 
 If key deal information is not clearly stated, say so explicitly and do not guess. Do not make up property names or numbers.
@@ -130,64 +134,43 @@ def create_or_update_airtable(data: Dict, notes: str, attachments: list, update_
         st.success("✅ Deal saved to Airtable!")
 
 # --- Streamlit UI ---
-st.title("📄 Deal Parser: Now Supports DOCX")
+st.title("📄 Deal Parser with Smart Upload")
 
 mode = st.radio("Mode", ["Create New Deal", "Update Existing Deal"])
 update_mode = mode == "Update Existing Deal"
 
-source_type = st.radio("Input Type", ["Upload PDF", "Upload DOCX", "Paste URL", "Paste Page Text"])
-uploaded_pdf = None
-uploaded_docx = None
-source_text = ""
-source_desc = ""
-
-if source_type == "Upload PDF":
-    uploaded_pdf = st.file_uploader("Upload Deal Memo PDF", type="pdf")
-    if uploaded_pdf:
-        source_desc = "a PDF"
-elif source_type == "Upload DOCX":
-    uploaded_docx = st.file_uploader("Upload Deal Memo DOCX", type="docx")
-    if uploaded_docx:
-        source_desc = "a Word document"
-elif source_type == "Paste URL":
-    url = st.text_input("Enter listing URL")
-    if url:
-        source_text = extract_text_from_url(url)
-        source_desc = f"the webpage at {url}"
-elif source_type == "Paste Page Text":
-    pasted = st.text_area("Paste visible page content", height=300)
-    if pasted:
-        source_text = pasted
-        source_desc = "pasted webpage content"
-
-extra_notes = st.text_area("🗒 Additional notes or email threads", height=200)
-uploaded_files = st.file_uploader("📎 Upload files", type=["pdf", "doc", "docx", "xls", "xlsx", "jpg", "png"], accept_multiple_files=True)
+uploaded_main = st.file_uploader("📄 Upload Main Deal Memo", type=["pdf", "doc", "docx"])
+extra_notes = st.text_area("🗒 Additional notes or email thread", height=200)
+uploaded_files = st.file_uploader("📎 Upload supporting files", type=["pdf", "doc", "docx", "xls", "xlsx", "jpg", "png"], accept_multiple_files=True)
 
 if st.button("🚀 Run Deal Parser"):
-    if uploaded_pdf:
-        source_text = extract_text_from_pdf(uploaded_pdf)
-    elif uploaded_docx:
-        source_text = extract_text_from_docx(uploaded_docx)
-
-    if not source_text:
-        st.warning("Please provide text input (PDF, DOCX, page content, or URL).")
+    if not uploaded_main:
+        st.warning("Please upload a primary deal memo (PDF, DOC, or DOCX).")
     else:
-        with st.spinner("Analyzing..."):
-            summary = gpt_extract_summary(source_text, source_desc)
-            summarized_notes = summarize_notes(extra_notes)
+        file_ext = uploaded_main.name.lower().split(".")[-1]
+        if file_ext == "pdf":
+            source_text = extract_text_from_pdf(uploaded_main)
+        elif file_ext == "docx":
+            source_text = extract_text_from_docx(uploaded_main)
+        elif file_ext == "doc":
+            uploaded_main.seek(0)
+            source_text = extract_text_from_doc(uploaded_main)
+        else:
+            st.error("Unsupported file format.")
+            source_text = ""
 
-        if summary:
+        if source_text:
+            with st.spinner("Analyzing with GPT..."):
+                summary = gpt_extract_summary(source_text)
+                summarized_notes = summarize_notes(extra_notes)
+
             st.subheader("🔍 Deal Information")
             for k, v in summary.items():
                 st.markdown(f"**{k}**: {v if not isinstance(v, list) else ', '.join(v)}")
 
             s3_urls = []
-            if uploaded_pdf:
-                uploaded_pdf.seek(0)
-                s3_urls.append(upload_to_s3(uploaded_pdf, uploaded_pdf.name))
-            if uploaded_docx:
-                uploaded_docx.seek(0)
-                s3_urls.append(upload_to_s3(uploaded_docx, uploaded_docx.name))
+            uploaded_main.seek(0)
+            s3_urls.append(upload_to_s3(uploaded_main, uploaded_main.name))
             for f in uploaded_files:
                 f.seek(0)
                 s3_urls.append(upload_to_s3(f, f.name))
