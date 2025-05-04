@@ -31,7 +31,7 @@ s3 = boto3.client(
 def upload_to_s3(file_data, filename):
     try:
         key = f"deal-uploads/{datetime.now().strftime('%Y%m%d-%H%M%S')}-{filename}"
-        s3.upload_fileobj(file_data, S3_BUCKET, key, ExtraArgs={"ACL": "public-read"})
+        s3.upload_fileobj(file_data, S3_BUCKET, key)
         return f"https://{S3_BUCKET}.s3.{S3_REGION}.amazonaws.com/{key}"
     except Exception as e:
         st.warning(f"S3 Upload failed for {filename}: {e}")
