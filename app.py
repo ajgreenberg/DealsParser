@@ -26,32 +26,30 @@ def extract_text_from_url(url: str) -> str:
     headers = {"User-Agent": "Mozilla/5.0"}
     response = requests.get(url, headers=headers)
     soup = BeautifulSoup(response.content, "html.parser")
-    # Remove scripts/styles
     for tag in soup(["script", "style"]):
         tag.decompose()
     return soup.get_text(separator="\n")
 
 # --- GPT Summary Extraction ---
-def gpt_extract_summary(text: str) -> Dict:
-    prompt = f"""
-    You are an AI real estate analyst. Given the following offering memo or listing text, extract key deal information and generate a short, neutral summary for a deal memo.
+def gpt_extract_summary(text: str, source_desc: str = "a memo or webpage") -> Dict:
+    prompt = f"""You are an AI real estate analyst. You are reviewing text from {source_desc}.
 
-    Text:
-    {text[:4000]}
+If key deal information is not clearly stated in the input, say so explicitly and do not guess. Do not make up property names, locations, or numbers.
 
-    Respond ONLY with valid JSON. Do not include markdown or commentary.
+Text:
+{text[:4000]}
 
-    Fields:
-    - Property Name
-    - Location
-    - Asset Class
-    - Asking Price
-    - Cap Rate
-    - Square Footage or Unit Count
-    - Key Highlights (bullet points)
-    - Risks or Red Flags (bullet points)
-    - Summary (neutral, 2–3 sentences)
-    """
+Return ONLY a valid JSON object with the following fields:
+- Property Name
+- Location
+- Asset Class
+- Asking Price
+- Cap Rate
+- Square Footage or Unit Count
+- Key Highlights (bullet points)
+- Risks or Red Flags (bullet points)
+- Summary (neutral, 2–3 sentences)
+"""
     try:
         response = client.chat.completions.create(
             model="gpt-3.5-turbo",
@@ -92,31 +90,38 @@ def save_to_airtable(data: Dict) -> None:
         st.error(f"Airtable error: {response.text}")
 
 # --- Streamlit UI ---
-st.title("📄 Deal Parser: PDF or URL")
+st.title("📄 Deal Parser: PDF, URL, or Pasted Page Text")
 
-st.markdown("Upload a PDF _or_ paste a URL for an offering memo or listing.")
+st.markdown("Choose how you want to input the deal memo or listing content.")
 
-# Choose source
-source_type = st.radio("Choose input type", ["Upload PDF", "Paste URL"])
+source_type = st.radio("Select Input Type", ["Upload PDF", "Paste URL", "Paste Page Text"])
 
 text = ""
+source_desc = ""
 if source_type == "Upload PDF":
     uploaded_file = st.file_uploader("Upload Deal Memo PDF", type="pdf")
     if uploaded_file:
         with st.spinner("Extracting text from PDF..."):
             text = extract_text_from_pdf(uploaded_file)
+            source_desc = "a PDF"
 elif source_type == "Paste URL":
     input_url = st.text_input("Enter listing URL")
     if input_url:
         with st.spinner("Scraping text from URL..."):
             try:
                 text = extract_text_from_url(input_url)
+                source_desc = f"the webpage at {input_url}"
             except Exception as e:
                 st.error(f"Failed to retrieve URL: {e}")
+elif source_type == "Paste Page Text":
+    pasted_text = st.text_area("Paste visible page text from listing site", height=400)
+    if pasted_text:
+        text = pasted_text
+        source_desc = "pasted webpage content"
 
 if text:
     with st.spinner("Analyzing with GPT..."):
-        extracted_data = gpt_extract_summary(text)
+        extracted_data = gpt_extract_summary(text, source_desc)
 
     if extracted_data:
         st.subheader("🔍 Extracted Deal Information")
