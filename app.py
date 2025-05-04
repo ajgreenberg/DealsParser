@@ -170,11 +170,6 @@ if st.button("🚀 Run Deal Parser"):
             summarized_notes = summarize_notes(extra_notes)
             contact_info = extract_contact_info(combined_text)
 
-        st.session_state["parsed_summary"] = summary
-        st.session_state["parsed_notes"] = summarized_notes
-        st.session_state["parsed_contacts"] = contact_info
-        st.session_state["parsed_type"] = deal_type_value
-
         s3_urls = []
         if uploaded_main:
             uploaded_main.seek(0)
@@ -183,7 +178,11 @@ if st.button("🚀 Run Deal Parser"):
             f.seek(0)
             s3_urls.append(upload_to_s3(f, f.name))
 
-        st.session_state["parsed_attachments"] = s3_urls
+        st.session_state["summary"] = summary
+        st.session_state["notes"] = summarized_notes
+        st.session_state["contacts"] = contact_info
+        st.session_state["attachments"] = s3_urls
+        st.session_state["deal_type"] = deal_type_value
 
         st.subheader("🔍 Deal Summary")
         for k, v in summary.items():
@@ -192,12 +191,15 @@ if st.button("🚀 Run Deal Parser"):
         st.markdown("**Contact Info:**")
         st.text(contact_info)
 
-        if st.button("📤 Upload this deal to Airtable"):
-            with st.spinner("Uploading..."):
-                create_airtable_record(
-                    st.session_state["parsed_summary"],
-                    st.session_state["parsed_notes"],
-                    st.session_state["parsed_attachments"],
-                    st.session_state["parsed_type"],
-                    st.session_state["parsed_contacts"]
-                )
+if st.button("📤 Upload this deal to Airtable"):
+    if all(key in st.session_state for key in ["summary", "notes", "contacts", "attachments", "deal_type"]):
+        with st.spinner("Uploading..."):
+            create_airtable_record(
+                st.session_state["summary"],
+                st.session_state["notes"],
+                st.session_state["attachments"],
+                st.session_state["deal_type"],
+                st.session_state["contacts"]
+            )
+    else:
+        st.error("⚠️ Please run the parser first before uploading to Airtable.")
