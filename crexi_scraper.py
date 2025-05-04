@@ -21,13 +21,7 @@ def save_to_airtable(fields: dict):
         st.error(f"❌ Airtable error: {response.text}")
     return response.status_code
 
-def extract_square_footage(text):
-    match = re.search(r"([\d,]+)\s*(SF|Sq Ft|square feet)", text, re.IGNORECASE)
-    if match:
-        return int(match.group(1).replace(",", ""))
-    return 0
-
-def scrape_crexi_with_pdf_filter():
+def scrape_crexi_basic():
     headers = {"User-Agent": "Mozilla/5.0"}
     search_url = "https://www.crexi.com/properties?property_type=industrial&transaction_type=sale&sort=-relevance"
     page = requests.get(search_url, headers=headers)
@@ -45,19 +39,8 @@ def scrape_crexi_with_pdf_filter():
             title = detail_soup.find("h1").text.strip()
             location = detail_soup.find("span", class_="styles_location__QG_Op").text.strip()
 
-            description_text = detail_soup.get_text()
-            square_footage = extract_square_footage(description_text)
-
-            if square_footage < 45000:
-                continue
-
             price_tag = detail_soup.find(string=re.compile(r"\$[\d,.]+"))
             price_text = price_tag.strip() if price_tag else "N/A"
-
-            # Try to find OM PDF download link
-            om_link_tag = detail_soup.find("a", href=re.compile(r".*\.pdf"))
-            om_pdf_url = "https://www.crexi.com" + om_link_tag["href"] if om_link_tag else None
-            
 
             fields = {
                 "Property Name": title,
@@ -65,14 +48,14 @@ def scrape_crexi_with_pdf_filter():
                 "Asking Price": price_text,
                 "Asset Class": "Industrial",
                 "Cap Rate": "N/A",
-                "Size": f"{square_footage:,} SF",
-                "Key Highlights": "Scraped from Crexi. Industrial. Over 45,000 SF.",
+                "Size": "N/A",
+                "Key Highlights": "Scraped from Crexi.",
                 "Risks": "Unverified. Manual diligence required.",
-                "Summary": f"{title} in {location}. Asking: {price_text}. Size: {square_footage:,} SF.",
-                "URL": detail_url,
-                "OM PDF": attachments
+                "Summary": f"{title} in {location}. Asking: {price_text}.",
+                "URL": detail_url
             }
 
+            st.write(f"✅ Uploading: {title} | {location} | {price_text}")
             code = save_to_airtable(fields)
             if code == 200:
                 scraped += 1
@@ -84,9 +67,9 @@ def scrape_crexi_with_pdf_filter():
     return scraped
 
 # Streamlit UI
-st.title("🏗️ Enhanced Crexi Scraper: Industrial 45k+ SF with OM PDFs")
+st.title("🏗️ Crexi Scraper: Industrial Deals (No SF Filter)")
 
-if st.button("Scrape & Upload Listings"):
+if st.button("Scrape Listings"):
     with st.spinner("Scraping Crexi..."):
-        count = scrape_crexi_with_pdf_filter()
+        count = scrape_crexi_basic()
     st.success(f"✅ {count} listings uploaded to Airtable.")
