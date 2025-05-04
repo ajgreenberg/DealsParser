@@ -109,7 +109,7 @@ def create_airtable_record(data: Dict, notes: str, attachments: list):
         st.success("✅ New deal saved to Airtable!")
 
 # --- Streamlit UI ---
-st.title("📄 Deal Parser — Notes-Only Ready")
+st.title("📄 The Deal Parser")
 
 uploaded_main = st.file_uploader("📄 Upload Deal Memo (optional)", type=["pdf", "doc", "docx"])
 extra_notes = st.text_area("🗒 Paste deal notes or email thread", height=200)
