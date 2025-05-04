@@ -118,8 +118,7 @@ def create_airtable_record(data: Dict, notes: str, attachments: List[str], deal_
         "Stabilized Cap Rate": data.get("Stabilized Cap Rate"),
         "Interest Rate": data.get("Interest Rate"),
         "Term": data.get("Term"),
-        "DSCR": data.get("DSCR"),
-        "Exit Strategy": data.get("Exit Strategy"),
+                "Exit Strategy": data.get("Exit Strategy"),
         "Projected IRR": data.get("Projected IRR"),
         "Hold Period": data.get("Hold Period"),
         "Size": data.get("Square Footage or Unit Count")
