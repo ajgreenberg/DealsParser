@@ -21,19 +21,6 @@ def save_to_airtable(fields: dict):
         st.error(f"❌ Airtable error: {response.text}")
     return response.status_code
 
-def upload_pdf_to_fileio(pdf_url):\n    pass  # Removed PDF upload
-    try:
-        file_resp = requests.get(pdf_url)
-        if file_resp.status_code == 200:
-            files = {'file': ('om.pdf', file_resp.content, 'application/pdf')}
-            upload_resp = requests.post("https://file.io", files=files)
-            if upload_resp.status_code == 200:
-                result = upload_resp.json()
-                return [{"url": result['link']}]
-    except Exception as e:
-        st.warning(f"Error uploading PDF: {e}")
-    return []
-
 def extract_square_footage(text):
     match = re.search(r"([\d,]+)\s*(SF|Sq Ft|square feet)", text, re.IGNORECASE)
     if match:
