@@ -4,3 +4,4 @@ openai
 requests
 beautifulsoup4
 boto3
+python-docx
