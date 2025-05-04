@@ -75,6 +75,16 @@ def save_to_airtable(data: Dict) -> None:
 
 # --- Streamlit App ---
 st.title("📄 PDF Deal Memo Parser")
+st.subheader("🔍 Airtable Connection Test")
+
+test_url = f"https://api.airtable.com/v0/{AIRTABLE_BASE_ID}/{AIRTABLE_TABLE_NAME}"
+test_headers = {
+    "Authorization": f"Bearer {AIRTABLE_PAT}",
+    "Content-Type": "application/json"
+}
+response = requests.get(test_url, headers=test_headers)
+st.write("Airtable test status:", response.status_code)
+st.json(response.json())
 
 uploaded_file = st.file_uploader("Upload a Deal Memo PDF", type="pdf")
 
