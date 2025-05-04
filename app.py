@@ -53,10 +53,17 @@ def summarize_notes(notes: str) -> str:
     )
     return res.choices[0].message.content.strip()
 
-def gpt_extract_summary(text: str, source_desc: str = "a deal memo or notes") -> Dict:
-    prompt = f"""You are an AI real estate analyst. You are reviewing text from {source_desc}.
+def extract_contact_info(text: str) -> str:
+    prompt = f"From the following deal memo or email text, extract any contact info for brokers or sponsors. If none is found, say 'None'.\n\n{text[:3000]}"
+    res = client.chat.completions.create(
+        model="gpt-3.5-turbo",
+        messages=[{"role": "user", "content": prompt}],
+        temperature=0.3
+    )
+    return res.choices[0].message.content.strip()
 
-If key deal information is not clearly stated, say so explicitly and do not guess. Do not make up property names or numbers.
+def gpt_extract_summary(text: str, deal_type: str) -> Dict:
+    prompt = f"""You are an AI real estate analyst reviewing a {deal_type.lower()} opportunity.
 
 Text:
 {text[:4000]}
@@ -65,8 +72,16 @@ Return JSON with:
 - Property Name
 - Location
 - Asset Class
-- Asking Price
-- Cap Rate
+- Purchase Price
+- Loan Amount
+- In-Place Cap Rate
+- Stabilized Cap Rate
+- Interest Rate
+- Term
+- DSCR
+- Exit Strategy
+- Projected IRR
+- Hold Period
 - Square Footage or Unit Count
 - Key Highlights (bullet points)
 - Risks or Red Flags (bullet points)
@@ -81,33 +96,42 @@ Return JSON with:
     cleaned = re.sub(r"```(?:json)?", "", raw).strip()
     return json.loads(cleaned)
 
-def create_airtable_record(data: Dict, notes: str, attachments: list, deal_type: str):
+def create_airtable_record(data: Dict, notes: str, attachments: list, deal_type: str, contact_info: str):
     headers = {
         "Authorization": f"Bearer {AIRTABLE_PAT}",
         "Content-Type": "application/json"
     }
-    payload = {
-        "fields": {
-            "Property Name": data.get("Property Name"),
-            "Location": data.get("Location"),
-            "Asset Class": data.get("Asset Class"),
-            "Asking Price": data.get("Asking Price"),
-            "Cap Rate": data.get("Cap Rate"),
-            "Size": data.get("Square Footage or Unit Count"),
-            "Key Highlights": "\n".join(data.get("Key Highlights", [])),
-            "Risks": "\n".join(data.get("Risks or Red Flags", [])),
-            "Summary": data.get("Summary"),
-            "Raw Notes": notes,
-            "Deal Type": [deal_type] if deal_type else [],
-            "Attachments": [{"url": u} for u in attachments if u]
-        }
+    fields = {
+        "Deal Type": [deal_type],
+        "Summary": data.get("Summary"),
+        "Raw Notes": notes,
+        "Contact Info": contact_info,
+        "Attachments": [{"url": u} for u in attachments if u],
+        "Key Highlights": "\n".join(data.get("Key Highlights", [])),
+        "Risks": "\n".join(data.get("Risks or Red Flags", [])),
+        "Property Name": data.get("Property Name"),
+        "Location": data.get("Location"),
+        "Asset Class": data.get("Asset Class"),
+        "Purchase Price": data.get("Purchase Price"),
+        "Loan Amount": data.get("Loan Amount"),
+        "In-Place Cap Rate": data.get("In-Place Cap Rate"),
+        "Stabilized Cap Rate": data.get("Stabilized Cap Rate"),
+        "Interest Rate": data.get("Interest Rate"),
+        "Term": data.get("Term"),
+        "DSCR": data.get("DSCR"),
+        "Exit Strategy": data.get("Exit Strategy"),
+        "Projected IRR": data.get("Projected IRR"),
+        "Hold Period": data.get("Hold Period"),
+        "Size": data.get("Square Footage or Unit Count")
     }
+
+    payload = {"fields": fields}
     url = f"https://api.airtable.com/v0/{AIRTABLE_BASE_ID}/{AIRTABLE_TABLE_NAME}"
     res = requests.post(url, headers=headers, json=payload)
     if res.status_code not in [200, 201]:
         st.error(f"Airtable error: {res.text}")
     else:
-        st.success("✅ New deal saved to Airtable!")
+        st.success("✅ Deal saved to Airtable!")
 
 # --- Streamlit UI ---
 st.title("📄 Deal Parser")
@@ -136,13 +160,17 @@ if st.button("🚀 Run Deal Parser"):
         st.warning("Please upload a memo or enter some notes.")
     else:
         combined_text = (source_text + "\n\n" + extra_notes).strip()
-        with st.spinner("Analyzing with GPT..."):
-            summary = gpt_extract_summary(combined_text)
+        with st.spinner("Analyzing deal..."):
+            summary = gpt_extract_summary(combined_text, deal_type_value)
             summarized_notes = summarize_notes(extra_notes)
+            contact_info = extract_contact_info(combined_text)
 
-        st.subheader("🔍 Deal Information")
+        st.subheader("🔍 Deal Summary")
         for k, v in summary.items():
             st.markdown(f"**{k}**: {v if not isinstance(v, list) else ', '.join(v)}")
+
+        st.markdown("**Contact Info:**")
+        st.text(contact_info)
 
         s3_urls = []
         if uploaded_main:
@@ -152,5 +180,6 @@ if st.button("🚀 Run Deal Parser"):
             f.seek(0)
             s3_urls.append(upload_to_s3(f, f.name))
 
-        with st.spinner("📬 Saving to Airtable..."):
-            create_airtable_record(summary, summarized_notes, s3_urls, deal_type_value)
+        if st.checkbox("📤 Upload this deal to Airtable?"):
+            with st.spinner("Uploading to Airtable..."):
+                create_airtable_record(summary, summarized_notes, s3_urls, deal_type_value, contact_info)
