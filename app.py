@@ -1,5 +1,6 @@
 import streamlit as st
 import fitz
+import docx
 from openai import OpenAI
 import requests
 import json
@@ -30,9 +31,13 @@ def upload_to_s3(file_data, filename):
     s3.upload_fileobj(file_data, S3_BUCKET, key)
     return f"https://{S3_BUCKET}.s3.{S3_REGION}.amazonaws.com/{key}"
 
-def extract_text_from_pdf(uploaded_file) -> str:
-    doc = fitz.open(stream=uploaded_file.read(), filetype="pdf")
+def extract_text_from_pdf(file) -> str:
+    doc = fitz.open(stream=file.read(), filetype="pdf")
     return "\n".join([page.get_text() for page in doc])
+
+def extract_text_from_docx(file) -> str:
+    doc = docx.Document(file)
+    return "\n".join([para.text for para in doc.paragraphs])
 
 def extract_text_from_url(url: str) -> str:
     headers = {"User-Agent": "Mozilla/5.0"}
@@ -125,13 +130,14 @@ def create_or_update_airtable(data: Dict, notes: str, attachments: list, update_
         st.success("✅ Deal saved to Airtable!")
 
 # --- Streamlit UI ---
-st.title("📄 Deal Parser: Create or Update Deals")
+st.title("📄 Deal Parser: Now Supports DOCX")
 
 mode = st.radio("Mode", ["Create New Deal", "Update Existing Deal"])
 update_mode = mode == "Update Existing Deal"
 
-source_type = st.radio("Input Type", ["Upload PDF", "Paste URL", "Paste Page Text"])
+source_type = st.radio("Input Type", ["Upload PDF", "Upload DOCX", "Paste URL", "Paste Page Text"])
 uploaded_pdf = None
+uploaded_docx = None
 source_text = ""
 source_desc = ""
 
@@ -139,6 +145,10 @@ if source_type == "Upload PDF":
     uploaded_pdf = st.file_uploader("Upload Deal Memo PDF", type="pdf")
     if uploaded_pdf:
         source_desc = "a PDF"
+elif source_type == "Upload DOCX":
+    uploaded_docx = st.file_uploader("Upload Deal Memo DOCX", type="docx")
+    if uploaded_docx:
+        source_desc = "a Word document"
 elif source_type == "Paste URL":
     url = st.text_input("Enter listing URL")
     if url:
@@ -151,13 +161,16 @@ elif source_type == "Paste Page Text":
         source_desc = "pasted webpage content"
 
 extra_notes = st.text_area("🗒 Additional notes or email threads", height=200)
-uploaded_files = st.file_uploader("📎 Upload files", accept_multiple_files=True)
+uploaded_files = st.file_uploader("📎 Upload files", type=["pdf", "doc", "docx", "xls", "xlsx", "jpg", "png"], accept_multiple_files=True)
 
 if st.button("🚀 Run Deal Parser"):
     if uploaded_pdf:
         source_text = extract_text_from_pdf(uploaded_pdf)
+    elif uploaded_docx:
+        source_text = extract_text_from_docx(uploaded_docx)
+
     if not source_text:
-        st.warning("Please upload or paste some content.")
+        st.warning("Please provide text input (PDF, DOCX, page content, or URL).")
     else:
         with st.spinner("Analyzing..."):
             summary = gpt_extract_summary(source_text, source_desc)
@@ -172,6 +185,9 @@ if st.button("🚀 Run Deal Parser"):
             if uploaded_pdf:
                 uploaded_pdf.seek(0)
                 s3_urls.append(upload_to_s3(uploaded_pdf, uploaded_pdf.name))
+            if uploaded_docx:
+                uploaded_docx.seek(0)
+                s3_urls.append(upload_to_s3(uploaded_docx, uploaded_docx.name))
             for f in uploaded_files:
                 f.seek(0)
                 s3_urls.append(upload_to_s3(f, f.name))
