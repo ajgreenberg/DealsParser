@@ -3,3 +3,4 @@ PyMuPDF
 openai
 requests
 beautifulsoup4
+boto3
