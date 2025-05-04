@@ -40,12 +40,16 @@ def gpt_extract_summary(text: str) -> Dict:
 
     JSON:
     """
-    response = openai.ChatCompletion.create(
+    from openai import OpenAI
+
+    client = OpenAI(api_key=st.secrets["OPENAI_API_KEY"])
+
+    response = client.chat.completions.create(
         model="gpt-4",
         messages=[{"role": "user", "content": prompt}],
         temperature=0.3
     )
-    return json.loads(response.choices[0].message['content'])
+    return json.loads(response.choices[0].message.content)
 
 # --- Save to Airtable ---
 def save_to_airtable(data: Dict) -> None:
