@@ -4,6 +4,7 @@ from openai import OpenAI, RateLimitError
 import requests
 import json
 import re
+from bs4 import BeautifulSoup
 from typing import Dict
 
 # --- API Setup ---
@@ -20,10 +21,20 @@ def extract_text_from_pdf(uploaded_file) -> str:
         text += page.get_text()
     return text
 
-# --- GPT-4 (or 3.5) Extraction ---
+# --- URL Scraping ---
+def extract_text_from_url(url: str) -> str:
+    headers = {"User-Agent": "Mozilla/5.0"}
+    response = requests.get(url, headers=headers)
+    soup = BeautifulSoup(response.content, "html.parser")
+    # Remove scripts/styles
+    for tag in soup(["script", "style"]):
+        tag.decompose()
+    return soup.get_text(separator="\n")
+
+# --- GPT Summary Extraction ---
 def gpt_extract_summary(text: str) -> Dict:
     prompt = f"""
-    You are an AI real estate analyst. Given the following offering memo text, extract key deal information and generate a short, neutral summary for a deal memo.
+    You are an AI real estate analyst. Given the following offering memo or listing text, extract key deal information and generate a short, neutral summary for a deal memo.
 
     Text:
     {text[:4000]}
@@ -41,22 +52,18 @@ def gpt_extract_summary(text: str) -> Dict:
     - Risks or Red Flags (bullet points)
     - Summary (neutral, 2–3 sentences)
     """
-
     try:
         response = client.chat.completions.create(
             model="gpt-3.5-turbo",
             messages=[{"role": "user", "content": prompt}],
             temperature=0.3
         )
-
         raw = response.choices[0].message.content
         cleaned = re.sub(r"```(?:json)?", "", raw).strip()
         return json.loads(cleaned)
-
     except RateLimitError:
-        st.error("⚠️ OpenAI rate limit reached. Please try again shortly.")
+        st.error("⚠️ OpenAI rate limit reached. Please try again later.")
         return {}
-
     except json.JSONDecodeError as e:
         st.error("❌ GPT returned malformed JSON. See raw output below.")
         st.text_area("Raw GPT Output", raw, height=300)
@@ -85,14 +92,29 @@ def save_to_airtable(data: Dict) -> None:
         st.error(f"Airtable error: {response.text}")
 
 # --- Streamlit UI ---
-st.title("📄 PDF Deal Memo Parser")
+st.title("📄 Deal Parser: PDF or URL")
 
-uploaded_file = st.file_uploader("Upload a Deal Memo PDF", type="pdf")
+st.markdown("Upload a PDF _or_ paste a URL for an offering memo or listing.")
 
-if uploaded_file:
-    with st.spinner("Extracting text..."):
-        text = extract_text_from_pdf(uploaded_file)
-    
+# Choose source
+source_type = st.radio("Choose input type", ["Upload PDF", "Paste URL"])
+
+text = ""
+if source_type == "Upload PDF":
+    uploaded_file = st.file_uploader("Upload Deal Memo PDF", type="pdf")
+    if uploaded_file:
+        with st.spinner("Extracting text from PDF..."):
+            text = extract_text_from_pdf(uploaded_file)
+elif source_type == "Paste URL":
+    input_url = st.text_input("Enter listing URL")
+    if input_url:
+        with st.spinner("Scraping text from URL..."):
+            try:
+                text = extract_text_from_url(input_url)
+            except Exception as e:
+                st.error(f"Failed to retrieve URL: {e}")
+
+if text:
     with st.spinner("Analyzing with GPT..."):
         extracted_data = gpt_extract_summary(text)
 
