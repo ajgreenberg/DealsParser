@@ -7,13 +7,11 @@ import re
 from bs4 import BeautifulSoup
 from typing import Dict
 
-# --- API Setup ---
 client = OpenAI(api_key=st.secrets["OPENAI_API_KEY"])
 AIRTABLE_PAT = st.secrets["AIRTABLE_PAT"]
 AIRTABLE_BASE_ID = st.secrets["AIRTABLE_BASE_ID"]
 AIRTABLE_TABLE_NAME = st.secrets["AIRTABLE_TABLE_NAME"]
 
-# --- PDF Parsing ---
 def extract_text_from_pdf(uploaded_file) -> str:
     doc = fitz.open(stream=uploaded_file.read(), filetype="pdf")
     text = ""
@@ -21,7 +19,6 @@ def extract_text_from_pdf(uploaded_file) -> str:
         text += page.get_text()
     return text
 
-# --- URL Scraping ---
 def extract_text_from_url(url: str) -> str:
     headers = {"User-Agent": "Mozilla/5.0"}
     response = requests.get(url, headers=headers)
@@ -30,7 +27,6 @@ def extract_text_from_url(url: str) -> str:
         tag.decompose()
     return soup.get_text(separator="\n")
 
-# --- GPT Summary Extraction ---
 def gpt_extract_summary(text: str, source_desc: str = "a memo or webpage") -> Dict:
     prompt = f"""You are an AI real estate analyst. You are reviewing text from {source_desc}.
 
@@ -67,8 +63,18 @@ Return ONLY a valid JSON object with the following fields:
         st.text_area("Raw GPT Output", raw, height=300)
         raise e
 
-# --- Save to Airtable ---
-def save_to_airtable(data: Dict) -> None:
+def upload_to_fileio(file_data, file_name):
+    try:
+        files = {'file': (file_name, file_data)}
+        upload_resp = requests.post("https://file.io", files=files)
+        if upload_resp.status_code == 200:
+            result = upload_resp.json()
+            return {"url": result['link']}
+    except Exception as e:
+        st.warning(f"Error uploading file: {e}")
+    return None
+
+def save_to_airtable(data: Dict, raw_notes: str, attachment_urls: list) -> None:
     url = f"https://api.airtable.com/v0/{AIRTABLE_BASE_ID}/{AIRTABLE_TABLE_NAME}"
     headers = {
         "Authorization": f"Bearer {AIRTABLE_PAT}",
@@ -83,53 +89,70 @@ def save_to_airtable(data: Dict) -> None:
         "Size": data.get("Square Footage or Unit Count"),
         "Key Highlights": "\n".join(data.get("Key Highlights", [])),
         "Risks": "\n".join(data.get("Risks or Red Flags", [])),
-        "Summary": data.get("Summary")
+        "Summary": data.get("Summary"),
+        "Raw Notes": raw_notes,
+        "Attachments": attachment_urls
     }
     response = requests.post(url, headers=headers, json={"fields": fields})
     if response.status_code != 200:
         st.error(f"Airtable error: {response.text}")
 
-# --- Streamlit UI ---
-st.title("📄 Deal Parser: PDF, URL, or Pasted Page Text")
+# --- UI ---
+st.title("📄 Deal Parser: PDF, URL, Notes & Attachments")
 
-st.markdown("Choose how you want to input the deal memo or listing content.")
-
-source_type = st.radio("Select Input Type", ["Upload PDF", "Paste URL", "Paste Page Text"])
-
-text = ""
+source_type = st.radio("Input Type", ["Upload PDF", "Paste URL", "Paste Page Text"])
+uploaded_pdf = None
+source_text = ""
 source_desc = ""
+
 if source_type == "Upload PDF":
-    uploaded_file = st.file_uploader("Upload Deal Memo PDF", type="pdf")
-    if uploaded_file:
+    uploaded_pdf = st.file_uploader("Upload Deal Memo PDF", type="pdf")
+    if uploaded_pdf:
         with st.spinner("Extracting text from PDF..."):
-            text = extract_text_from_pdf(uploaded_file)
+            source_text = extract_text_from_pdf(uploaded_pdf)
             source_desc = "a PDF"
 elif source_type == "Paste URL":
-    input_url = st.text_input("Enter listing URL")
-    if input_url:
+    url = st.text_input("Enter listing URL")
+    if url:
         with st.spinner("Scraping text from URL..."):
-            try:
-                text = extract_text_from_url(input_url)
-                source_desc = f"the webpage at {input_url}"
-            except Exception as e:
-                st.error(f"Failed to retrieve URL: {e}")
+            source_text = extract_text_from_url(url)
+            source_desc = f"the webpage at {url}"
 elif source_type == "Paste Page Text":
-    pasted_text = st.text_area("Paste visible page text from listing site", height=400)
-    if pasted_text:
-        text = pasted_text
+    pasted = st.text_area("Paste visible page content", height=300)
+    if pasted:
+        source_text = pasted
         source_desc = "pasted webpage content"
 
-if text:
-    with st.spinner("Analyzing with GPT..."):
-        extracted_data = gpt_extract_summary(text, source_desc)
+# Paste additional notes
+st.markdown("### 📋 Paste Any Extra Notes or Email Threads")
+extra_notes = st.text_area("Additional deal context", height=200)
 
-    if extracted_data:
+# Upload additional files
+uploaded_files = st.file_uploader("📎 Upload Additional Attachments (PDF, XLSX, etc.)", accept_multiple_files=True)
+
+if source_text:
+    with st.spinner("Analyzing with GPT..."):
+        summary = gpt_extract_summary(source_text, source_desc)
+
+    if summary:
         st.subheader("🔍 Extracted Deal Information")
-        for key, value in extracted_data.items():
+        for key, value in summary.items():
             st.markdown(f"**{key}**: {value if not isinstance(value, list) else ', '.join(value)}")
 
         if st.button("📤 Save to Airtable"):
-            save_to_airtable(extracted_data)
-            st.success("✅ Saved to Airtable!")
+            uploaded_urls = []
 
-        st.download_button("📥 Download JSON", data=json.dumps(extracted_data, indent=2), file_name="deal_summary.json")
+            # Upload main PDF
+            if uploaded_pdf:
+                uploaded_urls.append(upload_to_fileio(uploaded_pdf.getvalue(), uploaded_pdf.name))
+
+            # Upload extra attachments
+            for f in uploaded_files:
+                file_url = upload_to_fileio(f.getvalue(), f.name)
+                if file_url:
+                    uploaded_urls.append(file_url)
+
+            save_to_airtable(summary, raw_notes=extra_notes, attachment_urls=uploaded_urls)
+            st.success("✅ Uploaded all data to Airtable!")
+
+        st.download_button("📥 Download JSON", data=json.dumps(summary, indent=2), file_name="deal_summary.json")
