@@ -185,8 +185,7 @@ if st.button("🚀 Run Deal Parser"):
             st.markdown(f"**{k}**: {v if not isinstance(v, list) else ', '.join(v)}")
 
         st.markdown("**Contact Info:**")
-        st.text(contact_info)
-
+        
 if "summary" in st.session_state and st.button("📤 Upload this deal to Airtable"):
     with st.spinner("Uploading..."):
         create_airtable_record(
