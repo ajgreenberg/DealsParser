@@ -54,20 +54,12 @@ def summarize_notes(notes: str) -> str:
     return res.choices[0].message.content.strip()
 
 def extract_contact_info(text: str) -> str:
-    # Aggressive contact info extraction including fallback heuristics
     prompt = """Extract the contact information (name, company, phone, and email) of any brokers, sponsors, or agents from the following text. Be thorough and include details even if they are buried in an email signature or footnote. Return in plain text format.
 
 Text:
 """ + text[:3500]
     res = client.chat.completions.create(
         model="gpt-4",
-        messages=[{"role": "user", "content": prompt}],
-        temperature=0.3
-    )
-    return res.choices[0].message.content.strip()
-    prompt = f"From the following deal memo or email text, extract any contact info for brokers or sponsors. If none is found, say 'None'.\n\n{text[:3000]}"
-    res = client.chat.completions.create(
-        model="gpt-3.5-turbo",
         messages=[{"role": "user", "content": prompt}],
         temperature=0.3
     )
@@ -89,7 +81,6 @@ Return JSON with:
 - Stabilized Cap Rate
 - Interest Rate
 - Term
-- DSCR
 - Exit Strategy
 - Projected IRR
 - Hold Period
@@ -129,7 +120,7 @@ def create_airtable_record(data: Dict, notes: str, attachments: List[str], deal_
         "Stabilized Cap Rate": data.get("Stabilized Cap Rate"),
         "Interest Rate": data.get("Interest Rate"),
         "Term": data.get("Term"),
-                "Exit Strategy": data.get("Exit Strategy"),
+        "Exit Strategy": data.get("Exit Strategy"),
         "Projected IRR": data.get("Projected IRR"),
         "Hold Period": data.get("Hold Period"),
         "Size": data.get("Square Footage or Unit Count")
@@ -137,12 +128,7 @@ def create_airtable_record(data: Dict, notes: str, attachments: List[str], deal_
 
     payload = {"fields": fields}
     url = f"https://api.airtable.com/v0/{AIRTABLE_BASE_ID}/{AIRTABLE_TABLE_NAME}"
-
-    st.code(json.dumps(payload, indent=2), language="json")
-    st.write("POST", url)
     res = requests.post(url, headers=headers, json=payload)
-    st.write("Response status code:", res.status_code)
-    st.text(res.text)
 
     if res.status_code not in [200, 201]:
         st.error(f"Airtable error: {res.text}")
@@ -202,14 +188,11 @@ if st.button("🚀 Run Deal Parser"):
         st.text(contact_info)
 
 if "summary" in st.session_state and st.button("📤 Upload this deal to Airtable"):
-    if all(key in st.session_state for key in ["summary", "notes", "contacts", "attachments", "deal_type"]):
-        with st.spinner("Uploading..."):
-            create_airtable_record(
-                st.session_state["summary"],
-                st.session_state["notes"],
-                st.session_state["attachments"],
-                st.session_state["deal_type"],
-                st.session_state["contacts"]
-            )
-    else:
-        st.error("⚠️ Please run the parser first before uploading to Airtable.")
+    with st.spinner("Uploading..."):
+        create_airtable_record(
+            st.session_state["summary"],
+            st.session_state["notes"],
+            st.session_state["attachments"],
+            st.session_state["deal_type"],
+            st.session_state["contacts"]
+        )
