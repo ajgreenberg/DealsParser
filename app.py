@@ -117,7 +117,13 @@ Return JSON with:
     )
     raw = res.choices[0].message.content
     cleaned = re.sub(r"```(?:json)?", "", raw).strip()
-    return json.loads(cleaned)
+    cleaned = re.sub(r"^.*?{", "{", cleaned, flags=re.DOTALL)
+    try:
+        return json.loads(cleaned)
+    except json.JSONDecodeError as e:
+        st.error("⚠️ GPT returned malformed JSON.")
+        st.code(cleaned)
+        raise e
 
 def create_airtable_record(data: Dict, notes: str, attachments: List[str], deal_type: str, contact_info: str, feedback: str):
     headers = {
