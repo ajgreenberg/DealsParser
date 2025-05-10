@@ -52,7 +52,7 @@ def apply_corrections(text: str, rules: dict) -> str:
     for field, mapping in rules.items():
         if isinstance(mapping, dict):
             for wrong, right in mapping.items():
-                text = text.replace(wrong, right)
+                text = text.replace(str(wrong), str(right))
     return text
 
 def extract_text_from_pdf(file) -> str:
