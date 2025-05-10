@@ -21,17 +21,17 @@ S3_BUCKET = "my-deal-attachments"
 S3_REGION = "us-east-1"
 
 s3 = boto3.client(
-    "s3",
-    aws_access_key_id=AWS_ACCESS_KEY_ID,
-    aws_secret_access_key=AWS_SECRET_ACCESS_KEY,
-    region_name=S3_REGION
-)
-
 
 def upload_to_s3(file_data, filename):
     key = f"deal-uploads/{datetime.now().strftime('%Y%m%d-%H%M%S')}-{filename}"
     s3.upload_fileobj(file_data, S3_BUCKET, key)
     return f"https://{S3_BUCKET}.s3.{S3_REGION}.amazonaws.com/{key}"
+
+    "s3",
+    aws_access_key_id=AWS_ACCESS_KEY_ID,
+    aws_secret_access_key=AWS_SECRET_ACCESS_KEY,
+    region_name=S3_REGION
+)
 
 # --- Corrections Editor Functions ---
 def load_corrections_from_s3():
