@@ -8,6 +8,7 @@ import json
 import re
 import boto3
 from typing import Dict, List
+
 from datetime import datetime
 
 client = OpenAI(api_key=st.secrets["OPENAI_API_KEY"])
@@ -98,7 +99,7 @@ Return JSON with:
     cleaned = re.sub(r"```(?:json)?", "", raw).strip()
     return json.loads(cleaned)
 
-def create_airtable_record(data: Dict, notes: str, attachments: List[str], deal_type: str, contact_info: str):
+def create_airtable_record(data: Dict, notes: str, attachments: List[str], deal_type: str, contact_info: str, feedback: str):
     headers = {
         "Authorization": f"Bearer {AIRTABLE_PAT}",
         "Content-Type": "application/json"
@@ -108,6 +109,7 @@ def create_airtable_record(data: Dict, notes: str, attachments: List[str], deal_
         "Summary": data.get("Summary"),
         "Raw Notes": notes,
         "Contact Info": contact_info,
+        "Feedback": feedback,
         "Attachments": [{"url": u} for u in attachments if u],
         "Key Highlights": "\n".join(data.get("Key Highlights", [])),
         "Risks": "\n".join(data.get("Risks or Red Flags", [])),
@@ -179,19 +181,24 @@ if st.button("🚀 Run Deal Parser"):
         st.session_state["contacts"] = contact_info
         st.session_state["attachments"] = s3_urls
         st.session_state["deal_type"] = deal_type_value
+        st.session_state["feedback"] = ""
 
         st.subheader("🔍 Deal Summary")
         for k, v in summary.items():
             st.markdown(f"**{k}**: {v if not isinstance(v, list) else ', '.join(v)}")
 
         st.markdown("**Contact Info:**")
-        
-if "summary" in st.session_state and st.button("📤 Upload this deal to Airtable"):
-    with st.spinner("Uploading..."):
-        create_airtable_record(
-            st.session_state["summary"],
-            st.session_state["notes"],
-            st.session_state["attachments"],
-            st.session_state["deal_type"],
-            st.session_state["contacts"]
-        )
+        st.text(contact_info)
+
+if "summary" in st.session_state:
+    st.text_area("🧠 Notes to Improve AI (e.g. mislabels, confusing comps, phrasing suggestions)", key="feedback")
+    if st.button("📤 Upload this deal to Airtable"):
+        with st.spinner("Uploading..."):
+            create_airtable_record(
+                st.session_state["summary"],
+                st.session_state["notes"],
+                st.session_state["attachments"],
+                st.session_state["deal_type"],
+                st.session_state["contacts"],
+                st.session_state["feedback"]
+            )
