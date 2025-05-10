@@ -190,7 +190,7 @@ if st.button("🚀 Run Deal Parser"):
         st.markdown("**Contact Info:**")
         st.text(contact_info)
 
-if "summary" in st.session_state:
+if "summary" in st.session_state and st.session_state["summary"] is not None:
     st.text_area("🧠 Notes to Improve AI (e.g. mislabels, confusing comps, phrasing suggestions)", key="feedback")
     if st.button("📤 Upload this deal to Airtable"):
         with st.spinner("Uploading..."):
