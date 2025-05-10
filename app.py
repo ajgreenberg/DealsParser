@@ -72,8 +72,12 @@ def render_corrections_editor():
                     save_corrections_to_s3(corrections, s3_client)
                 else:
                     st.warning("Please fill in all fields.")
-(file_data, filename):
+
+def upload_to_s3(file_data, filename):
     key = f"deal-uploads/{datetime.now().strftime('%Y%m%d-%H%M%S')}-{filename}"
+    s3.upload_fileobj(file_data, S3_BUCKET, key)
+    return f"https://{S3_BUCKET}.s3.{S3_REGION}.amazonaws.com/{key}"
+key = f"deal-uploads/{datetime.now().strftime('%Y%m%d-%H%M%S')}-{filename}"
     s3.upload_fileobj(file_data, S3_BUCKET, key)
     return f"https://{S3_BUCKET}.s3.{S3_REGION}.amazonaws.com/{key}"
 
