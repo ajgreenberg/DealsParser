@@ -50,7 +50,7 @@ def display_human_readable(corrections: dict):
                 st.markdown(f"🔁 **Replace** `{wrong}` → `{correct}` in **{key}**")
         elif isinstance(val, list):
             for phrase in val:
-                st.markdown(f"🚫 **Ignore phrases** like `{phrase}` in **{key}**" if key != "Ignore Phrases" else f"🚫 Ignore if text contains: `{phrase}`")
+                st.markdown(f"🚫 **Ignore**: `{phrase}`")
 
 def interpret_feedback(feedback: str, existing: dict):
     prompt = f"""You are a helpful assistant. Given the user's feedback below, identify and return one or more correction rules in JSON format. Possible rule types include:
@@ -62,9 +62,10 @@ Return a minimal JSON that matches the structure of this existing rules dictiona
 {json.dumps(existing, indent=2)}
 
 User feedback:
-""" + feedback + "
+{feedback}
 
-Return ONLY valid JSON corrections:"
+Return ONLY valid JSON corrections:
+"""
     res = client.chat.completions.create(
         model="gpt-4",
         messages=[{"role": "user", "content": prompt}],
