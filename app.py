@@ -210,32 +210,32 @@ if "summary" in st.session_state:
         summary_text = st.text_area("Summary", value=summary.get("Summary", ""))
         submitted = st.form_submit_button("📤 Upload this deal to Airtable")
 
-        if submitted:
-        updated_summary = {
-            "Property Name": property_name,
-            "Location": location,
-            "Asset Class": asset_class,
-            "Purchase Price": purchase_price,
-            "Loan Amount": loan_amount,
-            "In-Place Cap Rate": in_place_cap_rate,
-            "Stabilized Cap Rate": stabilized_cap_rate,
-            "Interest Rate": interest_rate,
-            "Term": term,
-            "Exit Strategy": exit_strategy,
-            "Projected IRR": projected_irr,
-            "Hold Period": hold_period,
-            "Square Footage or Unit Count": size,
-            "Key Highlights": key_highlights.strip().split("\n"),
-            "Risks or Red Flags": risks.strip().split("\n"),
-            "Summary": summary_text
-        }
+    if submitted:
+    updated_summary = {
+        "Property Name": property_name,
+        "Location": location,
+        "Asset Class": asset_class,
+        "Purchase Price": purchase_price,
+        "Loan Amount": loan_amount,
+        "In-Place Cap Rate": in_place_cap_rate,
+        "Stabilized Cap Rate": stabilized_cap_rate,
+        "Interest Rate": interest_rate,
+        "Term": term,
+        "Exit Strategy": exit_strategy,
+        "Projected IRR": projected_irr,
+        "Hold Period": hold_period,
+        "Square Footage or Unit Count": size,
+        "Key Highlights": key_highlights.strip().split("\n"),
+        "Risks or Red Flags": risks.strip().split("\n"),
+        "Summary": summary_text
+    }
 
-        with st.spinner("Uploading..."):
-            create_airtable_record(
-                updated_summary,
-                st.session_state["notes"],
-                st.session_state["attachments"],
-                st.session_state["deal_type"],
-                st.session_state["contacts"]
-            )
-        st.success("✅ Deal saved to Airtable!")
+    with st.spinner("Uploading..."):
+        create_airtable_record(
+            updated_summary,
+            st.session_state["notes"],
+            st.session_state["attachments"],
+            st.session_state["deal_type"],
+            st.session_state["contacts"]
+        )
+    st.success("✅ Deal saved to Airtable!")
