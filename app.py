@@ -137,29 +137,22 @@ def create_airtable_record(
         "Hold Period": data.get("Hold Period"),
         "Size": data.get("Square Footage or Unit Count"),
     }
-    url = f"https://api.airtable.com/v0/{AIRTABLE_BASE_ID}/{AIRTABLE_TABLE_NAME}"
-    resp = requests.post(url, headers=headers, json={"fields": fields})
+    resp = requests.post(
+        f"https://api.airtable.com/v0/{AIRTABLE_BASE_ID}/{AIRTABLE_TABLE_NAME}",
+        headers=headers,
+        json={"fields": fields}
+    )
     if resp.status_code not in (200, 201):
         st.error(f"Airtable error: {resp.text}")
 
 # --- Streamlit UI ---
 st.title("📄 Deal Parser")
 
-deal_type = st.radio(
-    "💼 Select Deal Type",
-    ["🏦 Debt", "🏢 Equity"],
-    horizontal=True
-)
+deal_type = st.radio("💼 Select Deal Type", ["🏦 Debt", "🏢 Equity"], horizontal=True)
 deal_type_value = "Debt" if "Debt" in deal_type else "Equity"
 
-uploaded_main = st.file_uploader(
-    "📄 Upload Deal Memo (optional)",
-    type=["pdf","doc","docx"]
-)
-extra_notes = st.text_area(
-    "🗒 Paste deal notes or email thread",
-    height=200
-)
+uploaded_main = st.file_uploader("📄 Upload Deal Memo (optional)", type=["pdf","doc","docx"])
+extra_notes    = st.text_area("🗒 Paste deal notes or email thread", height=200)
 uploaded_files = st.file_uploader(
     "📎 Upload supporting files (optional)",
     type=["pdf","doc","docx","xls","xlsx","jpg","png"],
@@ -167,13 +160,13 @@ uploaded_files = st.file_uploader(
 )
 
 if st.button("🚀 Run Deal Parser"):
-    # 1) Extract text
+    # 1) Extract
     source_text = ""
     if uploaded_main:
         ext = uploaded_main.name.lower().rsplit(".",1)[-1]
-        if ext == "pdf":
+        if ext=="pdf":
             source_text = extract_text_from_pdf(uploaded_main)
-        elif ext == "docx":
+        elif ext=="docx":
             source_text = extract_text_from_docx(uploaded_main)
         else:
             uploaded_main.seek(0)
@@ -182,13 +175,13 @@ if st.button("🚀 Run Deal Parser"):
     if not source_text and not extra_notes.strip():
         st.warning("Please upload a memo or enter some notes.")
     else:
-        combined = (source_text + "\n\n" + extra_notes).strip()
+        combined      = (source_text + "\n\n" + extra_notes).strip()
         summary       = gpt_extract_summary(combined, deal_type_value)
         notes_summary = summarize_notes(extra_notes)
         contact_info  = extract_contact_info(combined)
 
-        # 2) Upload attachments
-        s3_urls = []
+        # 2) S3 uploads
+        s3_urls=[]
         if uploaded_main:
             uploaded_main.seek(0)
             s3_urls.append(upload_to_s3(uploaded_main, uploaded_main.name))
@@ -196,7 +189,7 @@ if st.button("🚀 Run Deal Parser"):
             f.seek(0)
             s3_urls.append(upload_to_s3(f, f.name))
 
-        # 3) Store in session
+        # 3) Store
         st.session_state.update({
             "summary": summary,
             "raw_notes": extra_notes,
@@ -206,9 +199,9 @@ if st.button("🚀 Run Deal Parser"):
             "deal_type": deal_type_value
         })
 
-# 4) Editable form + upload
+# 4) Editable form + single success
 if "summary" in st.session_state:
-    st.subheader("✏️ Review and Edit Deal Details")
+    st.subheader("✏️ Review & Edit Deal Details")
     with st.form("edit_deal_form"):
         s = st.session_state["summary"]
         property_name  = st.text_input("Property Name",               value=s.get("Property Name",""))
@@ -224,14 +217,14 @@ if "summary" in st.session_state:
         proj_irr       = st.text_input("Projected IRR",               value=s.get("Projected IRR",""))
         hold_period    = st.text_input("Hold Period",                 value=s.get("Hold Period",""))
         size           = st.text_input("Size (Sq Ft or Unit Count)",  value=s.get("Square Footage or Unit Count",""))
-        key_highlights = st.text_area("Key Highlights (one per line)",    value="\n".join(s.get("Key Highlights",[])))
-        risks          = st.text_area("Risks or Red Flags (one per line)",  value="\n".join(s.get("Risks or Red Flags",[])))
+        key_highlights = st.text_area("Key Highlights (one per line)", value="\n".join(s.get("Key Highlights",[])))
+        risks          = st.text_area("Risks or Red Flags (one per line)", value="\n".join(s.get("Risks or Red Flags",[])))
         summary_text   = st.text_area("Summary",                      value=s.get("Summary",""))
-        raw_notes      = st.text_area("Raw Notes (edit before upload)",    value=st.session_state.get("raw_notes",""), height=150)
-        submitted      = st.form_submit_button("📤 Upload this deal to Airtable")
+        raw_notes      = st.text_area("Raw Notes (edit before upload)", value=st.session_state.get("raw_notes",""), height=150)
+        submitted      = st.form_submit_button("📤 Upload to Airtable")
 
     if submitted:
-        updated_summary = {
+        updated = {
             "Property Name": property_name,
             "Location": location,
             "Asset Class": asset_class,
@@ -250,7 +243,7 @@ if "summary" in st.session_state:
             "Summary": summary_text
         }
         create_airtable_record(
-            updated_summary,
+            updated,
             raw_notes,
             st.session_state["attachments"],
             st.session_state["deal_type"],
