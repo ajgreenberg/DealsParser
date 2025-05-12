@@ -206,4 +206,17 @@ if "summary" in st.session_state:
         hold_period = st.text_input("Hold Period", value=summary.get("Hold Period", ""))
         size = st.text_input("Size (Square Footage or Unit Count)", value=summary.get("Square Footage or Unit Count", ""))
         key_highlights = st.text_area("Key Highlights (one per line)", value="\n".join(summary.get("Key Highlights", [])))
-        risks = st.text_area("
+        risks = st.text_area("Risks or Red Flags (one per line)", value="\n".join(summary.get("Risks or Red Flags", [])))
+        summary_text = st.text_area("Summary", value=summary.get("Summary", ""))
+        submitted = st.form_submit_button("📤 Upload this deal to Airtable")
+
+    if submitted:
+        updated_summary = {
+            "Property Name": property_name,
+            "Location": location,
+            "Asset Class": asset_class,
+            "Purchase Price": purchase_price,
+            "Loan Amount": loan_amount,
+            "In-Place Cap Rate": in_place_cap_rate
+::contentReference[oaicite:8]{index=8}
+ 
