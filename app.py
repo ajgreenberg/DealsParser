@@ -12,13 +12,13 @@ from datetime import datetime
 
 # --- Config and Clients ---
 client = OpenAI(api_key=st.secrets["OPENAI_API_KEY"])
-AIRTABLE_PAT        = st.secrets["AIRTABLE_PAT"]
-AIRTABLE_BASE_ID    = st.secrets["AIRTABLE_BASE_ID"]
-AIRTABLE_TABLE_NAME = st.secrets["AIRTABLE_TABLE_NAME"]
-AWS_ACCESS_KEY_ID   = st.secrets["AWS_ACCESS_KEY_ID"]
-AWS_SECRET_ACCESS_KEY = st.secrets["AWS_SECRET_ACCESS_KEY"]
-S3_BUCKET           = st.secrets["S3_BUCKET"]
-S3_REGION           = st.secrets["S3_REGION"]
+AIRTABLE_PAT         = st.secrets["AIRTABLE_PAT"]
+AIRTABLE_BASE_ID     = st.secrets["AIRTABLE_BASE_ID"]
+AIRTABLE_TABLE_NAME  = st.secrets["AIRTABLE_TABLE_NAME"]
+AWS_ACCESS_KEY_ID    = st.secrets["AWS_ACCESS_KEY_ID"]
+AWS_SECRET_ACCESS_KEY= st.secrets["AWS_SECRET_ACCESS_KEY"]
+S3_BUCKET            = st.secrets["S3_BUCKET"]
+S3_REGION            = st.secrets["S3_REGION"]
 
 s3 = boto3.client(
     "s3",
@@ -33,16 +33,16 @@ def upload_to_s3(file_data, filename):
     s3.upload_fileobj(file_data, S3_BUCKET, key)
     return f"https://{S3_BUCKET}.s3.{S3_REGION}.amazonaws.com/{key}"
 
-def extract_text_from_pdf(file) -> str:
-    doc = fitz.open(stream=file.read(), filetype="pdf")
-    return "\n".join([page.get_text() for page in doc])
+def extract_text_from_pdf(f) -> str:
+    doc = fitz.open(stream=f.read(), filetype="pdf")
+    return "\n".join(page.get_text() for page in doc)
 
-def extract_text_from_docx(file) -> str:
-    doc = docx.Document(file)
-    return "\n".join([p.text for p in doc.paragraphs])
+def extract_text_from_docx(f) -> str:
+    doc = docx.Document(f)
+    return "\n".join(p.text for p in doc.paragraphs)
 
-def extract_text_from_doc(file) -> str:
-    return textract.process(file.name).decode("utf-8")
+def extract_text_from_doc(f) -> str:
+    return textract.process(f.name).decode("utf-8")
 
 def summarize_notes(notes: str) -> str:
     if not notes.strip():
@@ -106,7 +106,7 @@ def gpt_extract_summary(text: str, deal_type: str) -> Dict:
 
 def create_airtable_record(
     data: Dict,
-    notes: str,
+    raw_notes: str,
     attachments: List[str],
     deal_type: str,
     contact_info: str
@@ -118,7 +118,7 @@ def create_airtable_record(
     fields = {
         "Deal Type": [deal_type],
         "Summary": data.get("Summary"),
-        "Raw Notes": notes,
+        "Raw Notes": raw_notes,
         "Contact Info": contact_info,
         "Attachments": [{"url": u} for u in attachments],
         "Key Highlights": "\n".join(data.get("Key Highlights", [])),
@@ -137,13 +137,10 @@ def create_airtable_record(
         "Hold Period": data.get("Hold Period"),
         "Size": data.get("Square Footage or Unit Count"),
     }
-    payload = {"fields": fields}
     url = f"https://api.airtable.com/v0/{AIRTABLE_BASE_ID}/{AIRTABLE_TABLE_NAME}"
-    resp = requests.post(url, headers=headers, json=payload)
+    resp = requests.post(url, headers=headers, json={"fields": fields})
     if resp.status_code not in (200, 201):
         st.error(f"Airtable error: {resp.text}")
-    else:
-        st.success("✅ Deal saved to Airtable!")
 
 # --- Streamlit UI ---
 st.title("📄 Deal Parser")
@@ -170,9 +167,10 @@ uploaded_files = st.file_uploader(
 )
 
 if st.button("🚀 Run Deal Parser"):
+    # 1) Extract text
     source_text = ""
     if uploaded_main:
-        ext = uploaded_main.name.lower().split(".")[-1]
+        ext = uploaded_main.name.lower().rsplit(".",1)[-1]
         if ext == "pdf":
             source_text = extract_text_from_pdf(uploaded_main)
         elif ext == "docx":
@@ -185,11 +183,11 @@ if st.button("🚀 Run Deal Parser"):
         st.warning("Please upload a memo or enter some notes.")
     else:
         combined = (source_text + "\n\n" + extra_notes).strip()
-        with st.spinner("Analyzing deal..."):
-            summary       = gpt_extract_summary(combined, deal_type_value)
-            notes_summary = summarize_notes(extra_notes)
-            contact_info  = extract_contact_info(combined)
+        summary       = gpt_extract_summary(combined, deal_type_value)
+        notes_summary = summarize_notes(extra_notes)
+        contact_info  = extract_contact_info(combined)
 
+        # 2) Upload attachments
         s3_urls = []
         if uploaded_main:
             uploaded_main.seek(0)
@@ -198,15 +196,17 @@ if st.button("🚀 Run Deal Parser"):
             f.seek(0)
             s3_urls.append(upload_to_s3(f, f.name))
 
+        # 3) Store in session
         st.session_state.update({
             "summary": summary,
-            "notes": notes_summary,
+            "raw_notes": extra_notes,
+            "notes_summary": notes_summary,
             "contacts": contact_info,
             "attachments": s3_urls,
             "deal_type": deal_type_value
         })
 
-# Only the editable form is shown here:
+# 4) Editable form + upload
 if "summary" in st.session_state:
     st.subheader("✏️ Review and Edit Deal Details")
     with st.form("edit_deal_form"):
@@ -224,9 +224,10 @@ if "summary" in st.session_state:
         proj_irr       = st.text_input("Projected IRR",               value=s.get("Projected IRR",""))
         hold_period    = st.text_input("Hold Period",                 value=s.get("Hold Period",""))
         size           = st.text_input("Size (Sq Ft or Unit Count)",  value=s.get("Square Footage or Unit Count",""))
-        key_highlights = st.text_area("Key Highlights (one per line)",   value="\n".join(s.get("Key Highlights",[])))
-        risks          = st.text_area("Risks or Red Flags (one per line)", value="\n".join(s.get("Risks or Red Flags",[])))
-        summary_text   = st.text_area("Summary",                     value=s.get("Summary",""))
+        key_highlights = st.text_area("Key Highlights (one per line)",    value="\n".join(s.get("Key Highlights",[])))
+        risks          = st.text_area("Risks or Red Flags (one per line)",  value="\n".join(s.get("Risks or Red Flags",[])))
+        summary_text   = st.text_area("Summary",                      value=s.get("Summary",""))
+        raw_notes      = st.text_area("Raw Notes (edit before upload)",    value=st.session_state.get("raw_notes",""), height=150)
         submitted      = st.form_submit_button("📤 Upload this deal to Airtable")
 
     if submitted:
@@ -248,12 +249,11 @@ if "summary" in st.session_state:
             "Risks or Red Flags": risks.strip().split("\n"),
             "Summary": summary_text
         }
-        with st.spinner("Uploading..."):
-            create_airtable_record(
-                updated_summary,
-                st.session_state["notes"],
-                st.session_state["attachments"],
-                st.session_state["deal_type"],
-                st.session_state["contacts"]
-            )
+        create_airtable_record(
+            updated_summary,
+            raw_notes,
+            st.session_state["attachments"],
+            st.session_state["deal_type"],
+            st.session_state["contacts"]
+        )
         st.success("✅ Deal saved to Airtable!")
