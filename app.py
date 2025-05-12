@@ -214,43 +214,19 @@ if st.button("🚀 Run Deal Parser"):
         st.text(contact_info)
 
 if "summary" in st.session_state:
-    st.text_area("🧠 Notes to Improve AI (freeform)", key="feedback")
-    if st.button("📤 Upload this deal to Airtable"):
-        with st.spinner("Uploading..."):
-            create_airtable_record(
-                st.session_state["summary"],
-                st.session_state["notes"],
-                st.session_state["attachments"],
-                st.session_state["deal_type"],
-                st.session_state["contacts"],
-                st.session_state["feedback"]
-            )
-
-    # feedback learning box
-    st.markdown("---")
-    st.subheader("💬 Teach the AI with Natural Feedback")
-    user_note = st.text_area("Suggest changes or improvements (e.g. 'Change MHC to Mobile Home')", key="teach_note")
-    if st.button("🧠 Learn from Feedback"):
-        if user_note.strip():
-            with st.spinner("Processing feedback..."):
-                current = load_corrections()
-                prompt = f"""You are a helpful assistant. Given the user's feedback below, return updated JSON rules that replace or modify this corrections dictionary:
-{json.dumps(current, indent=2)}
-
-User feedback:
-{user_note}
-
-Only return corrected JSON:
-"""
-                result = client.chat.completions.create(
-                    model="gpt-4",
-                    messages=[{"role": "user", "content": prompt}],
-                    temperature=0.2
-                )
-                try:
-                    parsed = json.loads(result.choices[0].message.content)
-                    save_corrections(parsed)
-                    st.success("Correction rules updated.")
-                except:
-                    st.error("Could not parse GPT output.")
-                    st.code(result.choices[0].message.content)
+    st.subheader("✏️ Review and Edit Deal Details")
+    with st.form("edit_deal_form"):
+        summary = st.session_state["summary"]
+        property_name = st.text_input("Property Name", value=summary.get("Property Name", ""))
+        location = st.text_input("Location", value=summary.get("Location", ""))
+        asset_class = st.text_input("Asset Class", value=summary.get("Asset Class", ""))
+        purchase_price = st.text_input("Purchase Price", value=summary.get("Purchase Price", ""))
+        loan_amount = st.text_input("Loan Amount", value=summary.get("Loan Amount", ""))
+        in_place_cap_rate = st.text_input("In-Place Cap Rate", value=summary.get("In-Place Cap Rate", ""))
+        stabilized_cap_rate = st.text_input("Stabilized Cap Rate", value=summary.get("Stabilized Cap Rate", ""))
+        interest_rate = st.text_input("Interest Rate", value=summary.get("Interest Rate", ""))
+        term = st.text_input("Term", value=summary.get("Term", ""))
+        exit_strategy = st.text_input("Exit Strategy", value=summary.get("Exit Strategy", ""))
+        projected_
+::contentReference[oaicite:0]{index=0}
+ 
