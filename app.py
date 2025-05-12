@@ -211,7 +211,7 @@ if "summary" in st.session_state:
         submitted = st.form_submit_button("📤 Upload this deal to Airtable")
 
     if submitted:
-    updated_summary = {
+        updated_summary = {
         "Property Name": property_name,
         "Location": location,
         "Asset Class": asset_class,
