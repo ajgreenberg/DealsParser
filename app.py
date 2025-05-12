@@ -219,4 +219,4 @@ if "summary" in st.session_state:
             "Loan Amount": loan_amount,
             "In-Place Cap Rate": in_place_cap_rate
 ::contentReference[oaicite:8]{index=8}
- 
+}
