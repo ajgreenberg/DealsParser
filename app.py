@@ -101,7 +101,6 @@ def gpt_extract_summary(text: str, deal_type: str) -> Dict:
     )
     raw = res.choices[0].message.content
     cleaned = re.sub(r"```(?:json)?", "", raw).strip()
-    # Keep only from first '{'
     cleaned = re.sub(r"^[^\{]*", "", cleaned, flags=re.DOTALL)
     return json.loads(cleaned)
 
@@ -171,7 +170,6 @@ uploaded_files = st.file_uploader(
 )
 
 if st.button("🚀 Run Deal Parser"):
-    # Extract text
     source_text = ""
     if uploaded_main:
         ext = uploaded_main.name.lower().split(".")[-1]
@@ -192,7 +190,6 @@ if st.button("🚀 Run Deal Parser"):
             notes_summary = summarize_notes(extra_notes)
             contact_info  = extract_contact_info(combined)
 
-        # Upload attachments
         s3_urls = []
         if uploaded_main:
             uploaded_main.seek(0)
@@ -201,7 +198,6 @@ if st.button("🚀 Run Deal Parser"):
             f.seek(0)
             s3_urls.append(upload_to_s3(f, f.name))
 
-        # Store in session
         st.session_state.update({
             "summary": summary,
             "notes": notes_summary,
@@ -210,15 +206,7 @@ if st.button("🚀 Run Deal Parser"):
             "deal_type": deal_type_value
         })
 
-        # Display
-        st.subheader("🔍 Deal Summary")
-        for k,v in summary.items():
-            val = ", ".join(v) if isinstance(v,list) else v
-            st.markdown(f"**{k}**: {val}")
-        st.markdown("**Contact Info:**")
-        st.text(contact_info)
-
-# Editable form + upload
+# Only the editable form is shown here:
 if "summary" in st.session_state:
     st.subheader("✏️ Review and Edit Deal Details")
     with st.form("edit_deal_form"):
