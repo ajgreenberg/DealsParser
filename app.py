@@ -10,6 +10,7 @@ import boto3
 from typing import Dict, List
 from datetime import datetime
 
+# --- Config and Clients ---
 client = OpenAI(api_key=st.secrets["OPENAI_API_KEY"])
 AIRTABLE_PAT = st.secrets["AIRTABLE_PAT"]
 AIRTABLE_BASE_ID = st.secrets["AIRTABLE_BASE_ID"]
@@ -185,13 +186,24 @@ if st.button("🚀 Run Deal Parser"):
             st.markdown(f"**{k}**: {v if not isinstance(v, list) else ', '.join(v)}")
 
         st.markdown("**Contact Info:**")
-        
-if "summary" in st.session_state and st.button("📤 Upload this deal to Airtable"):
-    with st.spinner("Uploading..."):
-        create_airtable_record(
-            st.session_state["summary"],
-            st.session_state["notes"],
-            st.session_state["attachments"],
-            st.session_state["deal_type"],
-            st.session_state["contacts"]
-        )
+        st.text(contact_info)
+
+if "summary" in st.session_state:
+    st.subheader("✏️ Review and Edit Deal Details")
+    with st.form("edit_deal_form"):
+        summary = st.session_state["summary"]
+        property_name = st.text_input("Property Name", value=summary.get("Property Name", ""))
+        location = st.text_input("Location", value=summary.get("Location", ""))
+        asset_class = st.text_input("Asset Class", value=summary.get("Asset Class", ""))
+        purchase_price = st.text_input("Purchase Price", value=summary.get("Purchase Price", ""))
+        loan_amount = st.text_input("Loan Amount", value=summary.get("Loan Amount", ""))
+        in_place_cap_rate = st.text_input("In-Place Cap Rate", value=summary.get("In-Place Cap Rate", ""))
+        stabilized_cap_rate = st.text_input("Stabilized Cap Rate", value=summary.get("Stabilized Cap Rate", ""))
+        interest_rate = st.text_input("Interest Rate", value=summary.get("Interest Rate", ""))
+        term = st.text_input("Term", value=summary.get("Term", ""))
+        exit_strategy = st.text_input("Exit Strategy", value=summary.get("Exit Strategy", ""))
+        projected_irr = st.text_input("Projected IRR", value=summary.get("Projected IRR", ""))
+        hold_period = st.text_input("Hold Period", value=summary.get("Hold Period", ""))
+        size = st.text_input("Size (Square Footage or Unit Count)", value=summary.get("Square Footage or Unit Count", ""))
+        key_highlights = st.text_area("Key Highlights (one per line)", value="\n".join(summary.get("Key Highlights", [])))
+        risks = st.text_area("
