@@ -160,46 +160,46 @@ uploaded_files = st.file_uploader(
 )
 
 if st.button("🚀 Run Deal Parser"):
-    # 1) Extract
-    source_text = ""
-    if uploaded_main:
-        ext = uploaded_main.name.lower().rsplit(".",1)[-1]
-        if ext=="pdf":
-            source_text = extract_text_from_pdf(uploaded_main)
-        elif ext=="docx":
-            source_text = extract_text_from_docx(uploaded_main)
-        else:
-            uploaded_main.seek(0)
-            source_text = extract_text_from_doc(uploaded_main)
-
-    if not source_text and not extra_notes.strip():
-        st.warning("Please upload a memo or enter some notes.")
-    else:
-        combined      = (source_text + "\n\n" + extra_notes).strip()
-        summary       = gpt_extract_summary(combined, deal_type_value)
-        notes_summary = summarize_notes(extra_notes)
-        contact_info  = extract_contact_info(combined)
-
-        # 2) S3 uploads
-        s3_urls=[]
+    with st.spinner("🔍 Parsing deal..."):
+        source_text = ""
         if uploaded_main:
-            uploaded_main.seek(0)
-            s3_urls.append(upload_to_s3(uploaded_main, uploaded_main.name))
-        for f in uploaded_files:
-            f.seek(0)
-            s3_urls.append(upload_to_s3(f, f.name))
+            ext = uploaded_main.name.lower().rsplit(".",1)[-1]
+            if ext=="pdf":
+                source_text = extract_text_from_pdf(uploaded_main)
+            elif ext=="docx":
+                source_text = extract_text_from_docx(uploaded_main)
+            else:
+                uploaded_main.seek(0)
+                source_text = extract_text_from_doc(uploaded_main)
 
-        # 3) Store
-        st.session_state.update({
-            "summary": summary,
-            "raw_notes": extra_notes,
-            "notes_summary": notes_summary,
-            "contacts": contact_info,
-            "attachments": s3_urls,
-            "deal_type": deal_type_value
-        })
+        if not source_text and not extra_notes.strip():
+            st.warning("Please upload a memo or enter some notes.")
+        else:
+            combined = (source_text + "\n\n" + extra_notes).strip()
+            summary       = gpt_extract_summary(combined, deal_type_value)
+            notes_summary = summarize_notes(extra_notes)
+            contact_info  = extract_contact_info(combined)
 
-# 4) Editable form + single success
+            # S3 uploads
+            s3_urls = []
+            if uploaded_main:
+                uploaded_main.seek(0)
+                s3_urls.append(upload_to_s3(uploaded_main, uploaded_main.name))
+            for f in uploaded_files:
+                f.seek(0)
+                s3_urls.append(upload_to_s3(f, f.name))
+
+            # Store in session
+            st.session_state.update({
+                "summary": summary,
+                "raw_notes": extra_notes,
+                "notes_summary": notes_summary,
+                "contacts": contact_info,
+                "attachments": s3_urls,
+                "deal_type": deal_type_value
+            })
+
+# Editable form + upload
 if "summary" in st.session_state:
     st.subheader("✏️ Review & Edit Deal Details")
     with st.form("edit_deal_form"):
@@ -216,7 +216,7 @@ if "summary" in st.session_state:
         exit_strategy  = st.text_input("Exit Strategy",               value=s.get("Exit Strategy",""))
         proj_irr       = st.text_input("Projected IRR",               value=s.get("Projected IRR",""))
         hold_period    = st.text_input("Hold Period",                 value=s.get("Hold Period",""))
-        size           = st.text_input("Size (Sq Ft or Unit Count)",  value=s.get("Square Footage or Unit Count",""))
+        size           = st.text_input("Size (Sq Ft or Unit Count)", value=s.get("Square Footage or Unit Count",""))
         key_highlights = st.text_area("Key Highlights (one per line)", value="\n".join(s.get("Key Highlights",[])))
         risks          = st.text_area("Risks or Red Flags (one per line)", value="\n".join(s.get("Risks or Red Flags",[])))
         summary_text   = st.text_area("Summary",                      value=s.get("Summary",""))
@@ -224,29 +224,30 @@ if "summary" in st.session_state:
         submitted      = st.form_submit_button("📤 Upload to Airtable")
 
     if submitted:
-        updated = {
-            "Property Name": property_name,
-            "Location": location,
-            "Asset Class": asset_class,
-            "Purchase Price": purchase_price,
-            "Loan Amount": loan_amount,
-            "In-Place Cap Rate": in_cap_rate,
-            "Stabilized Cap Rate": stab_cap_rate,
-            "Interest Rate": interest_rate,
-            "Term": term,
-            "Exit Strategy": exit_strategy,
-            "Projected IRR": proj_irr,
-            "Hold Period": hold_period,
-            "Size": size,
-            "Key Highlights": key_highlights.strip().split("\n"),
-            "Risks or Red Flags": risks.strip().split("\n"),
-            "Summary": summary_text
-        }
-        create_airtable_record(
-            updated,
-            raw_notes,
-            st.session_state["attachments"],
-            st.session_state["deal_type"],
-            st.session_state["contacts"]
-        )
+        with st.spinner("📡 Uploading to Airtable..."):
+            updated = {
+                "Property Name": property_name,
+                "Location": location,
+                "Asset Class": asset_class,
+                "Purchase Price": purchase_price,
+                "Loan Amount": loan_amount,
+                "In-Place Cap Rate": in_cap_rate,
+                "Stabilized Cap Rate": stab_cap_rate,
+                "Interest Rate": interest_rate,
+                "Term": term,
+                "Exit Strategy": exit_strategy,
+                "Projected IRR": proj_irr,
+                "Hold Period": hold_period,
+                "Size": size,
+                "Key Highlights": key_highlights.strip().split("\n"),
+                "Risks or Red Flags": risks.strip().split("\n"),
+                "Summary": summary_text
+            }
+            create_airtable_record(
+                updated,
+                raw_notes,
+                st.session_state["attachments"],
+                st.session_state["deal_type"],
+                st.session_state["contacts"]
+            )
         st.success("✅ Deal saved to Airtable!")
