@@ -146,7 +146,7 @@ def create_airtable_record(
         st.error(f"Airtable error: {resp.text}")
 
 # --- Streamlit UI ---
-st.title("📄 Deal Parser")
+st.title("📄 DealFlow AI")
 
 deal_type = st.radio("💼 Select Deal Type", ["🏦 Debt", "🏢 Equity"], horizontal=True)
 deal_type_value = "Debt" if "Debt" in deal_type else "Equity"
@@ -159,7 +159,7 @@ uploaded_files = st.file_uploader(
     accept_multiple_files=True
 )
 
-if st.button("🚀 Run Deal Parser"):
+if st.button("🚀 Run DealFlow AI"):
     with st.spinner("🔍 Parsing deal..."):
         source_text = ""
         if uploaded_main:
