@@ -7,7 +7,7 @@ import requests
 import json
 import re
 import boto3
-import random
+import threading
 import time
 from typing import Dict, List
 from datetime import datetime
@@ -30,21 +30,26 @@ s3 = boto3.client(
 )
 
 # --- Helper Functions ---
+
 def upload_to_s3(file_data, filename) -> str:
     key = f"deal-uploads/{datetime.now().strftime('%Y%m%d-%H%M%S')}-{filename}"
     s3.upload_fileobj(file_data, S3_BUCKET, key)
     return f"https://{S3_BUCKET}.s3.{S3_REGION}.amazonaws.com/{key}"
 
+
 def extract_text_from_pdf(f) -> str:
     doc = fitz.open(stream=f.read(), filetype="pdf")
     return "\n".join(page.get_text() for page in doc)
+
 
 def extract_text_from_docx(f) -> str:
     doc = docx.Document(f)
     return "\n".join(p.text for p in doc.paragraphs)
 
+
 def extract_text_from_doc(f) -> str:
     return textract.process(f.name).decode("utf-8")
+
 
 def summarize_notes(notes: str) -> str:
     if not notes.strip():
@@ -60,6 +65,7 @@ def summarize_notes(notes: str) -> str:
     )
     return res.choices[0].message.content.strip()
 
+
 def extract_contact_info(text: str) -> str:
     prompt = (
         "Extract the contact information (name, company, phone, and email) of any brokers, "
@@ -72,6 +78,7 @@ def extract_contact_info(text: str) -> str:
         temperature=0.3
     )
     return res.choices[0].message.content.strip()
+
 
 def gpt_extract_summary(text: str, deal_type: str) -> Dict:
     prompt = (
@@ -93,6 +100,7 @@ def gpt_extract_summary(text: str, deal_type: str) -> Dict:
     cleaned = re.sub(r"```(?:json)?", "", raw).strip()
     cleaned = re.sub(r"^[^\{]*", "", cleaned, flags=re.DOTALL)
     return json.loads(cleaned)
+
 
 def create_airtable_record(
     data: Dict,
@@ -225,11 +233,15 @@ if run:
     thread = threading.Thread(target=background_work)
     thread.start()
 
-    idx = 0
-    while thread.is_alive():
-        placeholder.text(messages[idx % len(messages)])
+    for msg in messages:
+        if not thread.is_alive():
+            break
+        placeholder.text(msg)
         time.sleep(0.8)
-        idx += 1
+
+    # wait for completion if needed
+    while thread.is_alive():
+        time.sleep(0.1)
     placeholder.empty()
 
 # --- Editable Form & Upload ---
