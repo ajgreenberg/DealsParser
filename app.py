@@ -7,6 +7,7 @@ import requests
 import json
 import re
 import boto3
+import random
 from typing import Dict, List
 from datetime import datetime
 
@@ -53,7 +54,7 @@ def summarize_notes(notes: str) -> str:
     )
     res = client.chat.completions.create(
         model="gpt-3.5-turbo",
-        messages=[{"role": "user", "content": prompt}],
+        messages=[{"role":"user","content":prompt}],
         temperature=0.3
     )
     return res.choices[0].message.content.strip()
@@ -67,7 +68,7 @@ def extract_contact_info(text: str) -> str:
     )
     res = client.chat.completions.create(
         model="gpt-4",
-        messages=[{"role": "user", "content": prompt}],
+        messages=[{"role":"user","content":prompt}],
         temperature=0.3
     )
     return res.choices[0].message.content.strip()
@@ -98,7 +99,7 @@ def gpt_extract_summary(text: str, deal_type: str) -> Dict:
     )
     res = client.chat.completions.create(
         model="gpt-3.5-turbo",
-        messages=[{"role": "user", "content": prompt}],
+        messages=[{"role":"user","content":prompt}],
         temperature=0.3
     )
     raw = res.choices[0].message.content
@@ -113,9 +114,7 @@ def create_airtable_record(
     deal_type: str,
     contact_info: str
 ):
-    # Always tag new deals as "Pursuing"
     status = "Pursuing"
-
     headers = {
         "Authorization": f"Bearer {AIRTABLE_PAT}",
         "Content-Type": "application/json"
@@ -156,19 +155,43 @@ def create_airtable_record(
 # --- Streamlit UI ---
 st.title("🤖 DealFlow AI")
 
+# Inject custom CSS for a sophisticated button
+st.markdown("""
+<style>
+div.stButton > button:first-child {
+    background-color: #0072C3;
+    color: white;
+    font-size: 1.1rem;
+    font-weight: 600;
+    padding: 14px 28px;
+    border-radius: 8px;
+    border: none;
+    box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+    transition: background-color 0.2s ease;
+}
+div.stButton > button:first-child:hover {
+    background-color: #005A9C;
+}
+</style>
+""", unsafe_allow_html=True)
+
 deal_type = st.radio("💼 Select Deal Type", ["🏦 Debt", "🏢 Equity"], horizontal=True)
 deal_type_value = "Debt" if "Debt" in deal_type else "Equity"
 
 uploaded_main = st.file_uploader("📄 Upload Deal Memo (optional)", type=["pdf","doc","docx"])
-extra_notes = st.text_area("🗒 Paste deal notes or email thread", height=200)
+extra_notes    = st.text_area("🗒 Paste deal notes or email thread", height=200)
 uploaded_files = st.file_uploader(
     "📎 Upload supporting files (optional)",
     type=["pdf","doc","docx","xls","xlsx","jpg","png"],
     accept_multiple_files=True
 )
 
-if st.button("🚀 Run DealFlow AI"):
-    with st.spinner("🔍 Parsing deal…"):
+# Centered, elegantly styled run button
+run = st.button("🚀 Run DealFlow AI")
+
+if run:
+    # Stage 1: text extraction
+    with st.spinner("🔍 Extracting text to free your mind…"):
         source_text = ""
         if uploaded_main:
             ext = uploaded_main.name.lower().rsplit(".",1)[-1]
@@ -180,31 +203,39 @@ if st.button("🚀 Run DealFlow AI"):
                 uploaded_main.seek(0)
                 source_text = extract_text_from_doc(uploaded_main)
 
-        if not source_text and not extra_notes.strip():
-            st.warning("Please upload a memo or enter some notes.")
-        else:
-            combined = (source_text + "\n\n" + extra_notes).strip()
-            summary       = gpt_extract_summary(combined, deal_type_value)
-            notes_summary = summarize_notes(extra_notes)
-            contact_info  = extract_contact_info(combined)
+    # Stage 2: GPT analysis with a random whimsical message
+    analysis_msgs = [
+        "🤖 Crunching deal numbers to boost your alpha…",
+        "✨ Weaving AI magic into your investment thesis…",
+        "🔎 Uncovering hidden value nuggets for you…",
+        "📈 Forecasting returns behind the scenes…",
+        "💡 Brainstorming growth strategies…"
+    ]
+    with st.spinner(random.choice(analysis_msgs)):
+        combined      = (source_text + "\n\n" + extra_notes).strip()
+        summary       = gpt_extract_summary(combined, deal_type_value)
+        notes_summary = summarize_notes(extra_notes)
+        contact_info  = extract_contact_info(combined)
 
-            # upload attachments
-            s3_urls = []
-            if uploaded_main:
-                uploaded_main.seek(0)
-                s3_urls.append(upload_to_s3(uploaded_main, uploaded_main.name))
-            for f in uploaded_files:
-                f.seek(0)
-                s3_urls.append(upload_to_s3(f, f.name))
+    # Stage 3: upload attachments
+    with st.spinner("💾 Uploading your files to secure storage…"):
+        s3_urls = []
+        if uploaded_main:
+            uploaded_main.seek(0)
+            s3_urls.append(upload_to_s3(uploaded_main, uploaded_main.name))
+        for f in uploaded_files:
+            f.seek(0)
+            s3_urls.append(upload_to_s3(f, f.name))
 
-            st.session_state.update({
-                "summary": summary,
-                "raw_notes": extra_notes,
-                "notes_summary": notes_summary,
-                "contacts": contact_info,
-                "attachments": s3_urls,
-                "deal_type": deal_type_value
-            })
+    # Save everything into session
+    st.session_state.update({
+        "summary":      summary,
+        "raw_notes":    extra_notes,
+        "notes_summary":notes_summary,
+        "contacts":     contact_info,
+        "attachments":  s3_urls,
+        "deal_type":    deal_type_value
+    })
 
 # Editable form + upload
 if "summary" in st.session_state:
@@ -233,7 +264,7 @@ if "summary" in st.session_state:
         submitted      = st.form_submit_button("📤 Upload to Airtable")
 
     if submitted:
-        with st.spinner("📡 Uploading to Airtable…"):
+        with st.spinner("📡 Finalizing and saving your deal…"):
             updated = {
                 "Property Name":       property_name,
                 "Location":            location,
@@ -261,4 +292,4 @@ if "summary" in st.session_state:
                 st.session_state["deal_type"],
                 st.session_state["contacts"]
             )
-        st.success("✅ Deal saved to Airtable!")
+        st.success("✅ Your deal has been saved! 🎉")
