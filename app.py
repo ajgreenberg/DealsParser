@@ -106,7 +106,7 @@ def create_airtable_record(
 ):
     fields = {
         "Deal Type": [deal_type],
-        "Status": ["Pursuing"],
+        "Status": "Pursuing",
         "Summary": data.get("Summary"),
         "Raw Notes": raw_notes,
         "Contact Info": contact_info,
@@ -160,53 +160,54 @@ div.stButton > button:hover {
 """, unsafe_allow_html=True)
 
 # --- Inputs ---
-deal_type = st.radio("Select Deal Type", ["Equity", "Debt"], index=0, horizontal=True)
+deal_type = st.radio("Deal Type", ["Equity", "Debt"], index=0, horizontal=True)
 uploaded_main = st.file_uploader("Upload deal memo (PDF, DOC, DOCX)", type=["pdf","doc","docx"])
 extra_notes = st.text_area("Paste deal notes or email thread", height=200)
 uploaded_files = st.file_uploader("Upload supporting files (optional)", type=["pdf","doc","docx","xls","xlsx","jpg","png"], accept_multiple_files=True)
 
-run = st.button("Run DealFlow AI")
+run = st.button("Run DealFlow AI 🚀")
 
 if run:
     placeholder = st.empty()
     steps = [
-        "🔍 Parsing documents…",
-        "📈 Underwriting with AI…",
-        "📋 Compiling insights…",
-        "✍️ Finalizing summary…"
+        "Parsing documents…",
+        "Analyzing with AI…",
+        "Compiling insights…",
+        "Finalizing summary…"
     ]
-    # Step-by-step synchronous processing
-    # 1) Parsing
-    placeholder.text(steps[0])
     src = ""
-    if uploaded_main:
-        ext = uploaded_main.name.lower().rsplit(".",1)[-1]
-        if ext == "pdf": src = extract_text_from_pdf(uploaded_main)
-        elif ext == "docx": src = extract_text_from_docx(uploaded_main)
-        else:
-            uploaded_main.seek(0)
-            src = extract_text_from_doc(uploaded_main)
-
-    # 2) Summary
-    placeholder.text(steps[1])
-    combined = (src + "\n\n" + extra_notes).strip()
-    summary = gpt_extract_summary(combined, deal_type)
-    notes_sum = summarize_notes(extra_notes)
-    contacts = extract_contact_info(combined)
-
-    # 3) Attachments
-    placeholder.text(steps[2])
     urls = []
-    if uploaded_main:
-        uploaded_main.seek(0)
-        urls.append(upload_to_s3(uploaded_main, uploaded_main.name))
-    for f in uploaded_files:
-        f.seek(0)
-        urls.append(upload_to_s3(f, f.name))
+    summary = {}
+    notes_sum = ""
+    contacts = ""
 
-    # 4) Finalizing
-    placeholder.text(steps[3])
-    time.sleep(0.5)
+    for i, step in enumerate(steps):
+        placeholder.text(step)
+        time.sleep(random.uniform(0.7, 1.5))
+        if i == 0:
+            # Extract text
+            if uploaded_main:
+                ext = uploaded_main.name.lower().rsplit(".",1)[-1]
+                if ext == "pdf": src = extract_text_from_pdf(uploaded_main)
+                elif ext == "docx": src = extract_text_from_docx(uploaded_main)
+                else:
+                    uploaded_main.seek(0)
+                    src = extract_text_from_doc(uploaded_main)
+        elif i == 1:
+            # AI summary
+            combined = (src + "\n\n" + extra_notes).strip()
+            summary = gpt_extract_summary(combined, deal_type)
+            notes_sum = summarize_notes(extra_notes)
+            contacts = extract_contact_info(combined)
+        elif i == 2:
+            # Upload attachments
+            if uploaded_main:
+                uploaded_main.seek(0)
+                urls.append(upload_to_s3(uploaded_main, uploaded_main.name))
+            for f in uploaded_files:
+                f.seek(0)
+                urls.append(upload_to_s3(f, f.name))
+        # i == 3 just finalizing delay
     placeholder.empty()
 
     # Store results
