@@ -7,6 +7,7 @@ import requests
 import json
 import re
 import boto3
+import time
 import random
 from typing import Dict, List
 from datetime import datetime
@@ -49,7 +50,7 @@ def summarize_notes(notes: str) -> str:
     if not notes.strip():
         return ""
     prompt = (
-        "Summarize the following deal notes or email thread in 2-4 concise, neutral bullet points:\n\n"
+        "Summarize the following deal notes or email thread in 2–4 concise, neutral bullet points:\n\n"
         f"{notes}"
     )
     res = client.chat.completions.create(
@@ -62,8 +63,7 @@ def summarize_notes(notes: str) -> str:
 def extract_contact_info(text: str) -> str:
     prompt = (
         "Extract the contact information (name, company, phone, and email) of any brokers, "
-        "sponsors, or agents from the following text. Be thorough and include details even if they "
-        "are buried in an email signature or footnote. Return in plain text format.\n\nText:\n"
+        "sponsors, or agents from the following text. Return in plain text.\n\nText:\n"
         + text[:3500]
     )
     res = client.chat.completions.create(
@@ -95,7 +95,7 @@ def gpt_extract_summary(text: str, deal_type: str) -> Dict:
         "- Square Footage or Unit Count\n"
         "- Key Highlights (bullet points)\n"
         "- Risks or Red Flags (bullet points)\n"
-        "- Summary (2-3 sentences)\n"
+        "- Summary (2–3 sentences)\n"
     )
     res = client.chat.completions.create(
         model="gpt-3.5-turbo",
@@ -155,22 +155,21 @@ def create_airtable_record(
 # --- Streamlit UI ---
 st.title("🤖 DealFlow AI")
 
-# Inject custom CSS for a sophisticated button
+# Inject CSS for a refined button
 st.markdown("""
 <style>
-div.stButton > button:first-child {
-    background-color: #0072C3;
+div.stButton > button {
+    background-color: #1f77b4;
     color: white;
-    font-size: 1.1rem;
-    font-weight: 600;
-    padding: 14px 28px;
-    border-radius: 8px;
+    font-size: 1.05rem;
+    padding: 12px 24px;
+    border-radius: 6px;
     border: none;
-    box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
     transition: background-color 0.2s ease;
 }
-div.stButton > button:first-child:hover {
-    background-color: #005A9C;
+div.stButton > button:hover {
+    background-color: #155a8a;
 }
 </style>
 """, unsafe_allow_html=True)
@@ -186,12 +185,11 @@ uploaded_files = st.file_uploader(
     accept_multiple_files=True
 )
 
-# Centered, elegantly styled run button
 run = st.button("🚀 Run DealFlow AI")
 
 if run:
-    # Stage 1: text extraction
-    with st.spinner("🔍 Extracting text to free your mind…"):
+    # 1) Document parsing spinner
+    with st.spinner("🔍 Parsing your documents to save you time…"):
         source_text = ""
         if uploaded_main:
             ext = uploaded_main.name.lower().rsplit(".",1)[-1]
@@ -203,22 +201,27 @@ if run:
                 uploaded_main.seek(0)
                 source_text = extract_text_from_doc(uploaded_main)
 
-    # Stage 2: GPT analysis with a random whimsical message
-    analysis_msgs = [
-        "🤖 Crunching deal numbers to boost your alpha…",
-        "✨ Weaving AI magic into your investment thesis…",
-        "🔎 Uncovering hidden value nuggets for you…",
-        "📈 Forecasting returns behind the scenes…",
-        "💡 Brainstorming growth strategies…"
+    # 2) Rotating status messages
+    placeholder = st.empty()
+    steps = [
+        "⚙️ Structuring your deal analysis…",
+        "📐 Aligning with your investment criteria…",
+        "🚀 Optimizing your underwriting workflow…"
     ]
-    with st.spinner(random.choice(analysis_msgs)):
+    for msg in steps:
+        placeholder.markdown(msg)
+        time.sleep(1.5)
+    placeholder.empty()
+
+    # 3) GPT analysis spinner
+    with st.spinner("🤖 Generating insights with AI…"):
         combined      = (source_text + "\n\n" + extra_notes).strip()
         summary       = gpt_extract_summary(combined, deal_type_value)
         notes_summary = summarize_notes(extra_notes)
         contact_info  = extract_contact_info(combined)
 
-    # Stage 3: upload attachments
-    with st.spinner("💾 Uploading your files to secure storage…"):
+    # 4) Attachment upload spinner
+    with st.spinner("💾 Uploading your files securely…"):
         s3_urls = []
         if uploaded_main:
             uploaded_main.seek(0)
@@ -227,7 +230,7 @@ if run:
             f.seek(0)
             s3_urls.append(upload_to_s3(f, f.name))
 
-    # Save everything into session
+    # store in session
     st.session_state.update({
         "summary":      summary,
         "raw_notes":    extra_notes,
@@ -242,24 +245,24 @@ if "summary" in st.session_state:
     st.subheader("✏️ Review & Edit Deal Details")
     with st.form("edit_form"):
         s = st.session_state["summary"]
-        property_name  = st.text_input("Property Name",               value=s.get("Property Name",""))
-        location       = st.text_input("Location",                    value=s.get("Location",""))
-        asset_class    = st.text_input("Asset Class",                 value=s.get("Asset Class",""))
-        sponsor        = st.text_input("Sponsor",                     value=s.get("Sponsor",""))
-        broker         = st.text_input("Broker",                      value=s.get("Broker",""))
-        purchase_price = st.text_input("Purchase Price",              value=s.get("Purchase Price",""))
-        loan_amount    = st.text_input("Loan Amount",                 value=s.get("Loan Amount",""))
-        in_cap_rate    = st.text_input("In-Place Cap Rate",           value=s.get("In-Place Cap Rate",""))
-        stab_cap_rate  = st.text_input("Stabilized Cap Rate",         value=s.get("Stabilized Cap Rate",""))
-        interest_rate  = st.text_input("Interest Rate",               value=s.get("Interest Rate",""))
-        term           = st.text_input("Term",                        value=s.get("Term",""))
-        exit_strategy  = st.text_input("Exit Strategy",               value=s.get("Exit Strategy",""))
-        proj_irr       = st.text_input("Projected IRR",               value=s.get("Projected IRR",""))
-        hold_period    = st.text_input("Hold Period",                 value=s.get("Hold Period",""))
-        size           = st.text_input("Size (Sq Ft or Unit Count)",  value=s.get("Square Footage or Unit Count",""))
+        property_name  = st.text_input("Property Name",              value=s.get("Property Name",""))
+        location       = st.text_input("Location",                   value=s.get("Location",""))
+        asset_class    = st.text_input("Asset Class",                value=s.get("Asset Class",""))
+        sponsor        = st.text_input("Sponsor",                    value=s.get("Sponsor",""))
+        broker         = st.text_input("Broker",                     value=s.get("Broker",""))
+        purchase_price = st.text_input("Purchase Price",             value=s.get("Purchase Price",""))
+        loan_amount    = st.text_input("Loan Amount",                value=s.get("Loan Amount",""))
+        in_cap_rate    = st.text_input("In-Place Cap Rate",          value=s.get("In-Place Cap Rate",""))
+        stab_cap_rate  = st.text_input("Stabilized Cap Rate",        value=s.get("Stabilized Cap Rate",""))
+        interest_rate  = st.text_input("Interest Rate",              value=s.get("Interest Rate",""))
+        term           = st.text_input("Term",                       value=s.get("Term",""))
+        exit_strategy  = st.text_input("Exit Strategy",              value=s.get("Exit Strategy",""))
+        proj_irr       = st.text_input("Projected IRR",              value=s.get("Projected IRR",""))
+        hold_period    = st.text_input("Hold Period",                value=s.get("Hold Period",""))
+        size           = st.text_input("Size (Sq Ft or Unit Count)", value=s.get("Square Footage or Unit Count",""))
         key_highlights = st.text_area("Key Highlights (one per line)", value="\n".join(s.get("Key Highlights",[])))
         risks          = st.text_area("Risks or Red Flags (one per line)", value="\n".join(s.get("Risks or Red Flags",[])))
-        summary_text   = st.text_area("Summary",                      value=s.get("Summary",""))
+        summary_text   = st.text_area("Summary",                     value=s.get("Summary",""))
         raw_notes      = st.text_area("Raw Notes (edit before upload)", value=st.session_state.get("raw_notes",""), height=150)
         submitted      = st.form_submit_button("📤 Upload to Airtable")
 
@@ -292,4 +295,4 @@ if "summary" in st.session_state:
                 st.session_state["deal_type"],
                 st.session_state["contacts"]
             )
-        st.success("✅ Your deal has been saved! 🎉")
+        st.success("✅ Your deal has been saved!")
