@@ -29,17 +29,30 @@ s3 = boto3.client(
 
 # --- Airtable Metadata Fetcher ---
 def get_status_options() -> List[str]:
-    """Fetch the singleSelect choices for the 'Status' field from Airtable Metadata API."""
-    url = f"https://api.airtable.com/v0/meta/bases/{AIRTABLE_BASE_ID}/tables"
     headers = {"Authorization": f"Bearer {AIRTABLE_PAT}"}
-    resp = requests.get(url, headers=headers)
+    # Step 1: fetch tables
+    meta_url = f"https://api.airtable.com/v0/meta/bases/{AIRTABLE_BASE_ID}/tables"
+    resp = requests.get(meta_url, headers=headers)
     if resp.status_code != 200:
+        st.error(f"⚠️ Couldn't fetch tables metadata ({resp.status_code})")
         return ["Pursuing"]
-    for tbl in resp.json().get("tables", []):
-        if tbl["name"] == AIRTABLE_TABLE_NAME:
-            for fld in tbl.get("fields", []):
-                if fld["name"] == "Status" and fld.get("type") == "singleSelect":
-                    return [opt["name"] for opt in fld["options"]["choices"]]
+    tables = resp.json().get("tables", [])
+    table_id = next((t["id"] for t in tables if t["name"] == AIRTABLE_TABLE_NAME), None)
+    if not table_id:
+        st.error(f"⚠️ Table '{AIRTABLE_TABLE_NAME}' not found in metadata")
+        return ["Pursuing"]
+
+    # Step 2: fetch fields for that table
+    fields_url = f"https://api.airtable.com/v0/meta/bases/{AIRTABLE_BASE_ID}/tables/{table_id}/fields"
+    resp2 = requests.get(fields_url, headers=headers)
+    if resp2.status_code != 200:
+        st.error(f"⚠️ Couldn't fetch fields metadata ({resp2.status_code})")
+        return ["Pursuing"]
+    fields = resp2.json().get("fields", [])
+    for fld in fields:
+        if fld["name"] == "Status" and fld.get("type") == "singleSelect":
+            return [opt["name"] for opt in fld["options"]["choices"]]
+    st.error("⚠️ 'Status' field (singleSelect) not found in metadata")
     return ["Pursuing"]
 
 # --- Helper Functions ---
@@ -135,28 +148,28 @@ def create_airtable_record(
     }
     fields = {
         "Deal Type": [deal_type],
-        "Status": status,
-        "Summary": data.get("Summary"),
-        "Raw Notes": raw_notes,
+        "Status":       status,
+        "Summary":      data.get("Summary"),
+        "Raw Notes":    raw_notes,
         "Contact Info": contact_info,
-        "Sponsor": data.get("Sponsor"),
-        "Broker": data.get("Broker"),
-        "Attachments": [{"url": u} for u in attachments],
+        "Sponsor":      data.get("Sponsor"),
+        "Broker":       data.get("Broker"),
+        "Attachments":  [{"url": u} for u in attachments],
         "Key Highlights": "\n".join(data.get("Key Highlights", [])),
-        "Risks": "\n".join(data.get("Risks or Red Flags", [])),
-        "Property Name": data.get("Property Name"),
-        "Location": data.get("Location"),
-        "Asset Class": data.get("Asset Class"),
+        "Risks":          "\n".join(data.get("Risks or Red Flags", [])),
+        "Property Name":  data.get("Property Name"),
+        "Location":       data.get("Location"),
+        "Asset Class":    data.get("Asset Class"),
         "Purchase Price": data.get("Purchase Price"),
-        "Loan Amount": data.get("Loan Amount"),
+        "Loan Amount":    data.get("Loan Amount"),
         "In-Place Cap Rate": data.get("In-Place Cap Rate"),
         "Stabilized Cap Rate": data.get("Stabilized Cap Rate"),
-        "Interest Rate": data.get("Interest Rate"),
-        "Term": data.get("Term"),
-        "Exit Strategy": data.get("Exit Strategy"),
-        "Projected IRR": data.get("Projected IRR"),
-        "Hold Period": data.get("Hold Period"),
-        "Size": data.get("Square Footage or Unit Count"),
+        "Interest Rate":     data.get("Interest Rate"),
+        "Term":              data.get("Term"),
+        "Exit Strategy":     data.get("Exit Strategy"),
+        "Projected IRR":     data.get("Projected IRR"),
+        "Hold Period":       data.get("Hold Period"),
+        "Size":              data.get("Square Footage or Unit Count"),
     }
     resp = requests.post(
         f"https://api.airtable.com/v0/{AIRTABLE_BASE_ID}/{AIRTABLE_TABLE_NAME}",
@@ -172,6 +185,7 @@ st.title("🤖 DealFlow AI")
 deal_type = st.radio("💼 Select Deal Type", ["🏦 Debt", "🏢 Equity"], horizontal=True)
 deal_type_value = "Debt" if "Debt" in deal_type else "Equity"
 
+# Live fetch of Status options
 status_options = get_status_options()
 default_idx = status_options.index("Pursuing") if "Pursuing" in status_options else 0
 
@@ -214,12 +228,12 @@ if st.button("🚀 Run DealFlow AI"):
                 s3_urls.append(upload_to_s3(f, f.name))
 
             st.session_state.update({
-                "summary": summary,
-                "raw_notes": extra_notes,
-                "notes_summary": notes_summary,
-                "contacts": contact_info,
-                "attachments": s3_urls,
-                "deal_type": deal_type_value
+                "summary":      summary,
+                "raw_notes":    extra_notes,
+                "notes_summary":notes_summary,
+                "contacts":     contact_info,
+                "attachments":  s3_urls,
+                "deal_type":    deal_type_value
             })
 
 # Editable form + upload
@@ -252,24 +266,24 @@ if "summary" in st.session_state:
     if submitted:
         with st.spinner("📡 Uploading to Airtable…"):
             updated = {
-                "Property Name": property_name,
-                "Location": location,
-                "Asset Class": asset_class,
-                "Sponsor": sponsor,
-                "Broker": broker,
-                "Purchase Price": purchase_price,
-                "Loan Amount": loan_amount,
+                "Property Name":     property_name,
+                "Location":          location,
+                "Asset Class":       asset_class,
+                "Sponsor":           sponsor,
+                "Broker":            broker,
+                "Purchase Price":    purchase_price,
+                "Loan Amount":       loan_amount,
                 "In-Place Cap Rate": in_cap_rate,
                 "Stabilized Cap Rate": stab_cap_rate,
-                "Interest Rate": interest_rate,
-                "Term": term,
-                "Exit Strategy": exit_strategy,
-                "Projected IRR": proj_irr,
-                "Hold Period": hold_period,
-                "Size": size,
-                "Key Highlights": key_highlights.strip().split("\n"),
-                "Risks or Red Flags": risks.strip().split("\n"),
-                "Summary": summary_text
+                "Interest Rate":     interest_rate,
+                "Term":              term,
+                "Exit Strategy":     exit_strategy,
+                "Projected IRR":     proj_irr,
+                "Hold Period":       hold_period,
+                "Size":              size,
+                "Key Highlights":    key_highlights.strip().split("\n"),
+                "Risks or Red Flags":risks.strip().split("\n"),
+                "Summary":           summary_text
             }
             create_airtable_record(
                 updated,
