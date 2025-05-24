@@ -113,8 +113,8 @@ def create_airtable_record(
         "Sponsor": data.get("Sponsor"),
         "Broker": data.get("Broker"),
         "Attachments": [{"url": u} for u in attachments],
-        "Key Highlights": "\n".join(data.get("Key Highlights", [])),
-        "Risks": "\n".join(data.get("Risks or Red Flags", [])),
+        "Key Highlights": data.get("Key Highlights", []),
+        "Risks": data.get("Risks or Red Flags", []),
         "Property Name": data.get("Property Name"),
         "Location": data.get("Location"),
         "Asset Class": data.get("Asset Class"),
@@ -143,6 +143,7 @@ st.title("DealFlow AI")
 
 st.markdown("""
 <style>
+/* Button styling */
 div.stButton > button {
     background-color: #1f77b4;
     color: white;
@@ -163,52 +164,49 @@ div.stButton > button:hover {
 deal_type = st.radio("Deal Type", ["Equity", "Debt"], index=0, horizontal=True)
 uploaded_main = st.file_uploader("Upload deal memo (PDF, DOC, DOCX)", type=["pdf","doc","docx"])
 extra_notes = st.text_area("Paste deal notes or email thread", height=200)
-uploaded_files = st.file_uploader("Upload supporting files (optional)", type=["pdf","doc","docx","xls","xlsx","jpg","png"], accept_multiple_files=True)
+uploaded_files = st.file_uploader(
+    "Upload supporting files (optional)",
+    type=["pdf","doc","docx","xls","xlsx","jpg","png"],
+    accept_multiple_files=True
+)
 
-run = st.button("Run DealFlow AI 🚀")
-
-if run:
-    placeholder = st.empty()
-    steps = [
-        "Parsing documents…",
-        "Analyzing with AI…",
-        "Compiling insights…",
-        "Finalizing summary…"
-    ]
-    src = ""
-    urls = []
-    summary = {}
-    notes_sum = ""
-    contacts = ""
-
-    for i, step in enumerate(steps):
-        placeholder.text(step)
-        time.sleep(random.uniform(0.7, 1.5))
-        if i == 0:
-            # Extract text
-            if uploaded_main:
-                ext = uploaded_main.name.lower().rsplit(".",1)[-1]
-                if ext == "pdf": src = extract_text_from_pdf(uploaded_main)
-                elif ext == "docx": src = extract_text_from_docx(uploaded_main)
-                else:
-                    uploaded_main.seek(0)
-                    src = extract_text_from_doc(uploaded_main)
-        elif i == 1:
-            # AI summary
-            combined = (src + "\n\n" + extra_notes).strip()
-            summary = gpt_extract_summary(combined, deal_type)
-            notes_sum = summarize_notes(extra_notes)
-            contacts = extract_contact_info(combined)
-        elif i == 2:
-            # Upload attachments
-            if uploaded_main:
+if st.button("Run DealFlow AI 🚀"):
+    # Step 1: Parsing
+    with st.spinner("Parsing documents…"):
+        src = ""
+        if uploaded_main:
+            ext = uploaded_main.name.lower().rsplit(".",1)[-1]
+            if ext == "pdf":
+                src = extract_text_from_pdf(uploaded_main)
+            elif ext == "docx":
+                src = extract_text_from_docx(uploaded_main)
+            else:
                 uploaded_main.seek(0)
-                urls.append(upload_to_s3(uploaded_main, uploaded_main.name))
-            for f in uploaded_files:
-                f.seek(0)
-                urls.append(upload_to_s3(f, f.name))
-        # i == 3 just finalizing delay
-    placeholder.empty()
+                src = extract_text_from_doc(uploaded_main)
+        time.sleep(random.uniform(0.7, 1.5))
+
+    # Step 2: AI analysis
+    with st.spinner("Analyzing with AI…"):
+        combined = (src + "\n\n" + extra_notes).strip()
+        summary = gpt_extract_summary(combined, deal_type)
+        notes_sum = summarize_notes(extra_notes)
+        contacts = extract_contact_info(combined)
+        time.sleep(random.uniform(0.7, 1.5))
+
+    # Step 3: Upload attachments
+    with st.spinner("Uploading attachments…"):
+        urls = []
+        if uploaded_main:
+            uploaded_main.seek(0)
+            urls.append(upload_to_s3(uploaded_main, uploaded_main.name))
+        for f in uploaded_files:
+            f.seek(0)
+            urls.append(upload_to_s3(f, f.name))
+        time.sleep(random.uniform(0.7, 1.5))
+
+    # Step 4: Finalizing
+    with st.spinner("Finalizing summary…"):
+        time.sleep(random.uniform(0.7, 1.5))
 
     # Store results
     st.session_state.update({
@@ -240,8 +238,8 @@ if "summary" in st.session_state:
         proj_irr = st.text_input("Projected IRR", value=s.get("Projected IRR",""))
         hold_period = st.text_input("Hold Period", value=s.get("Hold Period",""))
         size = st.text_input("Size (Square Footage or Unit Count)", value=s.get("Square Footage or Unit Count",""))
-        key_highlights = st.text_area("Key Highlights (one per line)", value="\n".join(s.get("Key Highlights",[])))
-        risks = st.text_area("Risks or Red Flags (one per line)", value="\n".join(s.get("Risks or Red Flags",[])))
+        key_highlights = st.text_area("Key Highlights", value="\n".join(s.get("Key Highlights",[])))
+        risks = st.text_area("Risks or Red Flags", value="\n".join(s.get("Risks or Red Flags",[])))
         summary_text = st.text_area("Summary", value=s.get("Summary",""))
         raw_notes = st.text_area("Raw Notes (edit before upload)", value=st.session_state.get("raw_notes",""), height=150)
         submitted = st.form_submit_button("Save to Airtable")
