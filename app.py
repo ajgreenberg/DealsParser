@@ -27,8 +27,23 @@ s3 = boto3.client(
     region_name=S3_REGION
 )
 
+# --- Airtable Metadata Fetcher ---
+def get_status_options() -> List[str]:
+    """Fetch the singleSelect choices for the 'Status' field from Airtable Metadata API."""
+    url = f"https://api.airtable.com/v0/meta/bases/{AIRTABLE_BASE_ID}/tables"
+    headers = {"Authorization": f"Bearer {AIRTABLE_PAT}"}
+    resp = requests.get(url, headers=headers)
+    if resp.status_code != 200:
+        return ["Pursuing"]
+    for tbl in resp.json().get("tables", []):
+        if tbl["name"] == AIRTABLE_TABLE_NAME:
+            for fld in tbl.get("fields", []):
+                if fld["name"] == "Status" and fld.get("type") == "singleSelect":
+                    return [opt["name"] for opt in fld["options"]["choices"]]
+    return ["Pursuing"]
+
 # --- Helper Functions ---
-def upload_to_s3(file_data, filename):
+def upload_to_s3(file_data, filename) -> str:
     key = f"deal-uploads/{datetime.now().strftime('%Y%m%d-%H%M%S')}-{filename}"
     s3.upload_fileobj(file_data, S3_BUCKET, key)
     return f"https://{S3_BUCKET}.s3.{S3_REGION}.amazonaws.com/{key}"
@@ -80,6 +95,8 @@ def gpt_extract_summary(text: str, deal_type: str) -> Dict:
         "- Property Name\n"
         "- Location\n"
         "- Asset Class\n"
+        "- Sponsor\n"
+        "- Broker\n"
         "- Purchase Price\n"
         "- Loan Amount\n"
         "- In-Place Cap Rate\n"
@@ -109,7 +126,8 @@ def create_airtable_record(
     raw_notes: str,
     attachments: List[str],
     deal_type: str,
-    contact_info: str
+    contact_info: str,
+    status: str
 ):
     headers = {
         "Authorization": f"Bearer {AIRTABLE_PAT}",
@@ -117,9 +135,12 @@ def create_airtable_record(
     }
     fields = {
         "Deal Type": [deal_type],
+        "Status": status,
         "Summary": data.get("Summary"),
         "Raw Notes": raw_notes,
         "Contact Info": contact_info,
+        "Sponsor": data.get("Sponsor"),
+        "Broker": data.get("Broker"),
         "Attachments": [{"url": u} for u in attachments],
         "Key Highlights": "\n".join(data.get("Key Highlights", [])),
         "Risks": "\n".join(data.get("Risks or Red Flags", [])),
@@ -146,10 +167,13 @@ def create_airtable_record(
         st.error(f"Airtable error: {resp.text}")
 
 # --- Streamlit UI ---
-st.title("📄 DealFlow AI")
+st.title("🤖 DealFlow AI")
 
 deal_type = st.radio("💼 Select Deal Type", ["🏦 Debt", "🏢 Equity"], horizontal=True)
 deal_type_value = "Debt" if "Debt" in deal_type else "Equity"
+
+status_options = get_status_options()
+default_idx = status_options.index("Pursuing") if "Pursuing" in status_options else 0
 
 uploaded_main = st.file_uploader("📄 Upload Deal Memo (optional)", type=["pdf","doc","docx"])
 extra_notes    = st.text_area("🗒 Paste deal notes or email thread", height=200)
@@ -160,13 +184,13 @@ uploaded_files = st.file_uploader(
 )
 
 if st.button("🚀 Run DealFlow AI"):
-    with st.spinner("🔍 Parsing deal..."):
+    with st.spinner("🔍 Parsing deal…"):
         source_text = ""
         if uploaded_main:
             ext = uploaded_main.name.lower().rsplit(".",1)[-1]
-            if ext=="pdf":
+            if ext == "pdf":
                 source_text = extract_text_from_pdf(uploaded_main)
-            elif ext=="docx":
+            elif ext == "docx":
                 source_text = extract_text_from_docx(uploaded_main)
             else:
                 uploaded_main.seek(0)
@@ -180,7 +204,7 @@ if st.button("🚀 Run DealFlow AI"):
             notes_summary = summarize_notes(extra_notes)
             contact_info  = extract_contact_info(combined)
 
-            # S3 uploads
+            # upload attachments
             s3_urls = []
             if uploaded_main:
                 uploaded_main.seek(0)
@@ -189,7 +213,6 @@ if st.button("🚀 Run DealFlow AI"):
                 f.seek(0)
                 s3_urls.append(upload_to_s3(f, f.name))
 
-            # Store in session
             st.session_state.update({
                 "summary": summary,
                 "raw_notes": extra_notes,
@@ -202,11 +225,13 @@ if st.button("🚀 Run DealFlow AI"):
 # Editable form + upload
 if "summary" in st.session_state:
     st.subheader("✏️ Review & Edit Deal Details")
-    with st.form("edit_deal_form"):
+    with st.form("edit_form"):
         s = st.session_state["summary"]
         property_name  = st.text_input("Property Name",               value=s.get("Property Name",""))
         location       = st.text_input("Location",                    value=s.get("Location",""))
         asset_class    = st.text_input("Asset Class",                 value=s.get("Asset Class",""))
+        sponsor        = st.text_input("Sponsor",                     value=s.get("Sponsor",""))
+        broker         = st.text_input("Broker",                      value=s.get("Broker",""))
         purchase_price = st.text_input("Purchase Price",              value=s.get("Purchase Price",""))
         loan_amount    = st.text_input("Loan Amount",                 value=s.get("Loan Amount",""))
         in_cap_rate    = st.text_input("In-Place Cap Rate",           value=s.get("In-Place Cap Rate",""))
@@ -216,19 +241,22 @@ if "summary" in st.session_state:
         exit_strategy  = st.text_input("Exit Strategy",               value=s.get("Exit Strategy",""))
         proj_irr       = st.text_input("Projected IRR",               value=s.get("Projected IRR",""))
         hold_period    = st.text_input("Hold Period",                 value=s.get("Hold Period",""))
-        size           = st.text_input("Size (Sq Ft or Unit Count)", value=s.get("Square Footage or Unit Count",""))
+        size           = st.text_input("Size (Sq Ft or Unit Count)",  value=s.get("Square Footage or Unit Count",""))
         key_highlights = st.text_area("Key Highlights (one per line)", value="\n".join(s.get("Key Highlights",[])))
         risks          = st.text_area("Risks or Red Flags (one per line)", value="\n".join(s.get("Risks or Red Flags",[])))
         summary_text   = st.text_area("Summary",                      value=s.get("Summary",""))
         raw_notes      = st.text_area("Raw Notes (edit before upload)", value=st.session_state.get("raw_notes",""), height=150)
+        status         = st.selectbox("Status", options=status_options, index=default_idx)
         submitted      = st.form_submit_button("📤 Upload to Airtable")
 
     if submitted:
-        with st.spinner("📡 Uploading to Airtable..."):
+        with st.spinner("📡 Uploading to Airtable…"):
             updated = {
                 "Property Name": property_name,
                 "Location": location,
                 "Asset Class": asset_class,
+                "Sponsor": sponsor,
+                "Broker": broker,
                 "Purchase Price": purchase_price,
                 "Loan Amount": loan_amount,
                 "In-Place Cap Rate": in_cap_rate,
@@ -248,6 +276,7 @@ if "summary" in st.session_state:
                 raw_notes,
                 st.session_state["attachments"],
                 st.session_state["deal_type"],
-                st.session_state["contacts"]
+                st.session_state["contacts"],
+                status
             )
         st.success("✅ Deal saved to Airtable!")
