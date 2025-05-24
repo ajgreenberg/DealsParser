@@ -7,8 +7,8 @@ import requests
 import json
 import re
 import boto3
-import threading
 import time
+import random
 from typing import Dict, List
 from datetime import datetime
 
@@ -30,7 +30,6 @@ s3 = boto3.client(
 )
 
 # --- Helper Functions ---
-
 def upload_to_s3(file_data, filename) -> str:
     key = f"deal-uploads/{datetime.now().strftime('%Y%m%d-%H%M%S')}-{filename}"
     s3.upload_fileobj(file_data, S3_BUCKET, key)
@@ -55,8 +54,7 @@ def summarize_notes(notes: str) -> str:
     if not notes.strip():
         return ""
     prompt = (
-        "Summarize the following deal notes or email thread in 2–4 concise, neutral bullet points:\n\n"
-        + notes
+        "Summarize the following deal notes or email thread in 2–4 concise, neutral bullet points:\n\n" + notes
     )
     res = client.chat.completions.create(
         model="gpt-3.5-turbo",
@@ -69,8 +67,7 @@ def summarize_notes(notes: str) -> str:
 def extract_contact_info(text: str) -> str:
     prompt = (
         "Extract the contact information (name, company, phone, and email) of any brokers, "
-        "sponsors, or agents from the following text. Return in plain text.\n\nText:\n"
-        + text[:3500]
+        "sponsors, or agents from the following text. Return in plain text.\n\nText:\n" + text[:3500]
     )
     res = client.chat.completions.create(
         model="gpt-4",
@@ -84,12 +81,10 @@ def gpt_extract_summary(text: str, deal_type: str) -> Dict:
     prompt = (
         f"You are an AI real estate analyst reviewing a {deal_type.lower()} opportunity.\n\n"
         f"Text:\n{text[:4000]}\n\n"
-        "Return JSON with the following fields:\n"
-        "Property Name, Location, Asset Class, Sponsor, Broker,\n"
-        "Purchase Price, Loan Amount, In-Place Cap Rate,\n"
-        "Stabilized Cap Rate, Interest Rate, Term, Exit Strategy,\n"
-        "Projected IRR, Hold Period, Square Footage or Unit Count,\n"
-        "Key Highlights (bullet points), Risks or Red Flags (bullet points), Summary (2–3 sentences)\n"
+        "Return JSON with: Property Name, Location, Asset Class, Sponsor, Broker, "
+        "Purchase Price, Loan Amount, In-Place Cap Rate, Stabilized Cap Rate, Interest Rate, "
+        "Term, Exit Strategy, Projected IRR, Hold Period, Square Footage or Unit Count, "
+        "Key Highlights, Risks or Red Flags, Summary (2–3 sentences)\n"
     )
     res = client.chat.completions.create(
         model="gpt-3.5-turbo",
@@ -137,10 +132,7 @@ def create_airtable_record(
     url = f"https://api.airtable.com/v0/{AIRTABLE_BASE_ID}/{AIRTABLE_TABLE_NAME}"
     resp = requests.post(
         url,
-        headers={
-            "Authorization": f"Bearer {AIRTABLE_PAT}",
-            "Content-Type": "application/json"
-        },
+        headers={"Authorization": f"Bearer {AIRTABLE_PAT}", "Content-Type": "application/json"},
         json={"fields": fields}
     )
     if resp.status_code not in (200, 201):
@@ -168,129 +160,112 @@ div.stButton > button:hover {
 """, unsafe_allow_html=True)
 
 # --- Inputs ---
-deal_type = st.radio(
-    "Select Deal Type",
-    ["Equity", "Debt"],
-    index=0,
-    horizontal=True
-)
-
+deal_type = st.radio("Select Deal Type", ["Equity", "Debt"], index=0, horizontal=True)
 uploaded_main = st.file_uploader("Upload deal memo (PDF, DOC, DOCX)", type=["pdf","doc","docx"])
-extra_notes   = st.text_area("Paste deal notes or email thread", height=200)
-uploaded_files = st.file_uploader(
-    "Upload supporting files (optional)",
-    type=["pdf","doc","docx","xls","xlsx","jpg","png"],
-    accept_multiple_files=True
-)
+extra_notes = st.text_area("Paste deal notes or email thread", height=200)
+uploaded_files = st.file_uploader("Upload supporting files (optional)", type=["pdf","doc","docx","xls","xlsx","jpg","png"], accept_multiple_files=True)
 
 run = st.button("Run DealFlow AI")
 
 if run:
     placeholder = st.empty()
-    messages = [
-        "Parsing documents…",
-        "Underwriting with AI models…",
-        "Compiling insights…",
-        "Finalizing summary…"
+    steps = [
+        "🔍 Parsing documents…",
+        "📈 Underwriting with AI…",
+        "📋 Compiling insights…",
+        "✍️ Finalizing summary…"
     ]
-
-    def background_work():
-        # Extract text
-        src = ""
-        if uploaded_main:
-            ext = uploaded_main.name.lower().rsplit(".",1)[-1]
-            if ext=="pdf":
-                src = extract_text_from_pdf(uploaded_main)
-            elif ext=="docx":
-                src = extract_text_from_docx(uploaded_main)
-            else:
-                uploaded_main.seek(0)
-                src = extract_text_from_doc(uploaded_main)
-        combined = (src + "\n\n" + extra_notes).strip()
-
-        # GPT extract
-        summary      = gpt_extract_summary(combined, deal_type)
-        notes_sum    = summarize_notes(extra_notes)
-        contacts     = extract_contact_info(combined)
-
-        # Attachments
-        urls = []
-        if uploaded_main:
+    # Step-by-step synchronous processing
+    # 1) Parsing
+    placeholder.text(steps[0])
+    src = ""
+    if uploaded_main:
+        ext = uploaded_main.name.lower().rsplit(".",1)[-1]
+        if ext == "pdf": src = extract_text_from_pdf(uploaded_main)
+        elif ext == "docx": src = extract_text_from_docx(uploaded_main)
+        else:
             uploaded_main.seek(0)
-            urls.append(upload_to_s3(uploaded_main, uploaded_main.name))
-        for f in uploaded_files:
-            f.seek(0)
-            urls.append(upload_to_s3(f, f.name))
+            src = extract_text_from_doc(uploaded_main)
 
-        # Store results
-        st.session_state["summary"]     = summary
-        st.session_state["raw_notes"]   = extra_notes
-        st.session_state["notes_sum"]   = notes_sum
-        st.session_state["contacts"]    = contacts
-        st.session_state["attachments"] = urls
-        st.session_state["deal_type"]   = deal_type
+    # 2) Summary
+    placeholder.text(steps[1])
+    combined = (src + "\n\n" + extra_notes).strip()
+    summary = gpt_extract_summary(combined, deal_type)
+    notes_sum = summarize_notes(extra_notes)
+    contacts = extract_contact_info(combined)
 
-    thread = threading.Thread(target=background_work)
-    thread.start()
+    # 3) Attachments
+    placeholder.text(steps[2])
+    urls = []
+    if uploaded_main:
+        uploaded_main.seek(0)
+        urls.append(upload_to_s3(uploaded_main, uploaded_main.name))
+    for f in uploaded_files:
+        f.seek(0)
+        urls.append(upload_to_s3(f, f.name))
 
-    for msg in messages:
-        if not thread.is_alive():
-            break
-        placeholder.text(msg)
-        time.sleep(0.8)
-
-    # wait for completion if needed
-    while thread.is_alive():
-        time.sleep(0.1)
+    # 4) Finalizing
+    placeholder.text(steps[3])
+    time.sleep(0.5)
     placeholder.empty()
+
+    # Store results
+    st.session_state.update({
+        "summary": summary,
+        "raw_notes": extra_notes,
+        "notes_sum": notes_sum,
+        "contacts": contacts,
+        "attachments": urls,
+        "deal_type": deal_type
+    })
 
 # --- Editable Form & Upload ---
 if "summary" in st.session_state:
     st.subheader("Review and edit deal details")
     with st.form("edit_form"):
         s = st.session_state["summary"]
-        property_name  = st.text_input("Property Name", value=s.get("Property Name", ""))
-        location       = st.text_input("Location", value=s.get("Location", ""))
-        asset_class    = st.text_input("Asset Class", value=s.get("Asset Class", ""))
-        sponsor        = st.text_input("Sponsor", value=s.get("Sponsor", ""))
-        broker         = st.text_input("Broker", value=s.get("Broker", ""))
-        purchase_price = st.text_input("Purchase Price", value=s.get("Purchase Price", ""))
-        loan_amount    = st.text_input("Loan Amount", value=s.get("Loan Amount", ""))
-        in_cap_rate    = st.text_input("In-Place Cap Rate", value=s.get("In-Place Cap Rate", ""))
-        stab_cap_rate  = st.text_input("Stabilized Cap Rate", value=s.get("Stabilized Cap Rate", ""))
-        interest_rate  = st.text_input("Interest Rate", value=s.get("Interest Rate", ""))
-        term           = st.text_input("Term", value=s.get("Term", ""))
-        exit_strategy  = st.text_input("Exit Strategy", value=s.get("Exit Strategy", ""))
-        proj_irr       = st.text_input("Projected IRR", value=s.get("Projected IRR", ""))
-        hold_period    = st.text_input("Hold Period", value=s.get("Hold Period", ""))
-        size           = st.text_input("Size (Square Footage or Unit Count)", value=s.get("Square Footage or Unit Count", ""))
-        key_highlights = st.text_area("Key Highlights (one per line)", value="\n".join(s.get("Key Highlights", [])))
-        risks          = st.text_area("Risks or Red Flags (one per line)", value="\n".join(s.get("Risks or Red Flags", [])))
-        summary_text   = st.text_area("Summary", value=s.get("Summary", ""))
-        raw_notes      = st.text_area("Raw Notes (edit before upload)", value=st.session_state.get("raw_notes", ""), height=150)
-        submitted      = st.form_submit_button("Save to Airtable")
+        property_name = st.text_input("Property Name", value=s.get("Property Name",""))
+        location = st.text_input("Location", value=s.get("Location",""))
+        asset_class = st.text_input("Asset Class", value=s.get("Asset Class",""))
+        sponsor = st.text_input("Sponsor", value=s.get("Sponsor",""))
+        broker = st.text_input("Broker", value=s.get("Broker",""))
+        purchase_price = st.text_input("Purchase Price", value=s.get("Purchase Price",""))
+        loan_amount = st.text_input("Loan Amount", value=s.get("Loan Amount",""))
+        in_cap_rate = st.text_input("In-Place Cap Rate", value=s.get("In-Place Cap Rate",""))
+        stab_cap_rate = st.text_input("Stabilized Cap Rate", value=s.get("Stabilized Cap Rate",""))
+        interest_rate = st.text_input("Interest Rate", value=s.get("Interest Rate",""))
+        term = st.text_input("Term", value=s.get("Term",""))
+        exit_strategy = st.text_input("Exit Strategy", value=s.get("Exit Strategy",""))
+        proj_irr = st.text_input("Projected IRR", value=s.get("Projected IRR",""))
+        hold_period = st.text_input("Hold Period", value=s.get("Hold Period",""))
+        size = st.text_input("Size (Square Footage or Unit Count)", value=s.get("Square Footage or Unit Count",""))
+        key_highlights = st.text_area("Key Highlights (one per line)", value="\n".join(s.get("Key Highlights",[])))
+        risks = st.text_area("Risks or Red Flags (one per line)", value="\n".join(s.get("Risks or Red Flags",[])))
+        summary_text = st.text_area("Summary", value=s.get("Summary",""))
+        raw_notes = st.text_area("Raw Notes (edit before upload)", value=st.session_state.get("raw_notes",""), height=150)
+        submitted = st.form_submit_button("Save to Airtable")
 
     if submitted:
         with st.spinner("Saving deal…"):
             updated = {
-                "Property Name":       property_name,
-                "Location":            location,
-                "Asset Class":         asset_class,
-                "Sponsor":             sponsor,
-                "Broker":              broker,
-                "Purchase Price":      purchase_price,
-                "Loan Amount":         loan_amount,
-                "In-Place Cap Rate":   in_cap_rate,
+                "Property Name": property_name,
+                "Location": location,
+                "Asset Class": asset_class,
+                "Sponsor": sponsor,
+                "Broker": broker,
+                "Purchase Price": purchase_price,
+                "Loan Amount": loan_amount,
+                "In-Place Cap Rate": in_cap_rate,
                 "Stabilized Cap Rate": stab_cap_rate,
-                "Interest Rate":       interest_rate,
-                "Term":                term,
-                "Exit Strategy":       exit_strategy,
-                "Projected IRR":       proj_irr,
-                "Hold Period":         hold_period,
-                "Size":                size,
-                "Key Highlights":      key_highlights.strip().split("\n"),
-                "Risks or Red Flags":  risks.strip().split("\n"),
-                "Summary":             summary_text
+                "Interest Rate": interest_rate,
+                "Term": term,
+                "Exit Strategy": exit_strategy,
+                "Projected IRR": proj_irr,
+                "Hold Period": hold_period,
+                "Size": size,
+                "Key Highlights": key_highlights.strip().split("\n"),
+                "Risks or Red Flags": risks.strip().split("\n"),
+                "Summary": summary_text
             }
             create_airtable_record(
                 updated,
