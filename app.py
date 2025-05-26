@@ -206,30 +206,39 @@ st.markdown("""
             font-size: 0.875rem !important;
             margin-top: 0.25rem !important;
         }
+        
+        /* Progress bar styling */
+        .stProgress > div > div > div {
+            background-color: #0c3c60 !important;
+        }
+        
+        /* Progress message styling */
+        .status-message {
+            color: #0c3c60 !important;
+            font-weight: 500 !important;
+        }
     </style>
 """, unsafe_allow_html=True)
 
 # --- Loading Messages ---
 LOADING_MESSAGES = [
-    "🧠 Analyzing deal structure and key terms...",
-    "📊 Crunching the numbers and validating assumptions...",
-    "🔍 Extracting critical deal insights...",
-    "📈 Evaluating market dynamics and comparable deals...",
-    "🎯 Identifying potential risks and opportunities...",
-    "🏢 Assessing property characteristics and location advantages...",
-    "💼 Reviewing sponsor track record and capabilities...",
-    "📋 Compiling comprehensive deal summary...",
-    "🔐 Validating security features and loan terms...",
-    "📑 Processing documentation and extracting key data points...",
-    "🌟 Highlighting unique value-add opportunities...",
-    "🎨 Preparing a polished presentation of findings...",
-    "🔄 Cross-referencing market data and trends...",
-    "📌 Pinpointing key investment criteria matches...",
-    "🎭 Evaluating potential scenarios and outcomes..."
+    "Reading and extracting text from uploaded documents...",
+    "Processing deal memo and notes...",
+    "Identifying key deal terms and metrics...",
+    "Organizing extracted information...",
+    "Preparing data for review..."
 ]
 
-def get_loading_message() -> str:
-    return random.choice(LOADING_MESSAGES)
+def get_loading_message(stage: int) -> str:
+    """Get appropriate loading message for each stage."""
+    messages = {
+        0: "Reading and extracting text from documents...",
+        1: "Processing deal information...",
+        2: "Extracting contact information...",
+        3: "Uploading and organizing attachments...",
+        4: "Preparing final summary..."
+    }
+    return messages.get(stage, "Processing...")
 
 # --- Config and Clients ---
 client = OpenAI(api_key=st.secrets["OPENAI_API_KEY"])
@@ -414,57 +423,60 @@ if analyze_button:
     progress_bar = st.progress(0)
     status_text = st.empty()
     
-    for i in range(5):
-        # Update progress bar and message
-        progress_bar.progress((i + 1) * 20)
-        status_text.text(get_loading_message())
-        
-        if i == 0:
-            # Initial document processing
-            source_text = ""
-            if uploaded_main:
-                ext = uploaded_main.name.lower().rsplit(".",1)[-1]
-                if ext == "pdf":
-                    source_text = extract_text_from_pdf(uploaded_main)
-                elif ext == "docx":
-                    source_text = extract_text_from_docx(uploaded_main)
-                else:
+    try:
+        for i in range(5):
+            # Update progress bar and message
+            progress_bar.progress((i + 1) * 20)
+            status_text.markdown(f'<p class="status-message">{get_loading_message(i)}</p>', unsafe_allow_html=True)
+            
+            if i == 0:
+                # Initial document processing
+                source_text = ""
+                if uploaded_main:
+                    ext = uploaded_main.name.lower().rsplit(".",1)[-1]
+                    if ext == "pdf":
+                        source_text = extract_text_from_pdf(uploaded_main)
+                    elif ext == "docx":
+                        source_text = extract_text_from_docx(uploaded_main)
+                    else:
+                        uploaded_main.seek(0)
+                        source_text = extract_text_from_doc(uploaded_main)
+            
+            elif i == 1 and (source_text or extra_notes.strip()):
+                # Process text and generate summary
+                combined = (source_text + "\n\n" + extra_notes).strip()
+                summary = gpt_extract_summary(combined, deal_type_value)
+            
+            elif i == 2:
+                # Process notes and contact info
+                notes_summary = summarize_notes(extra_notes)
+                contact_info = extract_contact_info(combined)
+            
+            elif i == 3:
+                # Handle attachments
+                s3_urls = []
+                if uploaded_main:
                     uploaded_main.seek(0)
-                    source_text = extract_text_from_doc(uploaded_main)
-        
-        elif i == 1 and (source_text or extra_notes.strip()):
-            # Process text and generate summary
-            combined = (source_text + "\n\n" + extra_notes).strip()
-            summary = gpt_extract_summary(combined, deal_type_value)
-        
-        elif i == 2:
-            # Process notes and contact info
-            notes_summary = summarize_notes(extra_notes)
-            contact_info = extract_contact_info(combined)
-        
-        elif i == 3:
-            # Handle attachments
-            s3_urls = []
-            if uploaded_main:
-                uploaded_main.seek(0)
-                s3_urls.append(upload_to_s3(uploaded_main, uploaded_main.name))
-            for f in uploaded_files:
-                f.seek(0)
-                s3_urls.append(upload_to_s3(f, f.name))
-        
-        elif i == 4:
-            # Update session state
-            st.session_state.update({
-                "summary": summary,
-                "raw_notes": extra_notes,
-                "notes_summary": notes_summary,
-                "contacts": contact_info,
-                "attachments": s3_urls,
-                "deal_type": deal_type_value
-            })
-    
-    progress_bar.empty()
-    status_text.empty()
+                    s3_urls.append(upload_to_s3(uploaded_main, uploaded_main.name))
+                for f in uploaded_files:
+                    f.seek(0)
+                    s3_urls.append(upload_to_s3(f, f.name))
+            
+            elif i == 4:
+                # Update session state
+                st.session_state.update({
+                    "summary": summary,
+                    "raw_notes": extra_notes,
+                    "notes_summary": notes_summary,
+                    "contacts": contact_info,
+                    "attachments": s3_urls,
+                    "deal_type": deal_type_value
+                })
+    except Exception as e:
+        st.error(f"An error occurred: {str(e)}")
+    finally:
+        progress_bar.empty()
+        status_text.empty()
 
 # Editable form + upload
 if "summary" in st.session_state:
@@ -510,9 +522,27 @@ if "summary" in st.session_state:
 
     if submitted:
         with st.spinner("📡 Uploading to Airtable…"):
-            # Process the bullet points back into lists
-            key_highlights_list = [line.strip()[2:] for line in key_highlights.split("\n") if line.strip().startswith("•")]
-            risks_list = [line.strip()[2:] for line in risks.split("\n") if line.strip().startswith("•")]
+            # Convert the text areas back into proper lists
+            key_highlights_list = []
+            risks_list = []
+            
+            # Process Key Highlights
+            for line in key_highlights.strip().split("\n"):
+                clean_line = line.strip()
+                if clean_line:
+                    # Remove bullet point if it exists
+                    if clean_line.startswith("•"):
+                        clean_line = clean_line[1:].strip()
+                    key_highlights_list.append(clean_line)
+            
+            # Process Risks
+            for line in risks.strip().split("\n"):
+                clean_line = line.strip()
+                if clean_line:
+                    # Remove bullet point if it exists
+                    if clean_line.startswith("•"):
+                        clean_line = clean_line[1:].strip()
+                    risks_list.append(clean_line)
             
             updated = {
                 "Property Name":       property_name,
