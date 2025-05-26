@@ -11,6 +11,8 @@ from typing import Dict, List
 from datetime import datetime
 import random
 import time
+import usaddress  # Add this import for address parsing
+from county_assessor_urls import get_county_url, get_state_url
 
 # --- Custom CSS for Apple-like styling ---
 st.set_page_config(
@@ -295,6 +297,53 @@ s3 = boto3.client(
     region_name=S3_REGION
 )
 
+def parse_address(address: str) -> Dict:
+    """Parse address string into components using usaddress library."""
+    try:
+        parsed, address_type = usaddress.tag(address)
+        return parsed
+    except:
+        return {}
+
+def get_county_info(address: str) -> tuple:
+    """Extract county and state from address using GPT."""
+    prompt = f"""
+    Extract the county and state from this address. Return only in this format: "County, State"
+    If you can't determine the county, return only the state.
+    Address: {address}
+    """
+    
+    res = client.chat.completions.create(
+        model="gpt-3.5-turbo",
+        messages=[{"role": "user", "content": prompt}],
+        temperature=0.3
+    )
+    result = res.choices[0].message.content.strip()
+    
+    if ',' in result:
+        county, state = result.split(',', 1)
+        return county.strip(), state.strip()
+    return None, result.strip()
+
+def generate_county_link(address: str) -> str:
+    """Generate a link to the county tax assessor website with property search if available."""
+    if not address:
+        return ""
+    
+    # Get county and state info
+    county, state = get_county_info(address)
+    
+    # If we have both county and state, try to get a county-specific URL
+    if county and state:
+        return get_county_url(address, state, county)
+    
+    # If we only have state, get the state-level website
+    if state:
+        return get_state_url(state)
+    
+    # If all else fails, return the default national website
+    return "https://www.usa.gov/property-taxes"
+
 # --- Helper Functions ---
 def upload_to_s3(file_data, filename) -> str:
     key = f"deal-uploads/{datetime.now().strftime('%Y%m%d-%H%M%S')}-{filename}"
@@ -399,6 +448,9 @@ def create_airtable_record(
     # Generate maps link from location
     maps_link = generate_maps_link(data.get("Location", ""))
     
+    # Generate county tax link
+    county_link = generate_county_link(data.get("Location", ""))
+    
     fields = {
         "Deal Type": [deal_type],
         "Status": status,
@@ -413,6 +465,7 @@ def create_airtable_record(
         "Property Name": data.get("Property Name"),
         "Location": data.get("Location"),
         "Maps Link": maps_link,
+        "County Tax Link": county_link,
         "Asset Class": data.get("Asset Class"),
         "Purchase Price": data.get("Purchase Price"),
         "Loan Amount": data.get("Loan Amount"),
@@ -585,10 +638,14 @@ if "summary" in st.session_state:
                 if line.strip() and not line.isspace()
             ]
             
+            # Generate county tax link
+            county_link = generate_county_link(location)
+            
             updated = {
                 "Property Name":       property_name,
                 "Location":            location,
                 "Maps Link":           generate_maps_link(location),
+                "County Tax Link":     county_link,
                 "Asset Class":         asset_class,
                 "Sponsor":             sponsor,
                 "Broker":              broker,
