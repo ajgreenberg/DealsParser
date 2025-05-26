@@ -307,11 +307,11 @@ def parse_address(address: str) -> Dict:
 
 def get_county_info(address: str) -> tuple:
     """Extract county and state from address using GPT."""
-    if not address:
-        print("No address provided to get_county_info")
+    if not address or not isinstance(address, str):
+        print(f"Invalid address provided to get_county_info: {repr(address)}")
         return None, None
         
-    print(f"\nAttempting to get county info for address: {address}")
+    print(f"\nAttempting to get county info for address: {repr(address)}")
     prompt = f"""
     Extract ONLY the county and state from this address. Return in EXACTLY this format: "County, ST"
     where ST is the 2-letter state code. If you can't determine the county, return only the state code.
@@ -336,42 +336,42 @@ def get_county_info(address: str) -> tuple:
             temperature=0.1
         )
         result = res.choices[0].message.content.strip()
-        print(f"GPT county extraction result: {result}")
+        print(f"GPT county extraction result: {repr(result)}")
         
         if ',' in result:
             county, state = result.split(',', 1)
             county = county.strip()
             state = state.strip()
-            print(f"Extracted county: '{county}', state: '{state}'")
+            print(f"Extracted county: {repr(county)}, state: {repr(state)}")
             return county, state
-        print(f"No county found, state only: '{result}'")
+        print(f"No county found, state only: {repr(result)}")
         return None, result.strip()
     except Exception as e:
-        print(f"Error extracting county info: {e}")
+        print(f"Error extracting county info: {str(e)}")
         return None, None
 
 def generate_county_link(address: str) -> str:
     """Generate a link to the county tax assessor website with property search if available."""
-    print(f"\nGenerating county link for address: {address}")
-    if not address:
-        print("No address provided")
+    print(f"\nGenerating county link for address: {repr(address)}")
+    if not address or not isinstance(address, str):
+        print("Invalid or empty address")
         return ""
     
     # Get county and state info
     county, state = get_county_info(address)
-    print(f"Got county info - county: '{county}', state: '{state}'")
+    print(f"Got county info - county: {repr(county)}, state: {repr(state)}")
     
     # If we have both county and state, try to get a county-specific URL
     if county and state:
         url = get_county_url(county, state)
-        print(f"Got county-specific URL: {url}")
-        return url
+        print(f"Got county-specific URL: {repr(url)}")
+        return url if url else ""
     
     # If we only have state, get the state-level website
     if state:
         url = get_state_url(state)
-        print(f"Got state-level URL: {url}")
-        return url
+        print(f"Got state-level URL: {repr(url)}")
+        return url if url else ""
     
     # If all else fails, return the default national website
     print("Falling back to national website")
@@ -481,13 +481,13 @@ def create_airtable_record(
     
     # Generate maps link from location
     location = data.get("Location", "")
-    print(f"Location from data: '{location}'")
+    print(f"Location from data: {repr(location)}")
     maps_link = generate_maps_link(location)
-    print(f"Generated maps link: {maps_link}")
+    print(f"Generated maps link: {repr(maps_link)}")
     
     # Generate county tax link
     county_link = generate_county_link(location)
-    print(f"Generated county link: {county_link}")
+    print(f"Generated county link: {repr(county_link)}")
     
     fields = {
         "Deal Type": [deal_type],
@@ -516,14 +516,20 @@ def create_airtable_record(
         "Hold Period": data.get("Hold Period"),
         "Size": data.get("Square Footage or Unit Count"),
     }
-    print("Sending request to Airtable...")
+    print("Fields being sent to Airtable:")
+    for key, value in fields.items():
+        print(f"  {key}: {repr(value)}")
+    
     resp = requests.post(
         f"https://api.airtable.com/v0/{AIRTABLE_BASE_ID}/{AIRTABLE_TABLE_NAME}",
         headers=headers,
         json={"fields": fields}
     )
     if resp.status_code not in (200, 201):
+        print(f"Airtable error response: {resp.text}")
         st.error(f"Airtable error: {resp.text}")
+    else:
+        print("Successfully saved to Airtable")
 
 # --- Streamlit UI ---
 st.markdown("<h1>DealFlow AI</h1>", unsafe_allow_html=True)
