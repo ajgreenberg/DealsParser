@@ -168,7 +168,7 @@ def create_airtable_record(
 # --- Streamlit UI ---
 st.title("🤖 DealFlow AI")
 
-deal_type = st.radio("💼 Select Deal Type", ["🏦 Debt", "🏢 Equity"], horizontal=True)
+deal_type = st.radio("💼 Select Deal Type", ["🏢 Equity", "🏦 Debt"], horizontal=True)
 deal_type_value = "Debt" if "Debt" in deal_type else "Equity"
 
 uploaded_main = st.file_uploader("📄 Upload Deal Memo (optional)", type=["pdf","doc","docx"])
