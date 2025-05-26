@@ -261,18 +261,17 @@ def get_state_url(state: str) -> Optional[str]:
     print(f"Found state URL: {url}")
     return url
 
-def get_county_url(address: Optional[str], state: str, county: str) -> Optional[str]:
+def get_county_url(county: str, state: str) -> Optional[str]:
     """Get the URL for a specific county's tax assessor website.
     
     Args:
-        address: Property address (optional)
-        state: Two-letter state code
         county: County name
+        state: Two-letter state code
     
     Returns:
         URL for the county assessor website or search page
     """
-    print(f"\nget_county_url called with address: '{address}', state: '{state}', county: '{county}'")
+    print(f"\nget_county_url called with county: '{county}', state: '{state}'")
     
     if not state or not county:
         print(f"Missing required parameters - state: '{state}', county: '{county}'")
@@ -289,21 +288,15 @@ def get_county_url(address: Optional[str], state: str, county: str) -> Optional[
     
     # If we have a specific URL for this county, use it
     if county_data.get('base_url'):
-        if address and county_data.get('search_url'):
-            print(f"Using county-specific search URL: {county_data['search_url']}")
-            return county_data['search_url']
         print(f"Using county-specific base URL: {county_data['base_url']}")
         return county_data['base_url']
     
     # Try to construct URL from pattern
     if state in URL_PATTERNS:
-        pattern = URL_PATTERNS[state]['pattern' if not address else 'search_pattern']
+        pattern = URL_PATTERNS[state]['pattern']
         print(f"Using URL pattern for state {state}: {pattern}")
         try:
-            if address:
-                url = pattern.format(county=county.replace(' ', '').replace('-', ''), address=address.replace(' ', '+'))
-            else:
-                url = pattern.format(county=county.replace(' ', '').replace('-', ''))
+            url = pattern.format(county=county.replace(' ', '').replace('-', ''))
             print(f"Generated URL from pattern: {url}")
             return url
         except Exception as e:
