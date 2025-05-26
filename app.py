@@ -363,7 +363,7 @@ def generate_county_link(address: str) -> str:
     
     # If we have both county and state, try to get a county-specific URL
     if county and state:
-        url = get_county_url(address, state, county)
+        url = get_county_url(county, state)
         print(f"Got county-specific URL: {url}")
         return url
     
