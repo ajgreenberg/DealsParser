@@ -21,23 +21,24 @@ st.markdown("""
     <style>
         /* Main container */
         .main {
-            padding: 2rem;
+            padding: 1rem;
         }
         
         /* Typography */
         h1 {
             font-family: -apple-system, BlinkMacSystemFont, sans-serif;
             font-weight: 700 !important;
-            font-size: 2.5rem !important;
-            margin-bottom: 2rem !important;
+            font-size: 2.2rem !important;
+            margin-bottom: 1rem !important;
             color: #1D1D1F !important;
         }
         
         h2 {
             font-family: -apple-system, BlinkMacSystemFont, sans-serif;
             font-weight: 600 !important;
-            font-size: 1.5rem !important;
-            margin-top: 2rem !important;
+            font-size: 1.3rem !important;
+            margin-top: 1rem !important;
+            margin-bottom: 0.5rem !important;
             color: #1D1D1F !important;
         }
         
@@ -46,28 +47,50 @@ st.markdown("""
             font-family: -apple-system, BlinkMacSystemFont, sans-serif;
             font-weight: 500;
             color: #1D1D1F;
+            margin-bottom: 0.5rem;
         }
         
+        /* Input field styling */
         .stTextInput > label {
             font-family: -apple-system, BlinkMacSystemFont, sans-serif;
             font-weight: 500;
             color: #1D1D1F;
+            margin-bottom: 0.25rem;
+        }
+        
+        .stTextInput > div > div {
+            border: 1px solid #E6E6E6 !important;
+            border-radius: 6px !important;
+            background-color: #FFFFFF !important;
+        }
+        
+        /* Editable field styling */
+        .stTextInput > div > div:hover {
+            border-color: #0c3c60 !important;
+            box-shadow: 0 0 0 1px #0c3c60 !important;
+        }
+        
+        .stTextInput > div > div:focus-within {
+            border-color: #0c3c60 !important;
+            box-shadow: 0 0 0 2px #0c3c60 !important;
         }
         
         /* Button styling */
         .stButton > button {
             font-family: -apple-system, BlinkMacSystemFont, sans-serif;
-            background-color: #0071E3 !important;
+            background-color: #0c3c60 !important;
             color: white !important;
-            border-radius: 8px !important;
-            padding: 0.5rem 2rem !important;
+            border-radius: 6px !important;
+            padding: 0.5rem 1.5rem !important;
             font-weight: 500 !important;
             border: none !important;
             transition: all 0.2s ease !important;
+            width: auto !important;
+            margin: 0.5rem 0 !important;
         }
         
         .stButton > button:hover {
-            background-color: #0077ED !important;
+            background-color: #0d4470 !important;
             transform: scale(1.02);
         }
         
@@ -75,21 +98,23 @@ st.markdown("""
         .uploadedFile {
             font-family: -apple-system, BlinkMacSystemFont, sans-serif;
             border: 1px solid #E6E6E6;
-            border-radius: 8px;
-            padding: 1rem;
+            border-radius: 6px;
+            padding: 0.75rem;
+            margin: 0.5rem 0;
         }
         
         /* Success message styling */
         .success {
             font-family: -apple-system, BlinkMacSystemFont, sans-serif;
-            padding: 1rem;
-            border-radius: 8px;
+            padding: 0.75rem;
+            border-radius: 6px;
             background-color: #F5F5F7;
+            margin: 0.5rem 0;
         }
         
         /* Divider styling */
         hr {
-            margin: 2rem 0;
+            margin: 1rem 0 !important;
             border: none;
             border-top: 1px solid #E6E6E6;
         }
@@ -97,9 +122,9 @@ st.markdown("""
         /* Form container */
         .stForm {
             background-color: #F5F5F7;
-            padding: 2rem;
-            border-radius: 12px;
-            margin-top: 1rem;
+            padding: 1.5rem;
+            border-radius: 8px;
+            margin: 0.5rem 0;
         }
         
         /* Text area styling */
@@ -107,10 +132,44 @@ st.markdown("""
             font-family: -apple-system, BlinkMacSystemFont, sans-serif;
             font-weight: 500;
             color: #1D1D1F;
+            margin-bottom: 0.25rem;
         }
         
         .stTextArea > div > div {
-            border-radius: 8px !important;
+            border-radius: 6px !important;
+            border: 1px solid #E6E6E6 !important;
+            background-color: #FFFFFF !important;
+        }
+        
+        .stTextArea > div > div:hover {
+            border-color: #0c3c60 !important;
+            box-shadow: 0 0 0 1px #0c3c60 !important;
+        }
+        
+        .stTextArea > div > div:focus-within {
+            border-color: #0c3c60 !important;
+            box-shadow: 0 0 0 2px #0c3c60 !important;
+        }
+        
+        /* Editable form section */
+        .editable-form {
+            background-color: #F8F8FA;
+            border: 1px solid #E6E6E6;
+            border-radius: 8px;
+            padding: 1rem;
+            margin: 0.5rem 0;
+        }
+        
+        /* Compact spacing for form fields */
+        .stForm > div > div > div {
+            margin-bottom: 0.5rem !important;
+        }
+        
+        /* Help text styling */
+        .stTextInput > div > div > .help {
+            color: #6B7280 !important;
+            font-size: 0.875rem !important;
+            margin-top: 0.25rem !important;
         }
     </style>
 """, unsafe_allow_html=True)
@@ -273,38 +332,27 @@ def create_airtable_record(
 # --- Streamlit UI ---
 st.markdown("<h1>DealFlow AI</h1>", unsafe_allow_html=True)
 
-st.markdown("---")
-
 st.markdown("<h2>Deal Information</h2>", unsafe_allow_html=True)
 deal_type = st.radio("Select Deal Type", ["🏢 Equity", "🏦 Debt"], horizontal=True)
 deal_type_value = "Debt" if "Debt" in deal_type else "Equity"
 
-st.markdown("---")
+uploaded_main = st.file_uploader("Upload Deal Memo", type=["pdf","doc","docx"], 
+    help="Upload the main deal memo document")
 
-st.markdown("<h2>Upload Documents</h2>", unsafe_allow_html=True)
-col1, col2 = st.columns([1, 1])
+uploaded_files = st.file_uploader(
+    "Supporting Documents",
+    type=["pdf","doc","docx","xls","xlsx","jpg","png"],
+    accept_multiple_files=True,
+    help="Upload any additional supporting documents"
+)
 
-with col1:
-    uploaded_main = st.file_uploader("📄 Upload Deal Memo", type=["pdf","doc","docx"], help="Upload the main deal memo document")
-
-with col2:
-    uploaded_files = st.file_uploader(
-        "📎 Supporting Documents",
-        type=["pdf","doc","docx","xls","xlsx","jpg","png"],
-        accept_multiple_files=True,
-        help="Upload any additional supporting documents"
-    )
-
-st.markdown("---")
-
-st.markdown("<h2>Deal Notes</h2>", unsafe_allow_html=True)
 extra_notes = st.text_area(
     "Deal Notes or Email Thread",
-    height=200,
+    height=150,
     help="Paste any additional notes or email correspondence"
 )
 
-analyze_button = st.button("🚀 Analyze Deal", use_container_width=True)
+analyze_button = st.button("🚀 Analyze Deal")
 
 if analyze_button:
     with st.spinner("🔍 Parsing deal…"):
@@ -347,38 +395,41 @@ if analyze_button:
 
 # Editable form + upload
 if "summary" in st.session_state:
-    st.markdown("---")
     st.markdown("<h2>Review & Edit Deal Details</h2>", unsafe_allow_html=True)
     
-    with st.form("edit_form"):
+    with st.form("edit_form", clear_on_submit=False):
         s = st.session_state["summary"]
-        col1, col2 = st.columns([1, 1])
-        with col1:
-            property_name = st.text_input("Property Name", value=s.get("Property Name",""))
-            location = st.text_input("Location", value=s.get("Location",""))
-            asset_class = st.text_input("Asset Class", value=s.get("Asset Class",""))
-            sponsor = st.text_input("Sponsor", value=s.get("Sponsor",""))
-            broker = st.text_input("Broker", value=s.get("Broker",""))
-            purchase_price = st.text_input("Purchase Price", value=s.get("Purchase Price",""))
-            loan_amount = st.text_input("Loan Amount", value=s.get("Loan Amount",""))
-            in_cap_rate = st.text_input("In-Place Cap Rate", value=s.get("In-Place Cap Rate",""))
         
-        with col2:
-            stab_cap_rate = st.text_input("Stabilized Cap Rate", value=s.get("Stabilized Cap Rate",""))
-            interest_rate = st.text_input("Interest Rate", value=s.get("Interest Rate",""))
-            term = st.text_input("Term", value=s.get("Term",""))
-            exit_strategy = st.text_input("Exit Strategy", value=s.get("Exit Strategy",""))
-            proj_irr = st.text_input("Projected IRR", value=s.get("Projected IRR",""))
-            hold_period = st.text_input("Hold Period", value=s.get("Hold Period",""))
-            size = st.text_input("Size (Sq Ft or Unit Count)", value=s.get("Square Footage or Unit Count",""))
+        # Property Details
+        property_name = st.text_input("Property Name", value=s.get("Property Name",""))
+        location = st.text_input("Location", value=s.get("Location",""))
+        asset_class = st.text_input("Asset Class", value=s.get("Asset Class",""))
+        size = st.text_input("Size (Sq Ft or Unit Count)", value=s.get("Square Footage or Unit Count",""))
+        
+        # Deal Team
+        sponsor = st.text_input("Sponsor", value=s.get("Sponsor",""))
+        broker = st.text_input("Broker", value=s.get("Broker",""))
+        
+        # Financial Details
+        purchase_price = st.text_input("Purchase Price", value=s.get("Purchase Price",""))
+        loan_amount = st.text_input("Loan Amount", value=s.get("Loan Amount",""))
+        in_cap_rate = st.text_input("In-Place Cap Rate", value=s.get("In-Place Cap Rate",""))
+        stab_cap_rate = st.text_input("Stabilized Cap Rate", value=s.get("Stabilized Cap Rate",""))
+        interest_rate = st.text_input("Interest Rate", value=s.get("Interest Rate",""))
+        term = st.text_input("Term", value=s.get("Term",""))
+        proj_irr = st.text_input("Projected IRR", value=s.get("Projected IRR",""))
+        hold_period = st.text_input("Hold Period", value=s.get("Hold Period",""))
+        exit_strategy = st.text_input("Exit Strategy", value=s.get("Exit Strategy",""))
 
         st.markdown("---")
-        key_highlights = st.text_area("Key Highlights", value="\n".join(s.get("Key Highlights",[])), height=150)
-        risks = st.text_area("Risks or Red Flags", value="\n".join(s.get("Risks or Red Flags",[])), height=150)
-        summary_text = st.text_area("Summary", value=s.get("Summary",""), height=100)
-        raw_notes = st.text_area("Raw Notes", value=st.session_state.get("raw_notes",""), height=150)
         
-        submitted = st.form_submit_button("📤 Save to Airtable", use_container_width=True)
+        # Analysis
+        key_highlights = st.text_area("Key Highlights", value="\n".join(s.get("Key Highlights",[])), height=120)
+        risks = st.text_area("Risks or Red Flags", value="\n".join(s.get("Risks or Red Flags",[])), height=120)
+        summary_text = st.text_area("Summary", value=s.get("Summary",""), height=100)
+        raw_notes = st.text_area("Raw Notes", value=st.session_state.get("raw_notes",""), height=120)
+        
+        submitted = st.form_submit_button("Save to Airtable")
 
     if submitted:
         with st.spinner("📡 Uploading to Airtable…"):
