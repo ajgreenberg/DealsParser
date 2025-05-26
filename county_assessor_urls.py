@@ -250,11 +250,16 @@ def normalize_county_name(county: str) -> str:
 
 def get_state_url(state: str) -> Optional[str]:
     """Get the state-level tax assessor website URL."""
+    print(f"\nget_state_url called with state: '{state}'")
+    
     if not state:
+        print("No state provided")
         return None
     
     state = state.upper()
-    return STATE_URLS.get(state)
+    url = STATE_URLS.get(state)
+    print(f"Found state URL: {url}")
+    return url
 
 def get_county_url(address: Optional[str], state: str, county: str) -> Optional[str]:
     """Get the URL for a specific county's tax assessor website.
@@ -267,13 +272,15 @@ def get_county_url(address: Optional[str], state: str, county: str) -> Optional[
     Returns:
         URL for the county assessor website or search page
     """
+    print(f"\nget_county_url called with address: '{address}', state: '{state}', county: '{county}'")
+    
     if not state or not county:
-        print(f"Missing required parameters - state: {state}, county: {county}")
+        print(f"Missing required parameters - state: '{state}', county: '{county}'")
         return None
     
     state = state.upper()
     county = normalize_county_name(county)
-    print(f"Looking up URL for state: {state}, county: {county}, address: {address}")
+    print(f"Normalized parameters - state: '{state}', county: '{county}'")
     
     # Try to get county-specific URL from database
     state_db = COUNTY_DATABASE.get(state, {})
@@ -291,6 +298,7 @@ def get_county_url(address: Optional[str], state: str, county: str) -> Optional[
     # Try to construct URL from pattern
     if state in URL_PATTERNS:
         pattern = URL_PATTERNS[state]['pattern' if not address else 'search_pattern']
+        print(f"Using URL pattern for state {state}: {pattern}")
         try:
             if address:
                 url = pattern.format(county=county.replace(' ', '').replace('-', ''), address=address.replace(' ', '+'))
@@ -300,6 +308,8 @@ def get_county_url(address: Optional[str], state: str, county: str) -> Optional[
             return url
         except Exception as e:
             print(f"Error generating URL from pattern: {e}")
+    else:
+        print(f"No URL pattern found for state: {state}")
     
     # Fall back to state-level URL
     state_url = get_state_url(state)
@@ -324,7 +334,7 @@ def get_county_fips(county: str, state: str) -> Optional[str]:
 
 def initialize_database():
     """Initialize the database with county-specific data."""
-    print("Initializing county database...")
+    print("\nInitializing county database...")
     
     # Example: Adding Los Angeles County, CA
     if 'CA' not in COUNTY_DATABASE:
@@ -375,6 +385,10 @@ def initialize_database():
     print(f"Database initialized with {len(COUNTY_DATABASE)} states")
     for state, counties in COUNTY_DATABASE.items():
         print(f"State {state} has {len(counties)} counties")
+        for county in counties:
+            print(f"  - {county}: {counties[county]}")
 
 # Initialize the database
+print("\nStarting county_assessor_urls.py initialization...")
 initialize_database()
+print("Finished county_assessor_urls.py initialization")
