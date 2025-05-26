@@ -10,6 +10,7 @@ import boto3
 from typing import Dict, List
 from datetime import datetime
 import random
+import time
 
 # --- Custom CSS for Apple-like styling ---
 st.set_page_config(
@@ -461,11 +462,14 @@ if analyze_button:
     
     try:
         for i in range(5):
-            # Update progress bar and message
+            # Update message first
             status_container.markdown(
                 f'<div class="status-message"><div class="spinner"></div>{get_loading_message(i)}</div>',
                 unsafe_allow_html=True
             )
+            
+            # Add a small delay between messages
+            time.sleep(0.5)  # Half second delay between messages
             
             if i == 0:
                 # Initial document processing
@@ -510,6 +514,14 @@ if analyze_button:
                     "attachments": s3_urls,
                     "deal_type": deal_type_value
                 })
+                
+            # Add another message update right after processing
+            if i < 4:  # Don't update after the last step
+                status_container.markdown(
+                    f'<div class="status-message"><div class="spinner"></div>{get_loading_message(i + 1)}</div>',
+                    unsafe_allow_html=True
+                )
+    
     except Exception as e:
         st.error(f"An error occurred: {str(e)}")
     finally:
@@ -601,4 +613,4 @@ if "summary" in st.session_state:
                 st.session_state["deal_type"],
                 st.session_state["contacts"]
             )
-        st.success("Deal saved to Airtable!")
+        st.success("✅ Deal saved to Airtable!")
