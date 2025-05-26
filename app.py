@@ -9,6 +9,7 @@ import re
 import boto3
 from typing import Dict, List
 from datetime import datetime
+import random
 
 # --- Custom CSS for Apple-like styling ---
 st.set_page_config(
@@ -19,6 +20,40 @@ st.set_page_config(
 
 st.markdown("""
     <style>
+        /* Hide Streamlit elements */
+        #MainMenu {visibility: hidden;}
+        footer {visibility: hidden;}
+        
+        /* Remove question mark icons */
+        .stDeployButton, .stToolbar {
+            display: none !important;
+        }
+        
+        /* Remove header decoration */
+        .css-10trblm {
+            text-decoration: none !important;
+            margin-left: 0 !important;
+        }
+        .css-10trblm:hover {
+            text-decoration: none !important;
+        }
+        .css-10trblm p {
+            color: inherit !important;
+        }
+        
+        /* Remove help icons */
+        .help-icon, .css-1vbd788 {
+            display: none !important;
+        }
+        
+        /* Hide header links and anchors */
+        a.anchor-link {
+            display: none !important;
+        }
+        .css-1vbd788 > a {
+            display: none !important;
+        }
+        
         /* Main container */
         .main {
             padding: 1rem;
@@ -173,6 +208,28 @@ st.markdown("""
         }
     </style>
 """, unsafe_allow_html=True)
+
+# --- Loading Messages ---
+LOADING_MESSAGES = [
+    "🧠 Analyzing deal structure and key terms...",
+    "📊 Crunching the numbers and validating assumptions...",
+    "🔍 Extracting critical deal insights...",
+    "📈 Evaluating market dynamics and comparable deals...",
+    "🎯 Identifying potential risks and opportunities...",
+    "🏢 Assessing property characteristics and location advantages...",
+    "💼 Reviewing sponsor track record and capabilities...",
+    "📋 Compiling comprehensive deal summary...",
+    "🔐 Validating security features and loan terms...",
+    "📑 Processing documentation and extracting key data points...",
+    "🌟 Highlighting unique value-add opportunities...",
+    "🎨 Preparing a polished presentation of findings...",
+    "🔄 Cross-referencing market data and trends...",
+    "📌 Pinpointing key investment criteria matches...",
+    "🎭 Evaluating potential scenarios and outcomes..."
+]
+
+def get_loading_message() -> str:
+    return random.choice(LOADING_MESSAGES)
 
 # --- Config and Clients ---
 client = OpenAI(api_key=st.secrets["OPENAI_API_KEY"])
@@ -333,49 +390,61 @@ def create_airtable_record(
 st.markdown("<h1>DealFlow AI</h1>", unsafe_allow_html=True)
 
 st.markdown("<h2>Deal Information</h2>", unsafe_allow_html=True)
-deal_type = st.radio("Select Deal Type", ["🏢 Equity", "🏦 Debt"], horizontal=True)
+deal_type = st.radio("Select Deal Type", ["🏢 Equity", "🏦 Debt"], horizontal=True, label_visibility="visible")
 deal_type_value = "Debt" if "Debt" in deal_type else "Equity"
 
 uploaded_main = st.file_uploader("Upload Deal Memo", type=["pdf","doc","docx"], 
-    help="Upload the main deal memo document")
+    label_visibility="visible")
 
 uploaded_files = st.file_uploader(
     "Supporting Documents",
     type=["pdf","doc","docx","xls","xlsx","jpg","png"],
     accept_multiple_files=True,
-    help="Upload any additional supporting documents"
+    label_visibility="visible"
 )
 
 extra_notes = st.text_area(
     "Deal Notes or Email Thread",
     height=150,
-    help="Paste any additional notes or email correspondence"
+    label_visibility="visible"
 )
 
 analyze_button = st.button("🚀 Analyze Deal")
 
 if analyze_button:
-    with st.spinner("🔍 Parsing deal…"):
-        source_text = ""
-        if uploaded_main:
-            ext = uploaded_main.name.lower().rsplit(".",1)[-1]
-            if ext == "pdf":
-                source_text = extract_text_from_pdf(uploaded_main)
-            elif ext == "docx":
-                source_text = extract_text_from_docx(uploaded_main)
-            else:
-                uploaded_main.seek(0)
-                source_text = extract_text_from_doc(uploaded_main)
-
-        if not source_text and not extra_notes.strip():
-            st.warning("Please upload a memo or enter some notes.")
-        else:
+    progress_bar = st.progress(0)
+    status_text = st.empty()
+    
+    for i in range(5):
+        # Update progress bar and message
+        progress_bar.progress((i + 1) * 20)
+        status_text.text(get_loading_message())
+        
+        if i == 0:
+            # Initial document processing
+            source_text = ""
+            if uploaded_main:
+                ext = uploaded_main.name.lower().rsplit(".",1)[-1]
+                if ext == "pdf":
+                    source_text = extract_text_from_pdf(uploaded_main)
+                elif ext == "docx":
+                    source_text = extract_text_from_docx(uploaded_main)
+                else:
+                    uploaded_main.seek(0)
+                    source_text = extract_text_from_doc(uploaded_main)
+        
+        elif i == 1 and (source_text or extra_notes.strip()):
+            # Process text and generate summary
             combined = (source_text + "\n\n" + extra_notes).strip()
-            summary       = gpt_extract_summary(combined, deal_type_value)
+            summary = gpt_extract_summary(combined, deal_type_value)
+        
+        elif i == 2:
+            # Process notes and contact info
             notes_summary = summarize_notes(extra_notes)
-            contact_info  = extract_contact_info(combined)
-
-            # upload attachments
+            contact_info = extract_contact_info(combined)
+        
+        elif i == 3:
+            # Handle attachments
             s3_urls = []
             if uploaded_main:
                 uploaded_main.seek(0)
@@ -383,7 +452,9 @@ if analyze_button:
             for f in uploaded_files:
                 f.seek(0)
                 s3_urls.append(upload_to_s3(f, f.name))
-
+        
+        elif i == 4:
+            # Update session state
             st.session_state.update({
                 "summary": summary,
                 "raw_notes": extra_notes,
@@ -392,6 +463,9 @@ if analyze_button:
                 "attachments": s3_urls,
                 "deal_type": deal_type_value
             })
+    
+    progress_bar.empty()
+    status_text.empty()
 
 # Editable form + upload
 if "summary" in st.session_state:
