@@ -389,8 +389,8 @@ def initialize_database():
     if 'MN' not in COUNTY_DATABASE:
         COUNTY_DATABASE['MN'] = {}
     COUNTY_DATABASE['MN']['hennepin'] = {
-        'base_url': 'https://www.hennepin.us/property',
-        'search_url': 'https://www.hennepin.us/property/search'
+        'base_url': 'https://www16.co.hennepin.mn.us/pins/',
+        'search_url': 'https://www16.co.hennepin.mn.us/pins/addrsrch.jsp'
     }
     
     print(f"Database initialized with {len(COUNTY_DATABASE)} states")
