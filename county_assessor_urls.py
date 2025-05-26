@@ -271,17 +271,18 @@ def get_state_url(state: str) -> Optional[str]:
     print(f"Found state URL: {repr(url)}")
     return url
 
-def get_county_url(county: str, state: str) -> Optional[str]:
+def get_county_url(county: str, state: str, search_address: str = "") -> Optional[str]:
     """Get the URL for a specific county's tax assessor website.
     
     Args:
         county: County name
         state: Two-letter state code
+        search_address: Formatted address for direct property lookup
     
     Returns:
         URL for the county assessor website or search page
     """
-    print(f"\nget_county_url called with county: {repr(county)}, state: {repr(state)}")
+    print(f"\nget_county_url called with county: {repr(county)}, state: {repr(state)}, search_address: {repr(search_address)}")
     
     if not state or not county or not isinstance(state, str) or not isinstance(county, str):
         print(f"Invalid parameters - state: {repr(state)}, county: {repr(county)}")
@@ -297,17 +298,24 @@ def get_county_url(county: str, state: str) -> Optional[str]:
     print(f"Found county data: {repr(county_data)}")
     
     # If we have a specific URL for this county, use it
-    if county_data.get('base_url'):
+    if county_data.get('search_url') and search_address:
+        url = county_data['search_url'].format(address=search_address)
+        print(f"Using county-specific search URL: {repr(url)}")
+        return url
+    elif county_data.get('base_url'):
         url = county_data['base_url']
         print(f"Using county-specific base URL: {repr(url)}")
         return url
     
     # Try to construct URL from pattern
     if state in URL_PATTERNS:
-        pattern = URL_PATTERNS[state]['pattern']
+        pattern = URL_PATTERNS[state]['search_pattern'] if search_address else URL_PATTERNS[state]['pattern']
         print(f"Using URL pattern for state {state}: {repr(pattern)}")
         try:
-            url = pattern.format(county=county.replace(' ', '').replace('-', ''))
+            url = pattern.format(
+                county=county.replace(' ', '').replace('-', ''),
+                address=search_address
+            )
             print(f"Generated URL from pattern: {repr(url)}")
             return url
         except Exception as e:
@@ -346,7 +354,7 @@ def initialize_database():
     
     COUNTY_DATABASE['CA']['los angeles'] = {
         'base_url': 'https://assessor.lacounty.gov/',
-        'search_url': 'https://portal.assessor.lacounty.gov/search'
+        'search_url': 'https://portal.assessor.lacounty.gov/search?address={address}'
     }
     
     # Add more major counties
@@ -354,43 +362,43 @@ def initialize_database():
         COUNTY_DATABASE['NY'] = {}
     COUNTY_DATABASE['NY']['new york'] = {
         'base_url': 'https://www1.nyc.gov/site/finance/taxes/property.page',
-        'search_url': 'https://a836-pts-access.nyc.gov/care/search/commonsearch.aspx?mode=address'
+        'search_url': 'https://a836-pts-access.nyc.gov/care/search/commonsearch.aspx?mode=address&address={address}'
     }
     
     if 'IL' not in COUNTY_DATABASE:
         COUNTY_DATABASE['IL'] = {}
     COUNTY_DATABASE['IL']['cook'] = {
         'base_url': 'https://www.cookcountyassessor.com/',
-        'search_url': 'https://www.cookcountyassessor.com/address-search'
+        'search_url': 'https://www.cookcountyassessor.com/address-search?address={address}'
     }
     
     if 'TX' not in COUNTY_DATABASE:
         COUNTY_DATABASE['TX'] = {}
     COUNTY_DATABASE['TX']['harris'] = {
         'base_url': 'https://hcad.org/',
-        'search_url': 'https://public.hcad.org/records/Real_Property_Search.asp'
+        'search_url': 'https://public.hcad.org/records/QuickSearch.asp?search_type=address&address={address}'
     }
     COUNTY_DATABASE['TX']['dallas'] = {
         'base_url': 'https://www.dallascad.org/',
-        'search_url': 'https://www.dallascad.org/SearchAddr.aspx'
+        'search_url': 'https://www.dallascad.org/SearchAddr.aspx?address={address}'
     }
     
     if 'FL' not in COUNTY_DATABASE:
         COUNTY_DATABASE['FL'] = {}
     COUNTY_DATABASE['FL']['miami-dade'] = {
         'base_url': 'https://www.miamidade.gov/pa/',
-        'search_url': 'https://www.miamidade.gov/Apps/PA/PApublicServiceProxy/PaServicesProxy.ashx?Operation=GetAddress'
+        'search_url': 'https://www.miamidade.gov/Apps/PA/PApublicServiceProxy/PaServicesProxy.ashx?Operation=GetAddress&address={address}'
     }
     COUNTY_DATABASE['FL']['broward'] = {
         'base_url': 'https://web.bcpa.net/',
-        'search_url': 'https://web.bcpa.net/BcpaClient/#/Record-Search'
+        'search_url': 'https://web.bcpa.net/BcpaClient/#/Record-Search?address={address}'
     }
     
     if 'MN' not in COUNTY_DATABASE:
         COUNTY_DATABASE['MN'] = {}
     COUNTY_DATABASE['MN']['hennepin'] = {
         'base_url': 'https://www16.co.hennepin.mn.us/pins/',
-        'search_url': 'https://www16.co.hennepin.mn.us/pins/addrsrch.jsp'
+        'search_url': 'https://www16.co.hennepin.mn.us/pins/pidresult.jsp?pid={address}'
     }
     
     print(f"Database initialized with {len(COUNTY_DATABASE)} states")
