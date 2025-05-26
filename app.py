@@ -207,46 +207,57 @@ st.markdown("""
             margin-top: 0.25rem !important;
         }
         
-        /* Progress bar styling */
+        /* Progress bar styling - override all instances */
+        .stProgress {
+            height: 6px !important;
+        }
+        .stProgress > div > div {
+            background-color: rgba(12, 60, 96, 0.1) !important;
+            height: 6px !important;
+        }
         .stProgress > div > div > div {
             background-color: #0c3c60 !important;
+            height: 6px !important;
         }
         
-        .stProgress > div > div {
-            background-color: #f0f2f6 !important;
-        }
-        
-        /* Progress message styling */
+        /* Progress message styling with spinner */
         .status-message {
             color: #0c3c60 !important;
             font-weight: 500 !important;
             display: flex !important;
             align-items: center !important;
+            gap: 10px !important;
         }
         
-        /* Loading animation dot */
-        @keyframes ellipsis {
-            0% { content: ''; }
-            25% { content: '.'; }
-            50% { content: '..'; }
-            75% { content: '...'; }
-            100% { content: ''; }
+        /* Spinner animation */
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
         }
         
-        .status-message::after {
-            content: '';
-            display: inline-block;
-            width: 20px;
-            animation: ellipsis 2s infinite;
-            margin-left: 4px;
+        .spinner {
+            width: 16px !important;
+            height: 16px !important;
+            border: 2px solid #0c3c60 !important;
+            border-top: 2px solid transparent !important;
+            border-radius: 50% !important;
+            animation: spin 1s linear infinite !important;
+            display: inline-block !important;
+            margin-right: 8px !important;
         }
         
-        /* Spinner styling for upload */
-        .stSpinner > div > div > div {
+        /* Override Streamlit's default spinner */
+        .stSpinner > div > div {
+            border-color: rgba(12, 60, 96, 0.1) !important;
             border-top-color: #0c3c60 !important;
-            border-left-color: #0c3c60 !important;
-            border-bottom-color: #f0f2f6 !important;
-            border-right-color: #f0f2f6 !important;
+            border-right-color: rgba(12, 60, 96, 0.1) !important;
+            border-bottom-color: #0c3c60 !important;
+            border-left-color: rgba(12, 60, 96, 0.1) !important;
+        }
+        
+        /* Success message styling */
+        .stSuccess {
+            color: #0c3c60 !important;
         }
     </style>
 """, unsafe_allow_html=True)
@@ -263,13 +274,13 @@ LOADING_MESSAGES = [
 def get_loading_message(stage: int) -> str:
     """Get appropriate loading message for each stage."""
     messages = {
-        0: "Reading and extracting text from documents...",
-        1: "Processing deal information...",
-        2: "Extracting contact information...",
-        3: "Uploading and organizing attachments...",
-        4: "Preparing final summary..."
+        0: "Reading and extracting text from documents",
+        1: "Processing deal information",
+        2: "Extracting contact information",
+        3: "Uploading and organizing attachments",
+        4: "Preparing final summary"
     }
-    return messages.get(stage, "Processing...")
+    return messages.get(stage, "Processing")
 
 # --- Config and Clients ---
 client = OpenAI(api_key=st.secrets["OPENAI_API_KEY"])
@@ -459,7 +470,7 @@ if analyze_button:
             # Update progress bar and message
             progress_bar.progress((i + 1) * 20)
             status_container.markdown(
-                f'<div class="status-message">{get_loading_message(i)}</div>',
+                f'<div class="status-message"><div class="spinner"></div>{get_loading_message(i)}</div>',
                 unsafe_allow_html=True
             )
             
