@@ -268,19 +268,24 @@ def get_county_url(address: Optional[str], state: str, county: str) -> Optional[
         URL for the county assessor website or search page
     """
     if not state or not county:
+        print(f"Missing required parameters - state: {state}, county: {county}")
         return None
     
     state = state.upper()
     county = normalize_county_name(county)
+    print(f"Looking up URL for state: {state}, county: {county}, address: {address}")
     
     # Try to get county-specific URL from database
     state_db = COUNTY_DATABASE.get(state, {})
     county_data = state_db.get(county, {})
+    print(f"Found county data: {county_data}")
     
     # If we have a specific URL for this county, use it
     if county_data.get('base_url'):
         if address and county_data.get('search_url'):
+            print(f"Using county-specific search URL: {county_data['search_url']}")
             return county_data['search_url']
+        print(f"Using county-specific base URL: {county_data['base_url']}")
         return county_data['base_url']
     
     # Try to construct URL from pattern
@@ -288,13 +293,18 @@ def get_county_url(address: Optional[str], state: str, county: str) -> Optional[
         pattern = URL_PATTERNS[state]['pattern' if not address else 'search_pattern']
         try:
             if address:
-                return pattern.format(county=county.replace(' ', ''), address=address.replace(' ', '+'))
-            return pattern.format(county=county.replace(' ', ''))
-        except:
-            pass
+                url = pattern.format(county=county.replace(' ', '').replace('-', ''), address=address.replace(' ', '+'))
+            else:
+                url = pattern.format(county=county.replace(' ', '').replace('-', ''))
+            print(f"Generated URL from pattern: {url}")
+            return url
+        except Exception as e:
+            print(f"Error generating URL from pattern: {e}")
     
     # Fall back to state-level URL
-    return get_state_url(state)
+    state_url = get_state_url(state)
+    print(f"Falling back to state URL: {state_url}")
+    return state_url
 
 def get_county_fips(county: str, state: str) -> Optional[str]:
     """Get the FIPS code for a county."""
@@ -314,6 +324,8 @@ def get_county_fips(county: str, state: str) -> Optional[str]:
 
 def initialize_database():
     """Initialize the database with county-specific data."""
+    print("Initializing county database...")
+    
     # Example: Adding Los Angeles County, CA
     if 'CA' not in COUNTY_DATABASE:
         COUNTY_DATABASE['CA'] = {}
@@ -344,6 +356,10 @@ def initialize_database():
         'base_url': 'https://hcad.org/',
         'search_url': 'https://public.hcad.org/records/Real_Property_Search.asp'
     }
+    COUNTY_DATABASE['TX']['dallas'] = {
+        'base_url': 'https://www.dallascad.org/',
+        'search_url': 'https://www.dallascad.org/SearchAddr.aspx'
+    }
     
     if 'FL' not in COUNTY_DATABASE:
         COUNTY_DATABASE['FL'] = {}
@@ -351,8 +367,14 @@ def initialize_database():
         'base_url': 'https://www.miamidade.gov/pa/',
         'search_url': 'https://www.miamidade.gov/Apps/PA/PApublicServiceProxy/PaServicesProxy.ashx?Operation=GetAddress'
     }
+    COUNTY_DATABASE['FL']['broward'] = {
+        'base_url': 'https://web.bcpa.net/',
+        'search_url': 'https://web.bcpa.net/BcpaClient/#/Record-Search'
+    }
     
-    # Add more counties as needed...
+    print(f"Database initialized with {len(COUNTY_DATABASE)} states")
+    for state, counties in COUNTY_DATABASE.items():
+        print(f"State {state} has {len(counties)} counties")
 
 # Initialize the database
 initialize_database()
