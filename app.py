@@ -307,6 +307,11 @@ def parse_address(address: str) -> Dict:
 
 def get_county_info(address: str) -> tuple:
     """Extract county and state from address using GPT."""
+    if not address:
+        print("No address provided to get_county_info")
+        return None, None
+        
+    print(f"\nAttempting to get county info for address: {address}")
     prompt = f"""
     Extract ONLY the county and state from this address. Return in EXACTLY this format: "County, ST"
     where ST is the 2-letter state code. If you can't determine the county, return only the state code.
@@ -335,7 +340,11 @@ def get_county_info(address: str) -> tuple:
         
         if ',' in result:
             county, state = result.split(',', 1)
-            return county.strip(), state.strip()
+            county = county.strip()
+            state = state.strip()
+            print(f"Extracted county: '{county}', state: '{state}'")
+            return county, state
+        print(f"No county found, state only: '{result}'")
         return None, result.strip()
     except Exception as e:
         print(f"Error extracting county info: {e}")
@@ -343,21 +352,29 @@ def get_county_info(address: str) -> tuple:
 
 def generate_county_link(address: str) -> str:
     """Generate a link to the county tax assessor website with property search if available."""
+    print(f"\nGenerating county link for address: {address}")
     if not address:
+        print("No address provided")
         return ""
     
     # Get county and state info
     county, state = get_county_info(address)
+    print(f"Got county info - county: '{county}', state: '{state}'")
     
     # If we have both county and state, try to get a county-specific URL
     if county and state:
-        return get_county_url(address, state, county)
+        url = get_county_url(address, state, county)
+        print(f"Got county-specific URL: {url}")
+        return url
     
     # If we only have state, get the state-level website
     if state:
-        return get_state_url(state)
+        url = get_state_url(state)
+        print(f"Got state-level URL: {url}")
+        return url
     
     # If all else fails, return the default national website
+    print("Falling back to national website")
     return "https://www.usa.gov/property-taxes"
 
 # --- Helper Functions ---
@@ -453,6 +470,7 @@ def create_airtable_record(
     deal_type: str,
     contact_info: str
 ):
+    print("\nCreating Airtable record...")
     # Always tag new deals as "Pursuing"
     status = "Pursuing"
 
@@ -462,10 +480,14 @@ def create_airtable_record(
     }
     
     # Generate maps link from location
-    maps_link = generate_maps_link(data.get("Location", ""))
+    location = data.get("Location", "")
+    print(f"Location from data: '{location}'")
+    maps_link = generate_maps_link(location)
+    print(f"Generated maps link: {maps_link}")
     
     # Generate county tax link
-    county_link = generate_county_link(data.get("Location", ""))
+    county_link = generate_county_link(location)
+    print(f"Generated county link: {county_link}")
     
     fields = {
         "Deal Type": [deal_type],
@@ -479,7 +501,7 @@ def create_airtable_record(
         "Key Highlights": "\n".join(data.get("Key Highlights", [])),
         "Risks": "\n".join(data.get("Risks or Red Flags", [])),
         "Property Name": data.get("Property Name"),
-        "Location": data.get("Location"),
+        "Location": location,
         "Maps Link": maps_link,
         "County Tax Link": county_link,
         "Asset Class": data.get("Asset Class"),
@@ -494,6 +516,7 @@ def create_airtable_record(
         "Hold Period": data.get("Hold Period"),
         "Size": data.get("Square Footage or Unit Count"),
     }
+    print("Sending request to Airtable...")
     resp = requests.post(
         f"https://api.airtable.com/v0/{AIRTABLE_BASE_ID}/{AIRTABLE_TABLE_NAME}",
         headers=headers,
