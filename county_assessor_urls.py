@@ -197,6 +197,10 @@ URL_PATTERNS = {
     'WY': {
         'pattern': 'https://{county}.wy.gov/assessor',
         'search_pattern': 'https://{county}.wy.gov/assessor/search?address={address}'
+    },
+    'MN': {
+        'pattern': 'https://www.hennepin.us/property',
+        'search_pattern': 'https://www.hennepin.us/property/search?address={address}'
     }
 }
 
@@ -233,7 +237,8 @@ STATE_URLS = {
     'MO': 'https://dor.mo.gov/property-tax/',
     'WI': 'https://www.revenue.wi.gov/Pages/FAQS/home-pt.aspx',
     'MD': 'https://dat.maryland.gov/Pages/default.aspx',
-    'CO': 'https://cdola.colorado.gov/property-taxation'
+    'CO': 'https://cdola.colorado.gov/property-taxation',
+    'MN': 'https://www.revenue.state.mn.us/property-tax-minnesota'
 }
 
 # County-specific database
@@ -379,6 +384,13 @@ def initialize_database():
     COUNTY_DATABASE['FL']['broward'] = {
         'base_url': 'https://web.bcpa.net/',
         'search_url': 'https://web.bcpa.net/BcpaClient/#/Record-Search'
+    }
+    
+    if 'MN' not in COUNTY_DATABASE:
+        COUNTY_DATABASE['MN'] = {}
+    COUNTY_DATABASE['MN']['hennepin'] = {
+        'base_url': 'https://www.hennepin.us/property',
+        'search_url': 'https://www.hennepin.us/property/search'
     }
     
     print(f"Database initialized with {len(COUNTY_DATABASE)} states")
