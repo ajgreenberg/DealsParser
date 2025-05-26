@@ -106,6 +106,13 @@ def gpt_extract_summary(text: str, deal_type: str) -> Dict:
     cleaned = re.sub(r"^[^\{]*", "", cleaned, flags=re.DOTALL)
     return json.loads(cleaned)
 
+def generate_maps_link(address: str) -> str:
+    """Generate a Google Maps link from an address."""
+    if not address:
+        return ""
+    formatted_address = address.replace(' ', '+')
+    return f"https://www.google.com/maps/search/?api=1&query={formatted_address}"
+
 def create_airtable_record(
     data: Dict,
     raw_notes: str,
@@ -120,6 +127,10 @@ def create_airtable_record(
         "Authorization": f"Bearer {AIRTABLE_PAT}",
         "Content-Type": "application/json"
     }
+    
+    # Generate maps link from location
+    maps_link = generate_maps_link(data.get("Location", ""))
+    
     fields = {
         "Deal Type": [deal_type],
         "Status": status,
@@ -133,6 +144,7 @@ def create_airtable_record(
         "Risks": "\n".join(data.get("Risks or Red Flags", [])),
         "Property Name": data.get("Property Name"),
         "Location": data.get("Location"),
+        "Maps Link": maps_link,
         "Asset Class": data.get("Asset Class"),
         "Purchase Price": data.get("Purchase Price"),
         "Loan Amount": data.get("Loan Amount"),
