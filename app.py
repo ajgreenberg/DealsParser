@@ -350,6 +350,18 @@ def get_county_info(address: str) -> tuple:
         print(f"Error extracting county info: {str(e)}")
         return None, None
 
+def format_address_for_search(address: str) -> str:
+    """Format address for county search URL."""
+    if not address:
+        return ""
+    # Remove any apartment/unit numbers
+    address = re.sub(r'\s+(?:Apt|Unit|#)\.?\s*[\w-]+', '', address, flags=re.IGNORECASE)
+    # Remove any trailing commas and spaces
+    address = re.sub(r',\s*$', '', address)
+    # Replace spaces and special chars with URL-safe characters
+    address = address.replace(' ', '+').replace('#', '').replace('&', 'and')
+    return address
+
 def generate_county_link(address: str) -> str:
     """Generate a link to the county tax assessor website with property search if available."""
     print(f"\nGenerating county link for address: {repr(address)}")
@@ -361,9 +373,13 @@ def generate_county_link(address: str) -> str:
     county, state = get_county_info(address)
     print(f"Got county info - county: {repr(county)}, state: {repr(state)}")
     
+    # Format address for search
+    search_address = format_address_for_search(address)
+    print(f"Formatted address for search: {repr(search_address)}")
+    
     # If we have both county and state, try to get a county-specific URL
     if county and state:
-        url = get_county_url(county, state)
+        url = get_county_url(county, state, search_address)
         print(f"Got county-specific URL: {repr(url)}")
         return url if url else ""
     
