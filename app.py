@@ -208,16 +208,11 @@ st.markdown("""
         }
         
         /* Progress bar styling - override all instances */
-        .stProgress {
-            height: 6px !important;
-        }
         .stProgress > div > div {
-            background-color: rgba(12, 60, 96, 0.1) !important;
-            height: 6px !important;
+            background-color: rgba(38, 39, 48, 0.1) !important;
         }
         .stProgress > div > div > div {
-            background-color: #0c3c60 !important;
-            height: 6px !important;
+            background-color: rgb(38, 39, 48) !important;
         }
         
         /* Progress message styling with spinner */
@@ -462,13 +457,11 @@ extra_notes = st.text_area(
 analyze_button = st.button("🚀 Analyze Deal")
 
 if analyze_button:
-    progress_bar = st.progress(0)
     status_container = st.empty()
     
     try:
         for i in range(5):
             # Update progress bar and message
-            progress_bar.progress((i + 1) * 20)
             status_container.markdown(
                 f'<div class="status-message"><div class="spinner"></div>{get_loading_message(i)}</div>',
                 unsafe_allow_html=True
@@ -520,7 +513,6 @@ if analyze_button:
     except Exception as e:
         st.error(f"An error occurred: {str(e)}")
     finally:
-        progress_bar.empty()
         status_container.empty()
 
 # Editable form + upload
@@ -617,4 +609,5 @@ if "summary" in st.session_state:
                 st.session_state["deal_type"],
                 st.session_state["contacts"]
             )
-        st.success("Deal saved to Airtable!")
+        st.success("✅ Deal saved to Airtable!")
+    
