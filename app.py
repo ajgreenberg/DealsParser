@@ -559,16 +559,16 @@ if "summary" in st.session_state:
 
     if submitted:
         with st.spinner("Saving to Airtable"):
-            # Process Key Highlights - split by newline and clean up
+            # Process Key Highlights - ensure each line starts with a bullet
             key_highlights_list = [
-                line.strip().replace('• ', '').strip()
+                f"• {line.strip().replace('• ', '')}" if not line.strip().startswith('•') else line.strip()
                 for line in key_highlights.split('\n')
                 if line.strip() and not line.isspace()
             ]
             
-            # Process Risks - split by newline and clean up
+            # Process Risks - ensure each line starts with a bullet
             risks_list = [
-                line.strip().replace('• ', '').strip()
+                f"• {line.strip().replace('• ', '')}" if not line.strip().startswith('•') else line.strip()
                 for line in risks.split('\n')
                 if line.strip() and not line.isspace()
             ]
