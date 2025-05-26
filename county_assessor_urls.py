@@ -241,24 +241,29 @@ COUNTY_DATABASE = {}
 
 def normalize_county_name(county: str) -> str:
     """Normalize county name by removing 'county' and standardizing format."""
-    if not county:
+    if not county or not isinstance(county, str):
+        print(f"Invalid county name provided to normalize: {repr(county)}")
         return ""
+        
+    print(f"Normalizing county name: {repr(county)}")
     county = county.lower()
     county = re.sub(r'\s+county\s*$', '', county)
     county = re.sub(r'\s+', ' ', county)
-    return county.strip()
+    result = county.strip()
+    print(f"Normalized county name: {repr(result)}")
+    return result
 
 def get_state_url(state: str) -> Optional[str]:
     """Get the state-level tax assessor website URL."""
-    print(f"\nget_state_url called with state: '{state}'")
+    print(f"\nget_state_url called with state: {repr(state)}")
     
-    if not state:
-        print("No state provided")
+    if not state or not isinstance(state, str):
+        print(f"Invalid state provided: {repr(state)}")
         return None
     
     state = state.upper()
     url = STATE_URLS.get(state)
-    print(f"Found state URL: {url}")
+    print(f"Found state URL: {repr(url)}")
     return url
 
 def get_county_url(county: str, state: str) -> Optional[str]:
@@ -271,42 +276,43 @@ def get_county_url(county: str, state: str) -> Optional[str]:
     Returns:
         URL for the county assessor website or search page
     """
-    print(f"\nget_county_url called with county: '{county}', state: '{state}'")
+    print(f"\nget_county_url called with county: {repr(county)}, state: {repr(state)}")
     
-    if not state or not county:
-        print(f"Missing required parameters - state: '{state}', county: '{county}'")
+    if not state or not county or not isinstance(state, str) or not isinstance(county, str):
+        print(f"Invalid parameters - state: {repr(state)}, county: {repr(county)}")
         return None
     
     state = state.upper()
     county = normalize_county_name(county)
-    print(f"Normalized parameters - state: '{state}', county: '{county}'")
+    print(f"Normalized parameters - state: {repr(state)}, county: {repr(county)}")
     
     # Try to get county-specific URL from database
     state_db = COUNTY_DATABASE.get(state, {})
     county_data = state_db.get(county, {})
-    print(f"Found county data: {county_data}")
+    print(f"Found county data: {repr(county_data)}")
     
     # If we have a specific URL for this county, use it
     if county_data.get('base_url'):
-        print(f"Using county-specific base URL: {county_data['base_url']}")
-        return county_data['base_url']
+        url = county_data['base_url']
+        print(f"Using county-specific base URL: {repr(url)}")
+        return url
     
     # Try to construct URL from pattern
     if state in URL_PATTERNS:
         pattern = URL_PATTERNS[state]['pattern']
-        print(f"Using URL pattern for state {state}: {pattern}")
+        print(f"Using URL pattern for state {state}: {repr(pattern)}")
         try:
             url = pattern.format(county=county.replace(' ', '').replace('-', ''))
-            print(f"Generated URL from pattern: {url}")
+            print(f"Generated URL from pattern: {repr(url)}")
             return url
         except Exception as e:
-            print(f"Error generating URL from pattern: {e}")
+            print(f"Error generating URL from pattern: {str(e)}")
     else:
-        print(f"No URL pattern found for state: {state}")
+        print(f"No URL pattern found for state: {repr(state)}")
     
     # Fall back to state-level URL
     state_url = get_state_url(state)
-    print(f"Falling back to state URL: {state_url}")
+    print(f"Falling back to state URL: {repr(state_url)}")
     return state_url
 
 def get_county_fips(county: str, state: str) -> Optional[str]:
@@ -379,7 +385,7 @@ def initialize_database():
     for state, counties in COUNTY_DATABASE.items():
         print(f"State {state} has {len(counties)} counties")
         for county in counties:
-            print(f"  - {county}: {counties[county]}")
+            print(f"  - {county}: {repr(counties[county])}")
 
 # Initialize the database
 print("\nStarting county_assessor_urls.py initialization...")
