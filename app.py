@@ -249,6 +249,7 @@ if "summary" in st.session_state:
             updated = {
                 "Property Name":       property_name,
                 "Location":            location,
+                "Maps Link":           generate_maps_link(location),
                 "Asset Class":         asset_class,
                 "Sponsor":             sponsor,
                 "Broker":              broker,
