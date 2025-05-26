@@ -10,6 +10,111 @@ import boto3
 from typing import Dict, List
 from datetime import datetime
 
+# --- Custom CSS for Apple-like styling ---
+st.set_page_config(
+    page_title="DealFlow AI",
+    page_icon="🤖",
+    layout="centered"
+)
+
+st.markdown("""
+    <style>
+        /* Main container */
+        .main {
+            padding: 2rem;
+        }
+        
+        /* Typography */
+        h1 {
+            font-family: -apple-system, BlinkMacSystemFont, sans-serif;
+            font-weight: 700 !important;
+            font-size: 2.5rem !important;
+            margin-bottom: 2rem !important;
+            color: #1D1D1F !important;
+        }
+        
+        h2 {
+            font-family: -apple-system, BlinkMacSystemFont, sans-serif;
+            font-weight: 600 !important;
+            font-size: 1.5rem !important;
+            margin-top: 2rem !important;
+            color: #1D1D1F !important;
+        }
+        
+        /* Form styling */
+        .stRadio > label {
+            font-family: -apple-system, BlinkMacSystemFont, sans-serif;
+            font-weight: 500;
+            color: #1D1D1F;
+        }
+        
+        .stTextInput > label {
+            font-family: -apple-system, BlinkMacSystemFont, sans-serif;
+            font-weight: 500;
+            color: #1D1D1F;
+        }
+        
+        /* Button styling */
+        .stButton > button {
+            font-family: -apple-system, BlinkMacSystemFont, sans-serif;
+            background-color: #0071E3 !important;
+            color: white !important;
+            border-radius: 8px !important;
+            padding: 0.5rem 2rem !important;
+            font-weight: 500 !important;
+            border: none !important;
+            transition: all 0.2s ease !important;
+        }
+        
+        .stButton > button:hover {
+            background-color: #0077ED !important;
+            transform: scale(1.02);
+        }
+        
+        /* File uploader styling */
+        .uploadedFile {
+            font-family: -apple-system, BlinkMacSystemFont, sans-serif;
+            border: 1px solid #E6E6E6;
+            border-radius: 8px;
+            padding: 1rem;
+        }
+        
+        /* Success message styling */
+        .success {
+            font-family: -apple-system, BlinkMacSystemFont, sans-serif;
+            padding: 1rem;
+            border-radius: 8px;
+            background-color: #F5F5F7;
+        }
+        
+        /* Divider styling */
+        hr {
+            margin: 2rem 0;
+            border: none;
+            border-top: 1px solid #E6E6E6;
+        }
+        
+        /* Form container */
+        .stForm {
+            background-color: #F5F5F7;
+            padding: 2rem;
+            border-radius: 12px;
+            margin-top: 1rem;
+        }
+        
+        /* Text area styling */
+        .stTextArea > label {
+            font-family: -apple-system, BlinkMacSystemFont, sans-serif;
+            font-weight: 500;
+            color: #1D1D1F;
+        }
+        
+        .stTextArea > div > div {
+            border-radius: 8px !important;
+        }
+    </style>
+""", unsafe_allow_html=True)
+
 # --- Config and Clients ---
 client = OpenAI(api_key=st.secrets["OPENAI_API_KEY"])
 AIRTABLE_PAT         = st.secrets["AIRTABLE_PAT"]
@@ -166,20 +271,42 @@ def create_airtable_record(
         st.error(f"Airtable error: {resp.text}")
 
 # --- Streamlit UI ---
-st.title("🤖 DealFlow AI")
+st.markdown("<h1>DealFlow AI</h1>", unsafe_allow_html=True)
 
-deal_type = st.radio("💼 Select Deal Type", ["🏢 Equity", "🏦 Debt"], horizontal=True)
+st.markdown("---")
+
+st.markdown("<h2>Deal Information</h2>", unsafe_allow_html=True)
+deal_type = st.radio("Select Deal Type", ["🏢 Equity", "🏦 Debt"], horizontal=True)
 deal_type_value = "Debt" if "Debt" in deal_type else "Equity"
 
-uploaded_main = st.file_uploader("📄 Upload Deal Memo (optional)", type=["pdf","doc","docx"])
-extra_notes = st.text_area("🗒 Paste deal notes or email thread", height=200)
-uploaded_files = st.file_uploader(
-    "📎 Upload supporting files (optional)",
-    type=["pdf","doc","docx","xls","xlsx","jpg","png"],
-    accept_multiple_files=True
+st.markdown("---")
+
+st.markdown("<h2>Upload Documents</h2>", unsafe_allow_html=True)
+col1, col2 = st.columns([1, 1])
+
+with col1:
+    uploaded_main = st.file_uploader("📄 Upload Deal Memo", type=["pdf","doc","docx"], help="Upload the main deal memo document")
+
+with col2:
+    uploaded_files = st.file_uploader(
+        "📎 Supporting Documents",
+        type=["pdf","doc","docx","xls","xlsx","jpg","png"],
+        accept_multiple_files=True,
+        help="Upload any additional supporting documents"
+    )
+
+st.markdown("---")
+
+st.markdown("<h2>Deal Notes</h2>", unsafe_allow_html=True)
+extra_notes = st.text_area(
+    "Deal Notes or Email Thread",
+    height=200,
+    help="Paste any additional notes or email correspondence"
 )
 
-if st.button("🚀 Run DealFlow AI"):
+analyze_button = st.button("🚀 Analyze Deal", use_container_width=True)
+
+if analyze_button:
     with st.spinner("🔍 Parsing deal…"):
         source_text = ""
         if uploaded_main:
@@ -220,29 +347,38 @@ if st.button("🚀 Run DealFlow AI"):
 
 # Editable form + upload
 if "summary" in st.session_state:
-    st.subheader("✏️ Review & Edit Deal Details")
+    st.markdown("---")
+    st.markdown("<h2>Review & Edit Deal Details</h2>", unsafe_allow_html=True)
+    
     with st.form("edit_form"):
         s = st.session_state["summary"]
-        property_name  = st.text_input("Property Name",               value=s.get("Property Name",""))
-        location       = st.text_input("Location",                    value=s.get("Location",""))
-        asset_class    = st.text_input("Asset Class",                 value=s.get("Asset Class",""))
-        sponsor        = st.text_input("Sponsor",                     value=s.get("Sponsor",""))
-        broker         = st.text_input("Broker",                      value=s.get("Broker",""))
-        purchase_price = st.text_input("Purchase Price",              value=s.get("Purchase Price",""))
-        loan_amount    = st.text_input("Loan Amount",                 value=s.get("Loan Amount",""))
-        in_cap_rate    = st.text_input("In-Place Cap Rate",           value=s.get("In-Place Cap Rate",""))
-        stab_cap_rate  = st.text_input("Stabilized Cap Rate",         value=s.get("Stabilized Cap Rate",""))
-        interest_rate  = st.text_input("Interest Rate",               value=s.get("Interest Rate",""))
-        term           = st.text_input("Term",                        value=s.get("Term",""))
-        exit_strategy  = st.text_input("Exit Strategy",               value=s.get("Exit Strategy",""))
-        proj_irr       = st.text_input("Projected IRR",               value=s.get("Projected IRR",""))
-        hold_period    = st.text_input("Hold Period",                 value=s.get("Hold Period",""))
-        size           = st.text_input("Size (Sq Ft or Unit Count)",  value=s.get("Square Footage or Unit Count",""))
-        key_highlights = st.text_area("Key Highlights (one per line)", value="\n".join(s.get("Key Highlights",[])))
-        risks          = st.text_area("Risks or Red Flags (one per line)", value="\n".join(s.get("Risks or Red Flags",[])))
-        summary_text   = st.text_area("Summary",                      value=s.get("Summary",""))
-        raw_notes      = st.text_area("Raw Notes (edit before upload)", value=st.session_state.get("raw_notes",""), height=150)
-        submitted      = st.form_submit_button("📤 Upload to Airtable")
+        col1, col2 = st.columns([1, 1])
+        with col1:
+            property_name = st.text_input("Property Name", value=s.get("Property Name",""))
+            location = st.text_input("Location", value=s.get("Location",""))
+            asset_class = st.text_input("Asset Class", value=s.get("Asset Class",""))
+            sponsor = st.text_input("Sponsor", value=s.get("Sponsor",""))
+            broker = st.text_input("Broker", value=s.get("Broker",""))
+            purchase_price = st.text_input("Purchase Price", value=s.get("Purchase Price",""))
+            loan_amount = st.text_input("Loan Amount", value=s.get("Loan Amount",""))
+            in_cap_rate = st.text_input("In-Place Cap Rate", value=s.get("In-Place Cap Rate",""))
+        
+        with col2:
+            stab_cap_rate = st.text_input("Stabilized Cap Rate", value=s.get("Stabilized Cap Rate",""))
+            interest_rate = st.text_input("Interest Rate", value=s.get("Interest Rate",""))
+            term = st.text_input("Term", value=s.get("Term",""))
+            exit_strategy = st.text_input("Exit Strategy", value=s.get("Exit Strategy",""))
+            proj_irr = st.text_input("Projected IRR", value=s.get("Projected IRR",""))
+            hold_period = st.text_input("Hold Period", value=s.get("Hold Period",""))
+            size = st.text_input("Size (Sq Ft or Unit Count)", value=s.get("Square Footage or Unit Count",""))
+
+        st.markdown("---")
+        key_highlights = st.text_area("Key Highlights", value="\n".join(s.get("Key Highlights",[])), height=150)
+        risks = st.text_area("Risks or Red Flags", value="\n".join(s.get("Risks or Red Flags",[])), height=150)
+        summary_text = st.text_area("Summary", value=s.get("Summary",""), height=100)
+        raw_notes = st.text_area("Raw Notes", value=st.session_state.get("raw_notes",""), height=150)
+        
+        submitted = st.form_submit_button("📤 Save to Airtable", use_container_width=True)
 
     if submitted:
         with st.spinner("📡 Uploading to Airtable…"):
