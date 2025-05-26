@@ -559,27 +559,19 @@ if "summary" in st.session_state:
 
     if submitted:
         with st.spinner("Saving to Airtable"):
-            # Convert the text areas back into proper lists
-            key_highlights_list = []
-            risks_list = []
+            # Process Key Highlights - split by newline and clean up
+            key_highlights_list = [
+                line.strip().replace('• ', '').strip()
+                for line in key_highlights.split('\n')
+                if line.strip() and not line.isspace()
+            ]
             
-            # Process Key Highlights
-            for line in key_highlights.strip().split("\n"):
-                clean_line = line.strip()
-                if clean_line:
-                    # Remove bullet point if it exists
-                    if clean_line.startswith("•"):
-                        clean_line = clean_line[1:].strip()
-                    key_highlights_list.append(clean_line)
-            
-            # Process Risks
-            for line in risks.strip().split("\n"):
-                clean_line = line.strip()
-                if clean_line:
-                    # Remove bullet point if it exists
-                    if clean_line.startswith("•"):
-                        clean_line = clean_line[1:].strip()
-                    risks_list.append(clean_line)
+            # Process Risks - split by newline and clean up
+            risks_list = [
+                line.strip().replace('• ', '').strip()
+                for line in risks.split('\n')
+                if line.strip() and not line.isspace()
+            ]
             
             updated = {
                 "Property Name":       property_name,
@@ -609,5 +601,4 @@ if "summary" in st.session_state:
                 st.session_state["deal_type"],
                 st.session_state["contacts"]
             )
-        st.success("✅ Deal saved to Airtable!")
-    
+        st.success("Deal saved to Airtable!")
