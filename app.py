@@ -308,22 +308,38 @@ def parse_address(address: str) -> Dict:
 def get_county_info(address: str) -> tuple:
     """Extract county and state from address using GPT."""
     prompt = f"""
-    Extract the county and state from this address. Return only in this format: "County, State"
-    If you can't determine the county, return only the state.
-    Address: {address}
-    """
+    Extract ONLY the county and state from this address. Return in EXACTLY this format: "County, ST"
+    where ST is the 2-letter state code. If you can't determine the county, return only the state code.
     
-    res = client.chat.completions.create(
-        model="gpt-3.5-turbo",
-        messages=[{"role": "user", "content": prompt}],
-        temperature=0.3
-    )
-    result = res.choices[0].message.content.strip()
+    Examples:
+    Input: "123 Main St, Los Angeles, CA 90001"
+    Output: Los Angeles, CA
     
-    if ',' in result:
-        county, state = result.split(',', 1)
-        return county.strip(), state.strip()
-    return None, result.strip()
+    Input: "456 Park Ave, New York, NY 10022"
+    Output: New York, NY
+    
+    Input: "789 Oak Rd, Miami Beach, FL 33139"
+    Output: Miami-Dade, FL
+    
+    Input: {address}
+    Output:"""
+    
+    try:
+        res = client.chat.completions.create(
+            model="gpt-3.5-turbo",
+            messages=[{"role": "user", "content": prompt}],
+            temperature=0.1
+        )
+        result = res.choices[0].message.content.strip()
+        print(f"GPT county extraction result: {result}")
+        
+        if ',' in result:
+            county, state = result.split(',', 1)
+            return county.strip(), state.strip()
+        return None, result.strip()
+    except Exception as e:
+        print(f"Error extracting county info: {e}")
+        return None, None
 
 def generate_county_link(address: str) -> str:
     """Generate a link to the county tax assessor website with property search if available."""
