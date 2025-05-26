@@ -389,7 +389,6 @@ def create_airtable_record(
 # --- Streamlit UI ---
 st.markdown("<h1>DealFlow AI</h1>", unsafe_allow_html=True)
 
-st.markdown("<h2>Deal Information</h2>", unsafe_allow_html=True)
 deal_type = st.radio("Select Deal Type", ["🏢 Equity", "🏦 Debt"], horizontal=True, label_visibility="visible")
 deal_type_value = "Debt" if "Debt" in deal_type else "Equity"
 
@@ -498,8 +497,12 @@ if "summary" in st.session_state:
         st.markdown("---")
         
         # Analysis
-        key_highlights = st.text_area("Key Highlights", value="\n".join(s.get("Key Highlights",[])), height=120)
-        risks = st.text_area("Risks or Red Flags", value="\n".join(s.get("Risks or Red Flags",[])), height=120)
+        highlights_text = "\n".join(f"• {highlight}" for highlight in s.get("Key Highlights", []) if highlight.strip())
+        key_highlights = st.text_area("Key Highlights", value=highlights_text, height=120)
+        
+        risks_text = "\n".join(f"• {risk}" for risk in s.get("Risks or Red Flags", []) if risk.strip())
+        risks = st.text_area("Risks or Red Flags", value=risks_text, height=120)
+        
         summary_text = st.text_area("Summary", value=s.get("Summary",""), height=100)
         raw_notes = st.text_area("Raw Notes", value=st.session_state.get("raw_notes",""), height=120)
         
@@ -507,6 +510,10 @@ if "summary" in st.session_state:
 
     if submitted:
         with st.spinner("📡 Uploading to Airtable…"):
+            # Process the bullet points back into lists
+            key_highlights_list = [line.strip()[2:] for line in key_highlights.split("\n") if line.strip().startswith("•")]
+            risks_list = [line.strip()[2:] for line in risks.split("\n") if line.strip().startswith("•")]
+            
             updated = {
                 "Property Name":       property_name,
                 "Location":            location,
@@ -524,8 +531,8 @@ if "summary" in st.session_state:
                 "Projected IRR":       proj_irr,
                 "Hold Period":         hold_period,
                 "Size":                size,
-                "Key Highlights":      key_highlights.strip().split("\n"),
-                "Risks or Red Flags":  risks.strip().split("\n"),
+                "Key Highlights":      key_highlights_list,
+                "Risks or Red Flags":  risks_list,
                 "Summary":             summary_text
             }
             create_airtable_record(
