@@ -212,10 +212,41 @@ st.markdown("""
             background-color: #0c3c60 !important;
         }
         
+        .stProgress > div > div {
+            background-color: #f0f2f6 !important;
+        }
+        
         /* Progress message styling */
         .status-message {
             color: #0c3c60 !important;
             font-weight: 500 !important;
+            display: flex !important;
+            align-items: center !important;
+        }
+        
+        /* Loading animation dot */
+        @keyframes ellipsis {
+            0% { content: ''; }
+            25% { content: '.'; }
+            50% { content: '..'; }
+            75% { content: '...'; }
+            100% { content: ''; }
+        }
+        
+        .status-message::after {
+            content: '';
+            display: inline-block;
+            width: 20px;
+            animation: ellipsis 2s infinite;
+            margin-left: 4px;
+        }
+        
+        /* Spinner styling for upload */
+        .stSpinner > div > div > div {
+            border-top-color: #0c3c60 !important;
+            border-left-color: #0c3c60 !important;
+            border-bottom-color: #f0f2f6 !important;
+            border-right-color: #f0f2f6 !important;
         }
     </style>
 """, unsafe_allow_html=True)
@@ -421,13 +452,16 @@ analyze_button = st.button("🚀 Analyze Deal")
 
 if analyze_button:
     progress_bar = st.progress(0)
-    status_text = st.empty()
+    status_container = st.empty()
     
     try:
         for i in range(5):
             # Update progress bar and message
             progress_bar.progress((i + 1) * 20)
-            status_text.markdown(f'<p class="status-message">{get_loading_message(i)}</p>', unsafe_allow_html=True)
+            status_container.markdown(
+                f'<div class="status-message">{get_loading_message(i)}</div>',
+                unsafe_allow_html=True
+            )
             
             if i == 0:
                 # Initial document processing
@@ -476,7 +510,7 @@ if analyze_button:
         st.error(f"An error occurred: {str(e)}")
     finally:
         progress_bar.empty()
-        status_text.empty()
+        status_container.empty()
 
 # Editable form + upload
 if "summary" in st.session_state:
@@ -521,7 +555,7 @@ if "summary" in st.session_state:
         submitted = st.form_submit_button("Save to Airtable")
 
     if submitted:
-        with st.spinner("📡 Uploading to Airtable…"):
+        with st.spinner("Saving to Airtable"):
             # Convert the text areas back into proper lists
             key_highlights_list = []
             risks_list = []
@@ -572,4 +606,4 @@ if "summary" in st.session_state:
                 st.session_state["deal_type"],
                 st.session_state["contacts"]
             )
-        st.success("✅ Deal saved to Airtable!")
+        st.success("Deal saved to Airtable!")
