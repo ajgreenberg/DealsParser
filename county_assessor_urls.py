@@ -256,9 +256,18 @@ def get_state_url(state: str) -> Optional[str]:
     state = state.upper()
     return STATE_URLS.get(state)
 
-def get_county_url(county: str, state: str) -> Optional[str]:
-    """Get the URL for a specific county's tax assessor website."""
-    if not county or not state:
+def get_county_url(address: Optional[str], state: str, county: str) -> Optional[str]:
+    """Get the URL for a specific county's tax assessor website.
+    
+    Args:
+        address: Property address (optional)
+        state: Two-letter state code
+        county: County name
+    
+    Returns:
+        URL for the county assessor website or search page
+    """
+    if not state or not county:
         return None
     
     state = state.upper()
@@ -267,37 +276,25 @@ def get_county_url(county: str, state: str) -> Optional[str]:
     # Try to get county-specific URL from database
     state_db = COUNTY_DATABASE.get(state, {})
     county_data = state_db.get(county, {})
+    
+    # If we have a specific URL for this county, use it
     if county_data.get('base_url'):
+        if address and county_data.get('search_url'):
+            return county_data['search_url']
         return county_data['base_url']
+    
+    # Try to construct URL from pattern
+    if state in URL_PATTERNS:
+        pattern = URL_PATTERNS[state]['pattern' if not address else 'search_pattern']
+        try:
+            if address:
+                return pattern.format(county=county.replace(' ', ''), address=address.replace(' ', '+'))
+            return pattern.format(county=county.replace(' ', ''))
+        except:
+            pass
     
     # Fall back to state-level URL
     return get_state_url(state)
-
-def get_search_url(county: str, state: str) -> Optional[str]:
-    """Get the search URL for a specific county's tax assessor website."""
-    if not county or not state:
-        return None
-    
-    state = state.upper()
-    county = normalize_county_name(county)
-    
-    # First try to get state-specific database
-    state_db = COUNTY_DATABASE.get(state, {})
-    
-    # Try to get county-specific search URL
-    county_fips = get_county_fips(county, state)
-    if county_fips and county_fips in state_db:
-        county_data = state_db[county_fips]
-        if county_data.get('search_url'):
-            return county_data['search_url']
-    
-    # If no county-specific search URL found, try state default
-    default_data = state_db.get('_default', {})
-    if default_data.get('search_url'):
-        return default_data['search_url']
-    
-    # Fall back to base URL
-    return get_county_url(county, state)
 
 def get_county_fips(county: str, state: str) -> Optional[str]:
     """Get the FIPS code for a county."""
@@ -323,7 +320,36 @@ def initialize_database():
     
     COUNTY_DATABASE['CA']['los angeles'] = {
         'base_url': 'https://assessor.lacounty.gov/',
-        'search_url': 'https://portal.assessor.lacounty.gov/'
+        'search_url': 'https://portal.assessor.lacounty.gov/search'
+    }
+    
+    # Add more major counties
+    if 'NY' not in COUNTY_DATABASE:
+        COUNTY_DATABASE['NY'] = {}
+    COUNTY_DATABASE['NY']['new york'] = {
+        'base_url': 'https://www1.nyc.gov/site/finance/taxes/property.page',
+        'search_url': 'https://a836-pts-access.nyc.gov/care/search/commonsearch.aspx?mode=address'
+    }
+    
+    if 'IL' not in COUNTY_DATABASE:
+        COUNTY_DATABASE['IL'] = {}
+    COUNTY_DATABASE['IL']['cook'] = {
+        'base_url': 'https://www.cookcountyassessor.com/',
+        'search_url': 'https://www.cookcountyassessor.com/address-search'
+    }
+    
+    if 'TX' not in COUNTY_DATABASE:
+        COUNTY_DATABASE['TX'] = {}
+    COUNTY_DATABASE['TX']['harris'] = {
+        'base_url': 'https://hcad.org/',
+        'search_url': 'https://public.hcad.org/records/Real_Property_Search.asp'
+    }
+    
+    if 'FL' not in COUNTY_DATABASE:
+        COUNTY_DATABASE['FL'] = {}
+    COUNTY_DATABASE['FL']['miami-dade'] = {
+        'base_url': 'https://www.miamidade.gov/pa/',
+        'search_url': 'https://www.miamidade.gov/Apps/PA/PApublicServiceProxy/PaServicesProxy.ashx?Operation=GetAddress'
     }
     
     # Add more counties as needed...
