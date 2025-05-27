@@ -390,7 +390,7 @@ def create_airtable_record(
 ):
     # Always tag new deals as "Pursuing"
     status = "Pursuing"
-    
+
     headers = {
         "Authorization": f"Bearer {AIRTABLE_PAT}",
         "Content-Type": "application/json"
@@ -400,17 +400,17 @@ def create_airtable_record(
     maps_link = generate_maps_link(data.get("Location", ""))
     
     fields = {
-        "Name": data.get("Property Name"),
         "Deal Type": [deal_type],
         "Status": status,
         "Summary": data.get("Summary"),
-        "Notes": raw_notes,
+        "Raw Notes": raw_notes,
         "Contact Info": contact_info,
         "Sponsor": data.get("Sponsor"),
         "Broker": data.get("Broker"),
         "Attachments": [{"url": u} for u in attachments],
         "Key Highlights": "\n".join(data.get("Key Highlights", [])),
         "Risks": "\n".join(data.get("Risks or Red Flags", [])),
+        "Property Name": data.get("Property Name"),
         "Location": data.get("Location"),
         "Maps Link": maps_link,
         "Asset Class": data.get("Asset Class"),
@@ -423,22 +423,15 @@ def create_airtable_record(
         "Exit Strategy": data.get("Exit Strategy"),
         "Projected IRR": data.get("Projected IRR"),
         "Hold Period": data.get("Hold Period"),
-        "Size": data.get("Size")
+        "Size": data.get("Square Footage or Unit Count"),
     }
-    
-    # Remove any None or empty values
-    fields = {k: v for k, v in fields.items() if v not in (None, "", [], [""])}
-    
     resp = requests.post(
         f"https://api.airtable.com/v0/{AIRTABLE_BASE_ID}/{AIRTABLE_TABLE_NAME}",
         headers=headers,
         json={"fields": fields}
     )
     if resp.status_code not in (200, 201):
-        print(f"Airtable error response: {resp.text}")
         st.error(f"Airtable error: {resp.text}")
-    else:
-        print("Successfully saved to Airtable")
 
 # --- Streamlit UI ---
 st.markdown("<h1>DealFlow AI</h1>", unsafe_allow_html=True)
