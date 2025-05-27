@@ -455,20 +455,26 @@ def create_airtable_record(
     """Create a record in Airtable with the extracted data."""
     # Format the data for Airtable
     airtable_data = {
-        "Deal Type": deal_type,
-        "Property Address": data.get("address", ""),
-        "Maps Link": generate_maps_link(data.get("address", "")),
-        "Purchase Price": data.get("purchase_price", ""),
-        "ARV": data.get("arv", ""),
-        "Repair Cost": data.get("repair_cost", ""),
-        "Summary": data.get("summary", ""),
+        "Deal Type": [deal_type],  # Airtable expects an array for single select fields
+        "Property Address": data.get("Location", ""),
+        "Maps Link": generate_maps_link(data.get("Location", "")),
+        "Purchase Price": data.get("Purchase Price", ""),
+        "Loan Amount": data.get("Loan Amount", ""),
+        "In-Place Cap Rate": data.get("In-Place Cap Rate", ""),
+        "Stabilized Cap Rate": data.get("Stabilized Cap Rate", ""),
+        "Interest Rate": data.get("Interest Rate", ""),
+        "Term": data.get("Term", ""),
+        "Exit Strategy": data.get("Exit Strategy", ""),
+        "Projected IRR": data.get("Projected IRR", ""),
+        "Hold Period": data.get("Hold Period", ""),
+        "Size": data.get("Size", ""),
+        "Summary": data.get("Summary", ""),
+        "Key Highlights": "\n".join(data.get("Key Highlights", [])),
+        "Risks": "\n".join(data.get("Risks or Red Flags", [])),
         "Contact Info": contact_info,
         "Raw Notes": raw_notes,
-        "Attachments": attachments
+        "Attachments": [{"url": url} for url in attachments] if attachments else []
     }
-    print("Fields being sent to Airtable:")
-    for key, value in airtable_data.items():
-        print(f"  {key}: {repr(value)}")
     
     headers = {
         "Authorization": f"Bearer {AIRTABLE_PAT}",
