@@ -456,7 +456,7 @@ def create_airtable_record(
     # Format the data for Airtable
     airtable_data = {
         "Deal Type": [deal_type],  # Airtable expects an array for single select fields
-        "Property Address": data.get("Location", ""),
+        "Location": data.get("Location", ""),  # Changed from Property Address to Location
         "Maps Link": generate_maps_link(data.get("Location", "")),
         "Purchase Price": data.get("Purchase Price", ""),
         "Loan Amount": data.get("Loan Amount", ""),
@@ -467,14 +467,19 @@ def create_airtable_record(
         "Exit Strategy": data.get("Exit Strategy", ""),
         "Projected IRR": data.get("Projected IRR", ""),
         "Hold Period": data.get("Hold Period", ""),
-        "Size": data.get("Size", ""),
+        "Square Footage or Unit Count": data.get("Size", ""),  # Changed from Size to match Airtable
         "Summary": data.get("Summary", ""),
         "Key Highlights": "\n".join(data.get("Key Highlights", [])),
-        "Risks": "\n".join(data.get("Risks or Red Flags", [])),
+        "Risks or Red Flags": "\n".join(data.get("Risks or Red Flags", [])),  # Updated field name
         "Contact Info": contact_info,
         "Raw Notes": raw_notes,
         "Attachments": [{"url": url} for url in attachments] if attachments else []
     }
+    
+    # Print the data being sent for debugging
+    print("Data being sent to Airtable:")
+    for key, value in airtable_data.items():
+        print(f"{key}: {value}")
     
     headers = {
         "Authorization": f"Bearer {AIRTABLE_PAT}",
