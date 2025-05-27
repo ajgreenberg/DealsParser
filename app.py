@@ -112,6 +112,15 @@ st.markdown("""
                 background-color: #F8F8FA;
                 border: 1px solid #E6E6E6;
             }
+
+            .status-message {
+                color: #1D1D1F !important;
+            }
+
+            .spinner {
+                border: 2px solid rgba(12, 60, 96, 0.2) !important;
+                border-top: 2px solid #0c3c60 !important;
+            }
         }
         
         /* Dark mode styles */
@@ -150,6 +159,15 @@ st.markdown("""
             
             .stForm {
                 background-color: #2D2D2D !important;
+            }
+
+            .status-message {
+                color: #FFFFFF !important;
+            }
+
+            .spinner {
+                border: 2px solid rgba(255, 255, 255, 0.2) !important;
+                border-top: 2px solid #FFFFFF !important;
             }
         }
         
@@ -229,7 +247,6 @@ st.markdown("""
         
         /* Status message styling */
         .status-message {
-            color: #0c3c60 !important;
             font-weight: 500 !important;
             display: flex !important;
             align-items: center !important;
@@ -245,8 +262,6 @@ st.markdown("""
         .spinner {
             width: 16px !important;
             height: 16px !important;
-            border: 2px solid #0c3c60 !important;
-            border-top: 2px solid transparent !important;
             border-radius: 50% !important;
             animation: spin 1s linear infinite !important;
             display: inline-block !important;
