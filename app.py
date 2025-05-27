@@ -453,11 +453,16 @@ def create_airtable_record(
     contact_info: str
 ):
     """Create a record in Airtable with the extracted data."""
-    # Format the data for Airtable
+    # Format the data for Airtable - only include fields that exist in Airtable
     airtable_data = {
-        "Deal Type": [deal_type],  # Airtable expects an array for single select fields
-        "Location": data.get("Location", ""),  # Changed from Property Address to Location
-        "Maps Link": generate_maps_link(data.get("Location", "")),
+        "Name": data.get("Property Name", ""),
+        "Status": "New",  # Default status for new deals
+        "Deal Type": [deal_type],
+        "Location": data.get("Location", ""),
+        "Asset Class": data.get("Asset Class", ""),
+        "Sponsor": data.get("Sponsor", ""),
+        "Broker": data.get("Broker", ""),
+        "Size": data.get("Size", ""),
         "Purchase Price": data.get("Purchase Price", ""),
         "Loan Amount": data.get("Loan Amount", ""),
         "In-Place Cap Rate": data.get("In-Place Cap Rate", ""),
@@ -467,35 +472,44 @@ def create_airtable_record(
         "Exit Strategy": data.get("Exit Strategy", ""),
         "Projected IRR": data.get("Projected IRR", ""),
         "Hold Period": data.get("Hold Period", ""),
-        "Square Footage or Unit Count": data.get("Size", ""),  # Changed from Size to match Airtable
         "Summary": data.get("Summary", ""),
-        "Key Highlights": "\n".join(data.get("Key Highlights", [])),
-        "Risks or Red Flags": "\n".join(data.get("Risks or Red Flags", [])),  # Updated field name
+        "Key Highlights": "\n".join(data.get("Key Highlights", [])) if isinstance(data.get("Key Highlights"), list) else data.get("Key Highlights", ""),
+        "Risks": "\n".join(data.get("Risks or Red Flags", [])) if isinstance(data.get("Risks or Red Flags"), list) else data.get("Risks or Red Flags", ""),
         "Contact Info": contact_info,
-        "Raw Notes": raw_notes,
+        "Notes": raw_notes,
+        "Maps Link": generate_maps_link(data.get("Location", "")),
         "Attachments": [{"url": url} for url in attachments] if attachments else []
     }
-    
-    # Print the data being sent for debugging
-    print("Data being sent to Airtable:")
-    for key, value in airtable_data.items():
-        print(f"{key}: {value}")
+
+    # Remove any None values or empty strings
+    airtable_data = {k: v for k, v in airtable_data.items() if v not in (None, "")}
     
     headers = {
         "Authorization": f"Bearer {AIRTABLE_PAT}",
         "Content-Type": "application/json"
     }
     
-    resp = requests.post(
-        f"https://api.airtable.com/v0/{AIRTABLE_BASE_ID}/{AIRTABLE_TABLE_NAME}",
-        headers=headers,
-        json={"fields": airtable_data}
-    )
-    if resp.status_code not in (200, 201):
-        print(f"Airtable error response: {resp.text}")
-        st.error(f"Airtable error: {resp.text}")
-    else:
+    try:
+        resp = requests.post(
+            f"https://api.airtable.com/v0/{AIRTABLE_BASE_ID}/{AIRTABLE_TABLE_NAME}",
+            headers=headers,
+            json={"fields": airtable_data}
+        )
+        resp.raise_for_status()  # Raise an error for bad status codes
         print("Successfully saved to Airtable")
+        return True
+    except requests.exceptions.RequestException as e:
+        error_msg = f"Airtable error: {str(e)}"
+        if resp.text:
+            try:
+                error_data = resp.json()
+                if "error" in error_data:
+                    error_msg = f"Airtable error: {error_data['error'].get('message', str(e))}"
+            except:
+                pass
+        print(error_msg)
+        st.error(error_msg)
+        return False
 
 # --- Streamlit UI ---
 st.markdown("<h1>DealFlow AI</h1>", unsafe_allow_html=True)
@@ -635,43 +649,35 @@ if "summary" in st.session_state:
 
     if submitted:
         with st.spinner("Saving to Airtable"):
-            # Process Key Highlights - ensure each line starts with a bullet
-            key_highlights_list = [
-                f"• {line.strip().replace('• ', '')}" if not line.strip().startswith('•') else line.strip()
-                for line in key_highlights.split('\n')
-                if line.strip() and not line.isspace()
-            ]
-            
-            # Process Risks - ensure each line starts with a bullet
-            risks_list = [
-                f"• {line.strip().replace('• ', '')}" if not line.strip().startswith('•') else line.strip()
-                for line in risks.split('\n')
-                if line.strip() and not line.isspace()
-            ]
-            
+            # Format the data
             updated = {
-                "Property Name":       property_name,
-                "Location":            location,
-                "Maps Link":           generate_maps_link(location),
-                "Purchase Price":      purchase_price,
-                "Loan Amount":         loan_amount,
-                "In-Place Cap Rate":   in_cap_rate,
+                "Property Name": property_name,
+                "Location": location,
+                "Asset Class": asset_class,
+                "Size": size,
+                "Sponsor": sponsor,
+                "Broker": broker,
+                "Purchase Price": purchase_price,
+                "Loan Amount": loan_amount,
+                "In-Place Cap Rate": in_cap_rate,
                 "Stabilized Cap Rate": stab_cap_rate,
-                "Interest Rate":       interest_rate,
-                "Term":                term,
-                "Exit Strategy":       exit_strategy,
-                "Projected IRR":       proj_irr,
-                "Hold Period":         hold_period,
-                "Size":                size,
-                "Key Highlights":      key_highlights_list,
-                "Risks or Red Flags":  risks_list,
-                "Summary":             summary_text
+                "Interest Rate": interest_rate,
+                "Term": term,
+                "Exit Strategy": exit_strategy,
+                "Projected IRR": proj_irr,
+                "Hold Period": hold_period,
+                "Summary": summary_text,
+                "Key Highlights": [line.strip() for line in key_highlights.split('\n') if line.strip()],
+                "Risks or Red Flags": [line.strip() for line in risks.split('\n') if line.strip()]
             }
-            create_airtable_record(
+            
+            if create_airtable_record(
                 updated,
                 raw_notes,
                 st.session_state["attachments"],
                 st.session_state["deal_type"],
                 st.session_state["contacts"]
-            )
-        st.success("✅ Deal saved to Airtable!")
+            ):
+                st.success("✅ Deal saved to Airtable!")
+                # Clear the form
+                st.session_state.clear()
