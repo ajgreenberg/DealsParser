@@ -373,21 +373,17 @@ def generate_county_link(address: str) -> str:
     county, state = get_county_info(address)
     print(f"Got county info - county: {repr(county)}, state: {repr(state)}")
     
-    # Format address for search
-    search_address = format_address_for_search(address)
-    print(f"Formatted address for search: {repr(search_address)}")
-    
-    # If we have both county and state, try to get a county-specific URL
+    # If we have both county and state, generate a Google search URL
     if county and state:
-        url = get_county_url(county, state, search_address)
-        print(f"Got county-specific URL: {repr(url)}")
-        return url if url else ""
+        url = get_county_url(county, state, address)
+        print(f"Generated Google search URL: {repr(url)}")
+        return url
     
-    # If we only have state, get the state-level website
+    # If we only have state, get state-level search
     if state:
         url = get_state_url(state)
-        print(f"Got state-level URL: {repr(url)}")
-        return url if url else ""
+        print(f"Generated state-level search URL: {repr(url)}")
+        return url
     
     # If all else fails, return the default national website
     print("Falling back to national website")
