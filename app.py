@@ -12,7 +12,7 @@ from datetime import datetime
 import random
 import time
 import usaddress  # Add this import for address parsing
-from county_assessor_urls import get_county_url, get_state_url
+import urllib.parse
 
 # --- Custom CSS for Apple-like styling ---
 st.set_page_config(
@@ -362,32 +362,9 @@ def format_address_for_search(address: str) -> str:
     address = address.replace(' ', '+').replace('#', '').replace('&', 'and')
     return address
 
-def generate_county_link(address: str) -> str:
-    """Generate a link to the county tax assessor website with property search if available."""
-    print(f"\nGenerating county link for address: {repr(address)}")
-    if not address or not isinstance(address, str):
-        print("Invalid or empty address")
-        return ""
-    
-    # Get county and state info
-    county, state = get_county_info(address)
-    print(f"Got county info - county: {repr(county)}, state: {repr(state)}")
-    
-    # If we have both county and state, generate a Google search URL
-    if county and state:
-        url = get_county_url(county, state, address)
-        print(f"Generated Google search URL: {repr(url)}")
-        return url
-    
-    # If we only have state, get state-level search
-    if state:
-        url = get_state_url(state)
-        print(f"Generated state-level search URL: {repr(url)}")
-        return url
-    
-    # If all else fails, return the default national website
-    print("Falling back to national website")
-    return "https://www.usa.gov/property-taxes"
+def generate_maps_link(address: str) -> str:
+    """Generate a Google Maps link for the address."""
+    return f"https://www.google.com/maps/search/?api=1&query={urllib.parse.quote(address)}"
 
 # --- Helper Functions ---
 def upload_to_s3(file_data, filename) -> str:
@@ -468,13 +445,6 @@ def gpt_extract_summary(text: str, deal_type: str) -> Dict:
     cleaned = re.sub(r"^[^\{]*", "", cleaned, flags=re.DOTALL)
     return json.loads(cleaned)
 
-def generate_maps_link(address: str) -> str:
-    """Generate a Google Maps link from an address."""
-    if not address:
-        return ""
-    formatted_address = address.replace(' ', '+')
-    return f"https://www.google.com/maps/search/?api=1&query={formatted_address}"
-
 def create_airtable_record(
     data: Dict,
     raw_notes: str,
@@ -482,60 +452,33 @@ def create_airtable_record(
     deal_type: str,
     contact_info: str
 ):
-    print("\nCreating Airtable record...")
-    # Always tag new deals as "Pursuing"
-    status = "Pursuing"
-
+    """Create a record in Airtable with the extracted data."""
+    # Format the data for Airtable
+    airtable_data = {
+        "Deal Type": deal_type,
+        "Property Address": data.get("address", ""),
+        "Maps Link": generate_maps_link(data.get("address", "")),
+        "Purchase Price": data.get("purchase_price", ""),
+        "ARV": data.get("arv", ""),
+        "Repair Cost": data.get("repair_cost", ""),
+        "Summary": data.get("summary", ""),
+        "Contact Info": contact_info,
+        "Raw Notes": raw_notes,
+        "Attachments": attachments
+    }
+    print("Fields being sent to Airtable:")
+    for key, value in airtable_data.items():
+        print(f"  {key}: {repr(value)}")
+    
     headers = {
         "Authorization": f"Bearer {AIRTABLE_PAT}",
         "Content-Type": "application/json"
     }
     
-    # Generate maps link from location
-    location = data.get("Location", "")
-    print(f"Location from data: {repr(location)}")
-    maps_link = generate_maps_link(location)
-    print(f"Generated maps link: {repr(maps_link)}")
-    
-    # Generate county tax link
-    county_link = generate_county_link(location)
-    print(f"Generated county link: {repr(county_link)}")
-    
-    fields = {
-        "Deal Type": [deal_type],
-        "Status": status,
-        "Summary": data.get("Summary"),
-        "Raw Notes": raw_notes,
-        "Contact Info": contact_info,
-        "Sponsor": data.get("Sponsor"),
-        "Broker": data.get("Broker"),
-        "Attachments": [{"url": u} for u in attachments],
-        "Key Highlights": "\n".join(data.get("Key Highlights", [])),
-        "Risks": "\n".join(data.get("Risks or Red Flags", [])),
-        "Property Name": data.get("Property Name"),
-        "Location": location,
-        "Maps Link": maps_link,
-        "County Tax Link": county_link,
-        "Asset Class": data.get("Asset Class"),
-        "Purchase Price": data.get("Purchase Price"),
-        "Loan Amount": data.get("Loan Amount"),
-        "In-Place Cap Rate": data.get("In-Place Cap Rate"),
-        "Stabilized Cap Rate": data.get("Stabilized Cap Rate"),
-        "Interest Rate": data.get("Interest Rate"),
-        "Term": data.get("Term"),
-        "Exit Strategy": data.get("Exit Strategy"),
-        "Projected IRR": data.get("Projected IRR"),
-        "Hold Period": data.get("Hold Period"),
-        "Size": data.get("Square Footage or Unit Count"),
-    }
-    print("Fields being sent to Airtable:")
-    for key, value in fields.items():
-        print(f"  {key}: {repr(value)}")
-    
     resp = requests.post(
         f"https://api.airtable.com/v0/{AIRTABLE_BASE_ID}/{AIRTABLE_TABLE_NAME}",
         headers=headers,
-        json={"fields": fields}
+        json={"fields": airtable_data}
     )
     if resp.status_code not in (200, 201):
         print(f"Airtable error response: {resp.text}")
@@ -695,17 +638,10 @@ if "summary" in st.session_state:
                 if line.strip() and not line.isspace()
             ]
             
-            # Generate county tax link
-            county_link = generate_county_link(location)
-            
             updated = {
                 "Property Name":       property_name,
                 "Location":            location,
                 "Maps Link":           generate_maps_link(location),
-                "County Tax Link":     county_link,
-                "Asset Class":         asset_class,
-                "Sponsor":             sponsor,
-                "Broker":              broker,
                 "Purchase Price":      purchase_price,
                 "Loan Amount":         loan_amount,
                 "In-Place Cap Rate":   in_cap_rate,
