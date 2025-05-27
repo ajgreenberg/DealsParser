@@ -11,8 +11,6 @@ from typing import Dict, List
 from datetime import datetime
 import random
 import time
-import usaddress  # Add this import for address parsing
-import urllib.parse
 
 # --- Custom CSS for Apple-like styling ---
 st.set_page_config(
@@ -297,75 +295,6 @@ s3 = boto3.client(
     region_name=S3_REGION
 )
 
-def parse_address(address: str) -> Dict:
-    """Parse address string into components using usaddress library."""
-    try:
-        parsed, address_type = usaddress.tag(address)
-        return parsed
-    except:
-        return {}
-
-def get_county_info(address: str) -> tuple:
-    """Extract county and state from address using GPT."""
-    if not address or not isinstance(address, str):
-        print(f"Invalid address provided to get_county_info: {repr(address)}")
-        return None, None
-        
-    print(f"\nAttempting to get county info for address: {repr(address)}")
-    prompt = f"""
-    Extract ONLY the county and state from this address. Return in EXACTLY this format: "County, ST"
-    where ST is the 2-letter state code. If you can't determine the county, return only the state code.
-    
-    Examples:
-    Input: "123 Main St, Los Angeles, CA 90001"
-    Output: Los Angeles, CA
-    
-    Input: "456 Park Ave, New York, NY 10022"
-    Output: New York, NY
-    
-    Input: "789 Oak Rd, Miami Beach, FL 33139"
-    Output: Miami-Dade, FL
-    
-    Input: {address}
-    Output:"""
-    
-    try:
-        res = client.chat.completions.create(
-            model="gpt-3.5-turbo",
-            messages=[{"role": "user", "content": prompt}],
-            temperature=0.1
-        )
-        result = res.choices[0].message.content.strip()
-        print(f"GPT county extraction result: {repr(result)}")
-        
-        if ',' in result:
-            county, state = result.split(',', 1)
-            county = county.strip()
-            state = state.strip()
-            print(f"Extracted county: {repr(county)}, state: {repr(state)}")
-            return county, state
-        print(f"No county found, state only: {repr(result)}")
-        return None, result.strip()
-    except Exception as e:
-        print(f"Error extracting county info: {str(e)}")
-        return None, None
-
-def format_address_for_search(address: str) -> str:
-    """Format address for county search URL."""
-    if not address:
-        return ""
-    # Remove any apartment/unit numbers
-    address = re.sub(r'\s+(?:Apt|Unit|#)\.?\s*[\w-]+', '', address, flags=re.IGNORECASE)
-    # Remove any trailing commas and spaces
-    address = re.sub(r',\s*$', '', address)
-    # Replace spaces and special chars with URL-safe characters
-    address = address.replace(' ', '+').replace('#', '').replace('&', 'and')
-    return address
-
-def generate_maps_link(address: str) -> str:
-    """Generate a Google Maps link for the address."""
-    return f"https://www.google.com/maps/search/?api=1&query={urllib.parse.quote(address)}"
-
 # --- Helper Functions ---
 def upload_to_s3(file_data, filename) -> str:
     key = f"deal-uploads/{datetime.now().strftime('%Y%m%d-%H%M%S')}-{filename}"
@@ -445,6 +374,13 @@ def gpt_extract_summary(text: str, deal_type: str) -> Dict:
     cleaned = re.sub(r"^[^\{]*", "", cleaned, flags=re.DOTALL)
     return json.loads(cleaned)
 
+def generate_maps_link(address: str) -> str:
+    """Generate a Google Maps link from an address."""
+    if not address:
+        return ""
+    formatted_address = address.replace(' ', '+')
+    return f"https://www.google.com/maps/search/?api=1&query={formatted_address}"
+
 def create_airtable_record(
     data: Dict,
     raw_notes: str,
@@ -452,64 +388,50 @@ def create_airtable_record(
     deal_type: str,
     contact_info: str
 ):
-    """Create a record in Airtable with the extracted data."""
-    # Format the data for Airtable - only include fields that exist in Airtable
-    airtable_data = {
-        "Name": data.get("Property Name", ""),
-        "Status": "New",  # Default status for new deals
-        "Deal Type": [deal_type],
-        "Location": data.get("Location", ""),
-        "Asset Class": data.get("Asset Class", ""),
-        "Sponsor": data.get("Sponsor", ""),
-        "Broker": data.get("Broker", ""),
-        "Size": data.get("Size", ""),
-        "Purchase Price": data.get("Purchase Price", ""),
-        "Loan Amount": data.get("Loan Amount", ""),
-        "In-Place Cap Rate": data.get("In-Place Cap Rate", ""),
-        "Stabilized Cap Rate": data.get("Stabilized Cap Rate", ""),
-        "Interest Rate": data.get("Interest Rate", ""),
-        "Term": data.get("Term", ""),
-        "Exit Strategy": data.get("Exit Strategy", ""),
-        "Projected IRR": data.get("Projected IRR", ""),
-        "Hold Period": data.get("Hold Period", ""),
-        "Summary": data.get("Summary", ""),
-        "Key Highlights": "\n".join(data.get("Key Highlights", [])) if isinstance(data.get("Key Highlights"), list) else data.get("Key Highlights", ""),
-        "Risks": "\n".join(data.get("Risks or Red Flags", [])) if isinstance(data.get("Risks or Red Flags"), list) else data.get("Risks or Red Flags", ""),
-        "Contact Info": contact_info,
-        "Notes": raw_notes,
-        "Maps Link": generate_maps_link(data.get("Location", "")),
-        "Attachments": [{"url": url} for url in attachments] if attachments else []
-    }
+    # Always tag new deals as "Pursuing"
+    status = "Pursuing"
 
-    # Remove any None values or empty strings
-    airtable_data = {k: v for k, v in airtable_data.items() if v not in (None, "")}
-    
     headers = {
         "Authorization": f"Bearer {AIRTABLE_PAT}",
         "Content-Type": "application/json"
     }
     
-    try:
-        resp = requests.post(
-            f"https://api.airtable.com/v0/{AIRTABLE_BASE_ID}/{AIRTABLE_TABLE_NAME}",
-            headers=headers,
-            json={"fields": airtable_data}
-        )
-        resp.raise_for_status()  # Raise an error for bad status codes
-        print("Successfully saved to Airtable")
-        return True
-    except requests.exceptions.RequestException as e:
-        error_msg = f"Airtable error: {str(e)}"
-        if resp.text:
-            try:
-                error_data = resp.json()
-                if "error" in error_data:
-                    error_msg = f"Airtable error: {error_data['error'].get('message', str(e))}"
-            except:
-                pass
-        print(error_msg)
-        st.error(error_msg)
-        return False
+    # Generate maps link from location
+    maps_link = generate_maps_link(data.get("Location", ""))
+    
+    fields = {
+        "Deal Type": [deal_type],
+        "Status": status,
+        "Summary": data.get("Summary"),
+        "Raw Notes": raw_notes,
+        "Contact Info": contact_info,
+        "Sponsor": data.get("Sponsor"),
+        "Broker": data.get("Broker"),
+        "Attachments": [{"url": u} for u in attachments],
+        "Key Highlights": "\n".join(data.get("Key Highlights", [])),
+        "Risks": "\n".join(data.get("Risks or Red Flags", [])),
+        "Property Name": data.get("Property Name"),
+        "Location": data.get("Location"),
+        "Maps Link": maps_link,
+        "Asset Class": data.get("Asset Class"),
+        "Purchase Price": data.get("Purchase Price"),
+        "Loan Amount": data.get("Loan Amount"),
+        "In-Place Cap Rate": data.get("In-Place Cap Rate"),
+        "Stabilized Cap Rate": data.get("Stabilized Cap Rate"),
+        "Interest Rate": data.get("Interest Rate"),
+        "Term": data.get("Term"),
+        "Exit Strategy": data.get("Exit Strategy"),
+        "Projected IRR": data.get("Projected IRR"),
+        "Hold Period": data.get("Hold Period"),
+        "Size": data.get("Square Footage or Unit Count"),
+    }
+    resp = requests.post(
+        f"https://api.airtable.com/v0/{AIRTABLE_BASE_ID}/{AIRTABLE_TABLE_NAME}",
+        headers=headers,
+        json={"fields": fields}
+    )
+    if resp.status_code not in (200, 201):
+        st.error(f"Airtable error: {resp.text}")
 
 # --- Streamlit UI ---
 st.markdown("<h1>DealFlow AI</h1>", unsafe_allow_html=True)
@@ -649,35 +571,46 @@ if "summary" in st.session_state:
 
     if submitted:
         with st.spinner("Saving to Airtable"):
-            # Format the data
-            updated = {
-                "Property Name": property_name,
-                "Location": location,
-                "Asset Class": asset_class,
-                "Size": size,
-                "Sponsor": sponsor,
-                "Broker": broker,
-                "Purchase Price": purchase_price,
-                "Loan Amount": loan_amount,
-                "In-Place Cap Rate": in_cap_rate,
-                "Stabilized Cap Rate": stab_cap_rate,
-                "Interest Rate": interest_rate,
-                "Term": term,
-                "Exit Strategy": exit_strategy,
-                "Projected IRR": proj_irr,
-                "Hold Period": hold_period,
-                "Summary": summary_text,
-                "Key Highlights": [line.strip() for line in key_highlights.split('\n') if line.strip()],
-                "Risks or Red Flags": [line.strip() for line in risks.split('\n') if line.strip()]
-            }
+            # Process Key Highlights - ensure each line starts with a bullet
+            key_highlights_list = [
+                f"• {line.strip().replace('• ', '')}" if not line.strip().startswith('•') else line.strip()
+                for line in key_highlights.split('\n')
+                if line.strip() and not line.isspace()
+            ]
             
-            if create_airtable_record(
+            # Process Risks - ensure each line starts with a bullet
+            risks_list = [
+                f"• {line.strip().replace('• ', '')}" if not line.strip().startswith('•') else line.strip()
+                for line in risks.split('\n')
+                if line.strip() and not line.isspace()
+            ]
+            
+            updated = {
+                "Property Name":       property_name,
+                "Location":            location,
+                "Maps Link":           generate_maps_link(location),
+                "Asset Class":         asset_class,
+                "Sponsor":             sponsor,
+                "Broker":              broker,
+                "Purchase Price":      purchase_price,
+                "Loan Amount":         loan_amount,
+                "In-Place Cap Rate":   in_cap_rate,
+                "Stabilized Cap Rate": stab_cap_rate,
+                "Interest Rate":       interest_rate,
+                "Term":                term,
+                "Exit Strategy":       exit_strategy,
+                "Projected IRR":       proj_irr,
+                "Hold Period":         hold_period,
+                "Size":                size,
+                "Key Highlights":      key_highlights_list,
+                "Risks or Red Flags":  risks_list,
+                "Summary":             summary_text
+            }
+            create_airtable_record(
                 updated,
                 raw_notes,
                 st.session_state["attachments"],
                 st.session_state["deal_type"],
                 st.session_state["contacts"]
-            ):
-                st.success("✅ Deal saved to Airtable!")
-                # Clear the form
-                st.session_state.clear()
+            )
+        st.success("✅ Deal saved to Airtable!")
