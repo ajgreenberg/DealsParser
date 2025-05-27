@@ -28,30 +28,31 @@ def get_county_url(county: str, state: str, address: str = "") -> str:
     # Build search terms based on available info
     search_terms = []
     
-    # Always include county and state
-    search_terms.append(f"{county} county {state}")
-    
-    # Add property-specific terms
-    search_terms.extend([
-        "property tax",
-        "assessor",
-        "property search"
-    ])
-    
-    # Add address if provided
+    # If we have an address, make it the primary search term
     if address:
         # Clean up address
         address = address.replace(',', '')
         search_terms.append(f'"{address}"')
     
+    # Add county and state with property tax terms
+    search_terms.extend([
+        f"{county} county",
+        state,
+        "property tax",
+        "assessor",
+        "property search",
+        "parcel lookup"
+    ])
+    
     # Combine terms and encode for URL
     search_query = ' '.join(search_terms)
     encoded_query = urllib.parse.quote(search_query)
     
-    return f"https://www.google.com/search?q={encoded_query}"
+    # Add search refinements to prioritize government sites
+    return f"https://www.google.com/search?q={encoded_query}+site:.gov+OR+site:.us"
 
 def get_state_url(state: str) -> str:
     """Generate a Google search URL for state-level property tax info."""
     state = state.upper()
-    search_query = urllib.parse.quote(f"{state} state property tax assessor database")
+    search_query = urllib.parse.quote(f"{state} state property tax assessor database site:.gov")
     return f"https://www.google.com/search?q={search_query}"
