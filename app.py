@@ -66,7 +66,6 @@ st.markdown("""
             font-weight: 700 !important;
             font-size: 2.2rem !important;
             margin-bottom: 1rem !important;
-            color: #1D1D1F !important;
         }
         
         h2 {
@@ -75,14 +74,12 @@ st.markdown("""
             font-size: 1.3rem !important;
             margin-top: 1rem !important;
             margin-bottom: 0.5rem !important;
-            color: #1D1D1F !important;
         }
         
         /* Form styling */
         .stRadio > label {
             font-family: -apple-system, BlinkMacSystemFont, sans-serif;
             font-weight: 500;
-            color: #1D1D1F;
             margin-bottom: 0.5rem;
         }
         
@@ -90,25 +87,70 @@ st.markdown("""
         .stTextInput > label {
             font-family: -apple-system, BlinkMacSystemFont, sans-serif;
             font-weight: 500;
-            color: #1D1D1F;
             margin-bottom: 0.25rem;
         }
         
-        .stTextInput > div > div {
-            border: 1px solid #E6E6E6 !important;
-            border-radius: 6px !important;
-            background-color: #FFFFFF !important;
+        /* Light mode styles */
+        @media (prefers-color-scheme: light) {
+            body {
+                background-color: #FFFFFF;
+                color: #1D1D1F;
+            }
+            
+            h1, h2, .stRadio > label, .stTextInput > label {
+                color: #1D1D1F !important;
+            }
+            
+            .stTextInput > div > div {
+                border: 1px solid #E6E6E6 !important;
+                border-radius: 6px !important;
+                background-color: #FFFFFF !important;
+                color: #1D1D1F !important;
+            }
+            
+            .editable-form {
+                background-color: #F8F8FA;
+                border: 1px solid #E6E6E6;
+            }
         }
         
-        /* Editable field styling */
-        .stTextInput > div > div:hover {
-            border-color: #0c3c60 !important;
-            box-shadow: 0 0 0 1px #0c3c60 !important;
-        }
-        
-        .stTextInput > div > div:focus-within {
-            border-color: #0c3c60 !important;
-            box-shadow: 0 0 0 2px #0c3c60 !important;
+        /* Dark mode styles */
+        @media (prefers-color-scheme: dark) {
+            body {
+                background-color: #1A1A1A;
+                color: #FFFFFF;
+            }
+            
+            h1, h2, .stRadio > label, .stTextInput > label {
+                color: #FFFFFF !important;
+            }
+            
+            .stTextInput > div > div {
+                border: 1px solid #404040 !important;
+                border-radius: 6px !important;
+                background-color: #2D2D2D !important;
+                color: #FFFFFF !important;
+            }
+            
+            .editable-form {
+                background-color: #2D2D2D;
+                border: 1px solid #404040;
+            }
+            
+            .stTextArea > div > div {
+                background-color: #2D2D2D !important;
+                border-color: #404040 !important;
+                color: #FFFFFF !important;
+            }
+            
+            .success {
+                background-color: #2D2D2D !important;
+                color: #FFFFFF !important;
+            }
+            
+            .stForm {
+                background-color: #2D2D2D !important;
+            }
         }
         
         /* Button styling */
@@ -133,7 +175,7 @@ st.markdown("""
         /* File uploader styling */
         .uploadedFile {
             font-family: -apple-system, BlinkMacSystemFont, sans-serif;
-            border: 1px solid #E6E6E6;
+            border: 1px solid #404040;
             border-radius: 6px;
             padding: 0.75rem;
             margin: 0.5rem 0;
@@ -144,7 +186,6 @@ st.markdown("""
             font-family: -apple-system, BlinkMacSystemFont, sans-serif;
             padding: 0.75rem;
             border-radius: 6px;
-            background-color: #F5F5F7;
             margin: 0.5rem 0;
         }
         
@@ -152,71 +193,41 @@ st.markdown("""
         hr {
             margin: 1rem 0 !important;
             border: none;
-            border-top: 1px solid #E6E6E6;
-        }
-        
-        /* Form container */
-        .stForm {
-            background-color: #F5F5F7;
-            padding: 1.5rem;
-            border-radius: 8px;
-            margin: 0.5rem 0;
+            border-top: 1px solid #404040;
         }
         
         /* Text area styling */
         .stTextArea > label {
             font-family: -apple-system, BlinkMacSystemFont, sans-serif;
             font-weight: 500;
-            color: #1D1D1F;
             margin-bottom: 0.25rem;
         }
         
         .stTextArea > div > div {
             border-radius: 6px !important;
-            border: 1px solid #E6E6E6 !important;
-            background-color: #FFFFFF !important;
         }
         
-        .stTextArea > div > div:hover {
+        .stTextArea > div > div:hover,
+        .stTextInput > div > div:hover {
             border-color: #0c3c60 !important;
             box-shadow: 0 0 0 1px #0c3c60 !important;
         }
         
-        .stTextArea > div > div:focus-within {
+        .stTextArea > div > div:focus-within,
+        .stTextInput > div > div:focus-within {
             border-color: #0c3c60 !important;
             box-shadow: 0 0 0 2px #0c3c60 !important;
         }
         
-        /* Editable form section */
-        .editable-form {
-            background-color: #F8F8FA;
-            border: 1px solid #E6E6E6;
-            border-radius: 8px;
-            padding: 1rem;
-            margin: 0.5rem 0;
-        }
-        
-        /* Compact spacing for form fields */
-        .stForm > div > div > div {
-            margin-bottom: 0.5rem !important;
-        }
-        
-        /* Help text styling */
-        .stTextInput > div > div > .help {
-            color: #6B7280 !important;
-            font-size: 0.875rem !important;
-            margin-top: 0.25rem !important;
-        }
-        
-        /* Progress bar styling - override all instances */
+        /* Progress bar styling */
         .stProgress > div > div {
-            background-color: rgba(38, 39, 48, 0.1) !important;
+            background-color: rgba(255, 255, 255, 0.1) !important;
         }
         .stProgress > div > div > div {
-            background-color: rgb(38, 39, 48) !important;
+            background-color: #0c3c60 !important;
         }
         
-        /* Progress message styling with spinner */
+        /* Status message styling */
         .status-message {
             color: #0c3c60 !important;
             font-weight: 500 !important;
@@ -240,20 +251,6 @@ st.markdown("""
             animation: spin 1s linear infinite !important;
             display: inline-block !important;
             margin-right: 8px !important;
-        }
-        
-        /* Override Streamlit's default spinner */
-        .stSpinner > div > div {
-            border-color: rgba(12, 60, 96, 0.1) !important;
-            border-top-color: #0c3c60 !important;
-            border-right-color: rgba(12, 60, 96, 0.1) !important;
-            border-bottom-color: #0c3c60 !important;
-            border-left-color: rgba(12, 60, 96, 0.1) !important;
-        }
-        
-        /* Success message styling */
-        .stSuccess {
-            color: #0c3c60 !important;
         }
     </style>
 """, unsafe_allow_html=True)
