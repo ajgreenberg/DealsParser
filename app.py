@@ -441,7 +441,7 @@ def validate_address(address: str) -> Dict:
         zipcode = state_zip[1] if len(state_zip) > 1 else ""
 
         # Construct API URL with proper encoding
-        base_url = "https://us-property-data.api.smarty.com/principal"
+        base_url = "https://property.api.smarty.com/principal"
         params = {
             "auth-id": SMARTY_AUTH_ID,
             "auth-token": SMARTY_AUTH_TOKEN,
