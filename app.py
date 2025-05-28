@@ -302,19 +302,29 @@ AWS_SECRET_ACCESS_KEY= st.secrets["AWS_SECRET_ACCESS_KEY"]
 S3_BUCKET            = st.secrets["S3_BUCKET"]
 S3_REGION            = st.secrets["S3_REGION"]
 
-# Initialize Smarty client if credentials are available
+# Debug Smarty secrets
+st.write("Checking Smarty credentials...")
 try:
+    # Check if keys exist in secrets
+    all_secrets = st.secrets.to_dict()
+    st.write("Available secret keys:", list(all_secrets.keys()))
+    
     SMARTY_AUTH_ID = st.secrets.get("SMARTY_AUTH_ID")
     SMARTY_AUTH_TOKEN = st.secrets.get("SMARTY_AUTH_TOKEN")
+    
+    st.write("SMARTY_AUTH_ID exists:", SMARTY_AUTH_ID is not None)
+    st.write("SMARTY_AUTH_TOKEN exists:", SMARTY_AUTH_TOKEN is not None)
+    
     if SMARTY_AUTH_ID and SMARTY_AUTH_TOKEN:
         smarty_client = ClientBuilder(SMARTY_AUTH_ID, SMARTY_AUTH_TOKEN).build_us_street_api_client()
         SMARTY_ENABLED = True
+        st.write("✅ Smarty client initialized successfully")
     else:
         SMARTY_ENABLED = False
         st.warning("Smarty API credentials not found in secrets. Address validation will be disabled.")
 except Exception as e:
     SMARTY_ENABLED = False
-    st.warning("Error initializing Smarty API. Address validation will be disabled.")
+    st.warning(f"Error initializing Smarty API: {str(e)}. Address validation will be disabled.")
 
 s3 = boto3.client(
     "s3",
@@ -744,3 +754,4 @@ if "summary" in st.session_state:
                 st.session_state["contacts"]
             )
         st.success("✅ Deal saved to Airtable!")
+        
