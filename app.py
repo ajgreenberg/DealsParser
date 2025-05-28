@@ -301,11 +301,20 @@ AWS_ACCESS_KEY_ID    = st.secrets["AWS_ACCESS_KEY_ID"]
 AWS_SECRET_ACCESS_KEY= st.secrets["AWS_SECRET_ACCESS_KEY"]
 S3_BUCKET            = st.secrets["S3_BUCKET"]
 S3_REGION            = st.secrets["S3_REGION"]
-SMARTY_AUTH_ID       = st.secrets["SMARTY_AUTH_ID"]
-SMARTY_AUTH_TOKEN    = st.secrets["SMARTY_AUTH_TOKEN"]
 
-# Initialize Smarty client
-smarty_client = ClientBuilder(SMARTY_AUTH_ID, SMARTY_AUTH_TOKEN).build_us_street_api_client()
+# Initialize Smarty client if credentials are available
+try:
+    SMARTY_AUTH_ID = st.secrets.get("SMARTY_AUTH_ID")
+    SMARTY_AUTH_TOKEN = st.secrets.get("SMARTY_AUTH_TOKEN")
+    if SMARTY_AUTH_ID and SMARTY_AUTH_TOKEN:
+        smarty_client = ClientBuilder(SMARTY_AUTH_ID, SMARTY_AUTH_TOKEN).build_us_street_api_client()
+        SMARTY_ENABLED = True
+    else:
+        SMARTY_ENABLED = False
+        st.warning("Smarty API credentials not found in secrets. Address validation will be disabled.")
+except Exception as e:
+    SMARTY_ENABLED = False
+    st.warning("Error initializing Smarty API. Address validation will be disabled.")
 
 s3 = boto3.client(
     "s3",
@@ -405,7 +414,7 @@ def validate_address(address: str) -> Dict:
     Validate and standardize an address using Smarty API.
     Returns full Smarty response and formatted address data.
     """
-    if not address:
+    if not address or not SMARTY_ENABLED:
         return None
         
     lookup = Lookup()
