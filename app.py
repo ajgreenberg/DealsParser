@@ -304,33 +304,40 @@ S3_REGION            = st.secrets["S3_REGION"]
 
 # Debug Smarty secrets
 st.write("Checking Smarty credentials...")
-
-# Disable Smarty API due to subscription issues
-# SMARTY_ENABLED = False
-
 try:
     # Check if keys exist in secrets
     all_secrets = st.secrets.to_dict()
-    st.write("Available secret keys:", list(all_secrets.keys()))
     
     SMARTY_AUTH_ID = st.secrets.get("SMARTY_AUTH_ID")
     SMARTY_AUTH_TOKEN = st.secrets.get("SMARTY_AUTH_TOKEN")
     
-    st.write("\n### Smarty API Configuration ###")
-    st.write(f"Auth ID: {SMARTY_AUTH_ID}")
-    st.write(f"Auth Token (first 4 chars): {SMARTY_AUTH_TOKEN[:4]}...")
+    st.write("\n=== SMARTY API CONFIGURATION (FOR SUPPORT) ===")
+    st.write("Auth ID:", SMARTY_AUTH_ID)
+    st.write("Auth Token (first 4 chars):", SMARTY_AUTH_TOKEN[:4] if SMARTY_AUTH_TOKEN else None)
+    st.write("\nAPI Details:")
+    st.json({
+        "api_version": "us-street-api",
+        "authentication": {
+            "auth_id": SMARTY_AUTH_ID,
+            "auth_token_prefix": SMARTY_AUTH_TOKEN[:4] if SMARTY_AUTH_TOKEN else None
+        },
+        "sdk_info": {
+            "client_builder": "smartystreets_python_sdk.ClientBuilder",
+            "api_type": "us_street_api_client"
+        }
+    })
     
     if SMARTY_AUTH_ID and SMARTY_AUTH_TOKEN:
         # Initialize client using US Street API
         credentials = StaticCredentials(SMARTY_AUTH_ID, SMARTY_AUTH_TOKEN)
         smarty_client = ClientBuilder(credentials).build_us_street_api_client()
-        # SMARTY_ENABLED = True
+        SMARTY_ENABLED = True
         st.write("✅ Smarty client initialized successfully")
     else:
-        # SMARTY_ENABLED = False
+        SMARTY_ENABLED = False
         st.warning("Smarty API credentials not found in secrets. Address validation will be disabled.")
 except Exception as e:
-    # SMARTY_ENABLED = False
+    SMARTY_ENABLED = False
     st.warning(f"Error initializing Smarty API: {str(e)}. Address validation will be disabled.")
 
 s3 = boto3.client(
