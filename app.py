@@ -12,7 +12,7 @@ from datetime import datetime
 import random
 import time
 from smartystreets_python_sdk import ClientBuilder, StaticCredentials
-from smartystreets_python_sdk.us_street import Lookup
+from smartystreets_python_sdk.us_property import Lookup
 
 # --- Custom CSS for Apple-like styling ---
 st.set_page_config(
@@ -316,21 +316,21 @@ try:
     st.write("Auth Token (first 4 chars):", SMARTY_AUTH_TOKEN[:4] if SMARTY_AUTH_TOKEN else None)
     st.write("\nAPI Details:")
     st.json({
-        "api_version": "us-street-api",
+        "api_version": "us-property-api",
         "authentication": {
             "auth_id": SMARTY_AUTH_ID,
             "auth_token_prefix": SMARTY_AUTH_TOKEN[:4] if SMARTY_AUTH_TOKEN else None
         },
         "sdk_info": {
             "client_builder": "smartystreets_python_sdk.ClientBuilder",
-            "api_type": "us_street_api_client"
+            "api_type": "us_property_api_client"
         }
     })
     
     if SMARTY_AUTH_ID and SMARTY_AUTH_TOKEN:
-        # Initialize client using US Street API
+        # Initialize client using Property API
         credentials = StaticCredentials(SMARTY_AUTH_ID, SMARTY_AUTH_TOKEN)
-        smarty_client = ClientBuilder(credentials).build_us_street_api_client()
+        smarty_client = ClientBuilder(credentials).build_us_property_api_client()
         SMARTY_ENABLED = True
         st.write("✅ Smarty client initialized successfully")
     else:
@@ -435,8 +435,8 @@ def generate_maps_link(address: str) -> str:
 
 def validate_address(address: str) -> Dict:
     """
-    Validate and enrich address using Smarty US Street API.
-    Returns formatted address and location data.
+    Validate and enrich address using Smarty Property API.
+    Returns formatted address and property data.
     """
     if not address or not SMARTY_ENABLED:
         return None
@@ -444,7 +444,7 @@ def validate_address(address: str) -> Dict:
     try:
         # Create API request details
         api_details = {
-            "api": "us-street-api",
+            "api": "us-property-api",
             "method": "POST",
             "credentials": {
                 "auth_id": SMARTY_AUTH_ID
@@ -464,32 +464,30 @@ def validate_address(address: str) -> Dict:
         if lookup.result:
             result = lookup.result[0]
             
-            # Create a detailed response dictionary
+            # Create a detailed response dictionary with property data
             smarty_response = {
                 "address": {
-                    "street": result.delivery_line_1,
-                    "city": result.components.city_name,
-                    "state": result.components.state_abbreviation,
-                    "zipcode": result.components.zipcode,
-                    "plus4_code": result.components.plus4_code
+                    "street": result.address.street,
+                    "city": result.address.city,
+                    "state": result.address.state,
+                    "zipcode": result.address.zipcode,
+                    "unit": result.address.unit or ""
                 }
             }
             
-            if hasattr(result, 'metadata'):
-                smarty_response["location"] = {
-                    "latitude": result.metadata.latitude,
-                    "longitude": result.metadata.longitude,
-                    "county": result.metadata.county_name,
-                    "timezone": result.metadata.timezone
+            if hasattr(result, 'property'):
+                smarty_response["property"] = {
+                    "type": result.property.general.property_type,
+                    "year_built": result.property.general.year_built,
+                    "square_footage": result.property.general.square_footage
                 }
             
             # Format the address
-            formatted_address = f"{result.delivery_line_1}, {result.components.city_name}, {result.components.state_abbreviation} {result.components.zipcode}"
+            formatted_address = f"{result.address.street}, {result.address.city}, {result.address.state} {result.address.zipcode}"
             
             return {
                 "formatted_address": formatted_address,
-                "latitude": result.metadata.latitude if hasattr(result, 'metadata') else None,
-                "longitude": result.metadata.longitude if hasattr(result, 'metadata') else None,
+                "property_type": result.property.general.property_type if hasattr(result, 'property') else None,
                 "raw_response": json.dumps(smarty_response, indent=2)
             }
             
