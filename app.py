@@ -441,7 +441,7 @@ def validate_address(address: str) -> Dict:
         zipcode = state_zip[1] if len(state_zip) > 1 else ""
 
         # Construct API URL with proper encoding
-        base_url = "https://api.smarty.com/property/principal"
+        base_url = "https://us-enrichment.api.smarty.com/lookup/search/property/principal"
         params = {
             "auth-id": SMARTY_AUTH_ID,
             "auth-token": SMARTY_AUTH_TOKEN,
@@ -464,12 +464,24 @@ def validate_address(address: str) -> Dict:
         
         data = response.json()
         
-        if data:
+        if data and len(data) > 0:
+            result = data[0]  # Get first match
+            
             # Format the address and extract property data
             property_data = {
-                "formatted_address": f"{street}, {city}, {state} {zipcode}",
-                "property_type": data.get("property", {}).get("type"),
-                "raw_data": data
+                "formatted_address": f"{result['matched_address']['street']}, {result['matched_address']['city']}, {result['matched_address']['state']} {result['matched_address']['zipcode']}",
+                "property_type": result.get('attributes', {}).get('land_use_standard', ''),
+                "raw_data": {
+                    "address": result['matched_address'],
+                    "property": {
+                        "sqft": result.get('attributes', {}).get('building_sqft', ''),
+                        "year_built": result.get('attributes', {}).get('year_built', ''),
+                        "bedrooms": result.get('attributes', {}).get('bedrooms', ''),
+                        "bathrooms": result.get('attributes', {}).get('bathrooms_total', ''),
+                        "lot_size": result.get('attributes', {}).get('acres', ''),
+                        "property_type": result.get('attributes', {}).get('land_use_standard', '')
+                    }
+                }
             }
             return property_data
             
@@ -477,7 +489,7 @@ def validate_address(address: str) -> Dict:
         st.error("Smarty API Error")
         st.write("### API Request Details (for Smarty Support):")
         st.write({
-            "endpoint": "us-property-data-principal",
+            "endpoint": base_url,
             "auth_id": SMARTY_AUTH_ID,
             "request": {
                 "street": street,
