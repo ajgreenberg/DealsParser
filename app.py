@@ -11,8 +11,7 @@ from typing import Dict, List
 from datetime import datetime
 import random
 import time
-from smartystreets_python_sdk_enterprise import ClientBuilder, StaticCredentials
-from smartystreets_python_sdk_enterprise.us_property import Lookup
+import urllib.parse
 
 # --- Custom CSS for Apple-like styling ---
 st.set_page_config(
@@ -316,29 +315,20 @@ try:
     st.write("Auth Token (first 4 chars):", SMARTY_AUTH_TOKEN[:4] if SMARTY_AUTH_TOKEN else None)
     st.write("\nAPI Details:")
     st.json({
-        "api_version": "us-property-api",
+        "api_version": "us-property-data-principal",
         "authentication": {
             "auth_id": SMARTY_AUTH_ID,
             "auth_token_prefix": SMARTY_AUTH_TOKEN[:4] if SMARTY_AUTH_TOKEN else None
-        },
-        "sdk_info": {
-            "client_builder": "smartystreets_python_sdk_enterprise.ClientBuilder",
-            "api_type": "us_property_api_client"
         }
     })
     
-    if SMARTY_AUTH_ID and SMARTY_AUTH_TOKEN:
-        # Initialize client using Property API from Enterprise SDK
-        credentials = StaticCredentials(SMARTY_AUTH_ID, SMARTY_AUTH_TOKEN)
-        smarty_client = ClientBuilder(credentials).build_us_property_api_client()
-        SMARTY_ENABLED = True
-        st.write("✅ Smarty client initialized successfully")
-    else:
-        SMARTY_ENABLED = False
+    SMARTY_ENABLED = bool(SMARTY_AUTH_ID and SMARTY_AUTH_TOKEN)
+    if not SMARTY_ENABLED:
         st.warning("Smarty API credentials not found in secrets. Address validation will be disabled.")
+    
 except Exception as e:
     SMARTY_ENABLED = False
-    st.warning(f"Error initializing Smarty API: {str(e)}. Address validation will be disabled.")
+    st.warning(f"Error checking Smarty credentials: {str(e)}. Address validation will be disabled.")
 
 s3 = boto3.client(
     "s3",
@@ -435,7 +425,7 @@ def generate_maps_link(address: str) -> str:
 
 def validate_address(address: str) -> Dict:
     """
-    Validate and enrich address using Smarty Property API.
+    Validate and enrich address using Smarty Property Data API (Principal Edition).
     Returns formatted address and property data.
     """
     if not address or not SMARTY_ENABLED:
@@ -450,61 +440,44 @@ def validate_address(address: str) -> Dict:
         state = state_zip[0] if state_zip else ""
         zipcode = state_zip[1] if len(state_zip) > 1 else ""
 
+        # Construct API URL with proper encoding
+        base_url = "https://us-property-data.api.smarty.com/principal"
+        params = {
+            "auth-id": SMARTY_AUTH_ID,
+            "auth-token": SMARTY_AUTH_TOKEN,
+            "street": street,
+            "city": city,
+            "state": state,
+            "zipcode": zipcode
+        }
+        
         # Debug: Show what we're sending to Smarty
-        st.write("Sending lookup to Smarty Property API:")
+        st.write("Sending lookup to Smarty Property Data API (Principal):")
         st.json({
-            "endpoint": "us-property-api",
-            "request": {
-                "street": street,
-                "city": city,
-                "state": state,
-                "zipcode": zipcode
-            }
+            "endpoint": base_url,
+            "request": {k: v for k, v in params.items() if k not in ["auth-token"]}  # Don't show auth token
         })
         
-        # Create a lookup with parsed components
-        lookup = Lookup()
-        lookup.street = street
-        lookup.city = city
-        lookup.state = state
-        lookup.zipcode = zipcode
+        # Make the API request
+        response = requests.get(base_url, params=params)
+        response.raise_for_status()  # Raise exception for bad status codes
         
-        # Send the lookup
-        smarty_client.send_lookup(lookup)
+        data = response.json()
         
-        if lookup.result:
-            result = lookup.result[0]
-            
-            # Format the address
-            formatted_address = f"{result.address.street}, {result.address.city}, {result.address.state} {result.address.zipcode}"
-            
+        if data:
+            # Format the address and extract property data
             property_data = {
-                "formatted_address": formatted_address,
-                "property_type": result.property.general.property_type if hasattr(result, 'property') else None,
-                "raw_data": {
-                    "address": {
-                        "street": result.address.street,
-                        "city": result.address.city,
-                        "state": result.address.state,
-                        "zipcode": result.address.zipcode
-                    }
-                }
+                "formatted_address": f"{street}, {city}, {state} {zipcode}",
+                "property_type": data.get("property", {}).get("type"),
+                "raw_data": data
             }
-            
-            if hasattr(result, 'property'):
-                property_data["raw_data"]["property"] = {
-                    "type": result.property.general.property_type,
-                    "year_built": result.property.general.year_built,
-                    "square_footage": result.property.general.square_footage
-                }
-            
             return property_data
             
-    except Exception as e:
+    except requests.exceptions.RequestException as e:
         st.error("Smarty API Error")
         st.write("### API Request Details (for Smarty Support):")
         st.write({
-            "endpoint": "us-property-api",
+            "endpoint": "us-property-data-principal",
             "auth_id": SMARTY_AUTH_ID,
             "request": {
                 "street": street,
