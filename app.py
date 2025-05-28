@@ -589,6 +589,119 @@ def format_ownership_info(address_data):
     
     return "\n".join(lines) if lines else "No ownership information available"
 
+def format_physical_property(result):
+    """Format physical property information from Smarty API response."""
+    attrs = result.get('attributes', {})
+    
+    def format_number(value, decimals=2):
+        try:
+            if not value:
+                return "N/A"
+            return f"{float(value):,.{decimals}f}"
+        except:
+            return str(value)
+    
+    fields = {
+        "Acres": format_number(attrs.get('acres')),
+        "Building Sqft": format_number(attrs.get('building_sqft'), 0),
+        "Number of Buildings": attrs.get('number_of_buildings', 'N/A'),
+        "Stories Number": attrs.get('stories_number', 'N/A'),
+        "Year Built": attrs.get('year_built', 'N/A')
+    }
+    
+    return "\n".join(f"• {k}: {v}" for k, v in fields.items() if v != "N/A")
+
+def format_parcel_tax_info(result):
+    """Format parcel and tax information from Smarty API response."""
+    attrs = result.get('attributes', {})
+    
+    def format_currency(value):
+        try:
+            if not value:
+                return "N/A"
+            return f"${float(value):,.2f}"
+        except:
+            return str(value)
+    
+    fields = {
+        "Parcel Account Number": attrs.get('parcel_account_number', 'N/A'),
+        "Parcel Raw Number": attrs.get('parcel_raw_number', 'N/A'),
+        "Parcel Number Previous": attrs.get('parcel_number_previous', 'N/A'),
+        "Parcel Number Year Added": attrs.get('parcel_number_year_added', 'N/A'),
+        "Parcel Number Year Change": attrs.get('parcel_number_year_change', 'N/A'),
+        "Previous Assessed Value": format_currency(attrs.get('previous_assessed_value')),
+        "Total Market Value": format_currency(attrs.get('total_market_value')),
+        "Tax Billed Amount": format_currency(attrs.get('tax_billed_amount')),
+        "Tax Assess Year": attrs.get('tax_assess_year', 'N/A'),
+        "Tax Fiscal Year": attrs.get('tax_fiscal_year', 'N/A'),
+        "Tax Jurisdiction": attrs.get('tax_jurisdiction', 'N/A')
+    }
+    
+    return "\n".join(f"• {k}: {v}" for k, v in fields.items() if v != "N/A")
+
+def format_ownership_sale_info(result):
+    """Format ownership and sale information from Smarty API response."""
+    attrs = result.get('attributes', {})
+    
+    def format_date(date_str):
+        if not date_str:
+            return "N/A"
+        try:
+            date_obj = datetime.strptime(date_str, '%Y-%m-%d')
+            return date_obj.strftime('%B %d, %Y')
+        except:
+            return str(date_str)
+    
+    fields = {
+        "Owner Full Name": attrs.get('owner_full_name', 'N/A'),
+        "Owner Occupancy Status": attrs.get('owner_occupancy_status', 'N/A'),
+        "Deed Owner Full Name": attrs.get('deed_owner_full_name', 'N/A'),
+        "Deed Owner Last Name": attrs.get('deed_owner_last_name', 'N/A'),
+        "Deed Sale Date": format_date(attrs.get('deed_sale_date')),
+        "Deed Transaction ID": attrs.get('deed_transaction_id', 'N/A'),
+        "Ownership Transfer Date": format_date(attrs.get('ownership_transfer_date')),
+        "Prior Sale Date": format_date(attrs.get('prior_sale_date')),
+        "Sale Date": format_date(attrs.get('sale_date'))
+    }
+    
+    return "\n".join(f"• {k}: {v}" for k, v in fields.items() if v != "N/A")
+
+def format_mortgage_lender_info(result):
+    """Format mortgage and lender information from Smarty API response."""
+    attrs = result.get('attributes', {})
+    
+    def format_currency(value):
+        try:
+            if not value:
+                return "N/A"
+            return f"${float(value):,.2f}"
+        except:
+            return str(value)
+    
+    def format_date(date_str):
+        if not date_str:
+            return "N/A"
+        try:
+            date_obj = datetime.strptime(date_str, '%Y-%m-%d')
+            return date_obj.strftime('%B %d, %Y')
+        except:
+            return str(date_str)
+    
+    fields = {
+        "Mortgage Amount": format_currency(attrs.get('mortgage_amount')),
+        "Mortgage Recording Date": format_date(attrs.get('mortgage_recording_date')),
+        "Mortgage Type": attrs.get('mortgage_type', 'N/A'),
+        "Lender Name": attrs.get('lender_name', 'N/A'),
+        "Lender Last Name": attrs.get('lender_last_name', 'N/A'),
+        "Lender Code 2": attrs.get('lender_code_2', 'N/A'),
+        "Lender Address": attrs.get('lender_address', 'N/A'),
+        "Lender City": attrs.get('lender_city', 'N/A'),
+        "Lender State": attrs.get('lender_state', 'N/A'),
+        "Lender Zip": attrs.get('lender_zip', 'N/A')
+    }
+    
+    return "\n".join(f"• {k}: {v}" for k, v in fields.items() if v != "N/A")
+
 def create_airtable_record(
     data: Dict,
     raw_notes: str,
