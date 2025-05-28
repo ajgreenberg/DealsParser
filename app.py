@@ -719,7 +719,11 @@ def create_airtable_record(
     
     # Validate and standardize the address
     location = data.get("Location", "")
+    st.write("### Debug: Address Validation")
+    st.write("Location:", location)
+    
     address_data = validate_address(location)
+    st.write("Address Data:", address_data)
     
     if address_data:
         maps_link = generate_maps_link(address_data["formatted_address"])
@@ -727,10 +731,18 @@ def create_airtable_record(
         
         # Format property information using new functions
         result = address_data.get('raw_data', {})
+        st.write("Raw Data:", result)
+        
         physical_property = format_physical_property(result)
         parcel_tax = format_parcel_tax_info(result)
         ownership_sale = format_ownership_sale_info(result)
         mortgage_lender = format_mortgage_lender_info(result)
+        
+        st.write("### Debug: Formatted Fields")
+        st.write("Physical Property:", physical_property)
+        st.write("Parcel & Tax:", parcel_tax)
+        st.write("Ownership & Sale:", ownership_sale)
+        st.write("Mortgage & Lender:", mortgage_lender)
     else:
         maps_link = generate_maps_link(location)
         validated_location = location
@@ -769,6 +781,12 @@ def create_airtable_record(
         "Hold Period": data.get("Hold Period"),
         "Size": data.get("Square Footage or Unit Count"),
     }
+    
+    st.write("### Debug: Final Fields")
+    st.write("Physical Property:", fields["Physical Property"])
+    st.write("Parcel & Tax:", fields["Parcel & Tax"])
+    st.write("Ownership & Sale:", fields["Ownership & Sale"])
+    st.write("Mortgage & Lender:", fields["Mortgage & Lender"])
     
     resp = requests.post(
         f"https://api.airtable.com/v0/{AIRTABLE_BASE_ID}/{AIRTABLE_TABLE_NAME}",
