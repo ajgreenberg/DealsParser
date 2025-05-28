@@ -416,9 +416,6 @@ def validate_address(address: str) -> Dict:
     Returns formatted address and property data.
     """
     if not address or not SMARTY_ENABLED:
-        st.write("### Debug: Smarty API Disabled or No Address")
-        st.write("SMARTY_ENABLED:", SMARTY_ENABLED)
-        st.write("Address:", address)
         return None
         
     try:
@@ -429,14 +426,6 @@ def validate_address(address: str) -> Dict:
         state_zip = address_parts[2].strip().split() if len(address_parts) > 2 else ["", ""]
         state = state_zip[0] if state_zip else ""
         zipcode = state_zip[1] if len(state_zip) > 1 else ""
-
-        st.write("### Debug: Address Components")
-        st.write({
-            "street": street,
-            "city": city,
-            "state": state,
-            "zipcode": zipcode
-        })
 
         # Construct API URL with proper encoding
         base_url = "https://us-enrichment.api.smarty.com/lookup/search/property/principal"
@@ -449,20 +438,11 @@ def validate_address(address: str) -> Dict:
             "zipcode": zipcode
         }
         
-        st.write("### Debug: API Request")
-        st.write("URL:", base_url)
-        st.write("Auth ID (first 4):", SMARTY_AUTH_ID[:4] if SMARTY_AUTH_ID else None)
-        st.write("Auth Token (first 4):", SMARTY_AUTH_TOKEN[:4] if SMARTY_AUTH_TOKEN else None)
-        
         # Make the API request
         response = requests.get(base_url, params=params)
         response.raise_for_status()
         
-        st.write("### Debug: API Response")
-        st.write("Status Code:", response.status_code)
-        
         data = response.json()
-        st.write("Response Data:", json.dumps(data, indent=2))
         
         if data and len(data) > 0:
             result = data[0]
@@ -477,8 +457,6 @@ def validate_address(address: str) -> Dict:
             
     except requests.exceptions.RequestException as e:
         st.error("Smarty API Error")
-        st.write("### Debug: API Error")
-        st.write("Error:", str(e))
         return None
     
     return None
@@ -701,11 +679,7 @@ def create_airtable_record(
     
     # Validate and standardize the address
     location = data.get("Location", "")
-    st.write("### Debug: Address Validation")
-    st.write("Location:", location)
-    
     address_data = validate_address(location)
-    st.write("Address Data:", address_data)
     
     if address_data:
         maps_link = generate_maps_link(address_data["formatted_address"])
@@ -713,18 +687,11 @@ def create_airtable_record(
         
         # Format property information using new functions
         result = address_data.get('raw_data', {})
-        st.write("Raw Data:", result)
         
         physical_property = format_physical_property(result)
         parcel_tax = format_parcel_tax_info(result)
         ownership_sale = format_ownership_sale_info(result)
         mortgage_lender = format_mortgage_lender_info(result)
-        
-        st.write("### Debug: Formatted Fields")
-        st.write("Physical Property:", physical_property)
-        st.write("Parcel & Tax:", parcel_tax)
-        st.write("Ownership & Sale:", ownership_sale)
-        st.write("Mortgage & Lender:", mortgage_lender)
     else:
         maps_link = generate_maps_link(location)
         validated_location = location
@@ -763,12 +730,6 @@ def create_airtable_record(
         "Hold Period": data.get("Hold Period"),
         "Size": data.get("Square Footage or Unit Count"),
     }
-    
-    st.write("### Debug: Final Fields")
-    st.write("Physical Property:", fields["Physical Property"])
-    st.write("Parcel & Tax:", fields["Parcel & Tax"])
-    st.write("Ownership & Sale:", fields["Ownership & Sale"])
-    st.write("Mortgage & Lender:", fields["Mortgage & Lender"])
     
     resp = requests.post(
         f"https://api.airtable.com/v0/{AIRTABLE_BASE_ID}/{AIRTABLE_TABLE_NAME}",
