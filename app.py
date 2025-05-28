@@ -13,7 +13,7 @@ import random
 import time
 from smartystreets_python_sdk import ClientBuilder, StaticCredentials
 from smartystreets_python_sdk.us_property import Client as PropertyClient
-from smartystreets_python_sdk.us_property.lookup import Lookup as PropertyLookup
+from smartystreets_python_sdk.us_property import Lookup as PropertyLookup
 
 # --- Custom CSS for Apple-like styling ---
 st.set_page_config(
@@ -319,7 +319,7 @@ try:
     if SMARTY_AUTH_ID and SMARTY_AUTH_TOKEN:
         # Initialize client for Property Data API
         credentials = StaticCredentials(SMARTY_AUTH_ID, SMARTY_AUTH_TOKEN)
-        smarty_client = ClientBuilder(credentials).build_us_property_api_client()
+        smarty_client = PropertyClient(credentials)
         SMARTY_ENABLED = True
         st.write("✅ Smarty client initialized successfully")
     else:
@@ -431,11 +431,32 @@ def validate_address(address: str) -> Dict:
         return None
         
     lookup = PropertyLookup()
-    lookup.street = address
+    
+    # Try to parse the address into components
+    # This is a simple parser - you may want to make it more robust
+    address_parts = address.split(',')
+    if len(address_parts) >= 3:
+        street = address_parts[0].strip()
+        city = address_parts[1].strip()
+        state_zip = address_parts[2].strip().split()
+        if len(state_zip) >= 2:
+            state = state_zip[0].strip()
+            zipcode = state_zip[1].strip()
+            
+            lookup.street = street
+            lookup.city = city
+            lookup.state = state
+            lookup.zipcode = zipcode
+    else:
+        # If we can't parse it, just use the full address as street
+        lookup.street = address
     
     try:
         st.write("Sending lookup to Smarty API:", {
-            "street": lookup.street
+            "street": lookup.street,
+            "city": getattr(lookup, 'city', None),
+            "state": getattr(lookup, 'state', None),
+            "zipcode": getattr(lookup, 'zipcode', None)
         })
         
         response = smarty_client.send_lookup(lookup)
