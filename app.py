@@ -450,20 +450,17 @@ def validate_address(address: str) -> Dict:
         state = state_zip[0] if state_zip else ""
         zipcode = state_zip[1] if len(state_zip) > 1 else ""
 
-        # Create API request details
-        api_details = {
-            "api": "us-property-api",
-            "method": "GET",
-            "credentials": {
-                "auth_id": SMARTY_AUTH_ID
-            },
-            "request_data": {
+        # Debug: Show what we're sending to Smarty
+        st.write("Sending lookup to Smarty Property API:")
+        st.json({
+            "endpoint": "us-property-api",
+            "request": {
                 "street": street,
                 "city": city,
                 "state": state,
                 "zipcode": zipcode
             }
-        }
+        })
         
         # Create a lookup with parsed components
         lookup = Lookup()
@@ -471,8 +468,6 @@ def validate_address(address: str) -> Dict:
         lookup.city = city
         lookup.state = state
         lookup.zipcode = zipcode
-        
-        st.write("Making Property API request with:", api_details["request_data"])
         
         # Send the lookup
         smarty_client.send_lookup(lookup)
@@ -483,15 +478,41 @@ def validate_address(address: str) -> Dict:
             # Format the address
             formatted_address = f"{result.address.street}, {result.address.city}, {result.address.state} {result.address.zipcode}"
             
-            return {
+            property_data = {
                 "formatted_address": formatted_address,
-                "property_type": result.property.general.property_type if hasattr(result, 'property') else None
+                "property_type": result.property.general.property_type if hasattr(result, 'property') else None,
+                "raw_data": {
+                    "address": {
+                        "street": result.address.street,
+                        "city": result.address.city,
+                        "state": result.address.state,
+                        "zipcode": result.address.zipcode
+                    }
+                }
             }
+            
+            if hasattr(result, 'property'):
+                property_data["raw_data"]["property"] = {
+                    "type": result.property.general.property_type,
+                    "year_built": result.property.general.year_built,
+                    "square_footage": result.property.general.square_footage
+                }
+            
+            return property_data
             
     except Exception as e:
         st.error("Smarty API Error")
         st.write("### API Request Details (for Smarty Support):")
-        st.write(api_details)
+        st.write({
+            "endpoint": "us-property-api",
+            "auth_id": SMARTY_AUTH_ID,
+            "request": {
+                "street": street,
+                "city": city,
+                "state": state,
+                "zipcode": zipcode
+            }
+        })
         st.write("\nError Message:", str(e))
         return None
     
