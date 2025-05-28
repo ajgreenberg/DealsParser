@@ -12,6 +12,7 @@ from datetime import datetime
 import random
 import time
 from smartystreets_python_sdk import ClientBuilder, StaticCredentials
+from smartystreets_python_sdk.us_street import Lookup
 
 # --- Custom CSS for Apple-like styling ---
 st.set_page_config(
@@ -315,9 +316,9 @@ try:
     st.write("SMARTY_AUTH_TOKEN exists:", SMARTY_AUTH_TOKEN is not None)
     
     if SMARTY_AUTH_ID and SMARTY_AUTH_TOKEN:
-        # Initialize client using core SDK
+        # Initialize client using US Street API
         credentials = StaticCredentials(SMARTY_AUTH_ID, SMARTY_AUTH_TOKEN)
-        smarty_client = ClientBuilder(credentials).build()
+        smarty_client = ClientBuilder(credentials).build_us_street_api_client()
         SMARTY_ENABLED = True
         st.write("✅ Smarty client initialized successfully")
     else:
@@ -422,7 +423,7 @@ def generate_maps_link(address: str) -> str:
 
 def validate_address(address: str) -> Dict:
     """
-    Validate and enrich address using Smarty API.
+    Validate and enrich address using Smarty US Street API.
     Returns formatted address and location data.
     """
     if not address or not SMARTY_ENABLED:
@@ -430,17 +431,20 @@ def validate_address(address: str) -> Dict:
         
     try:
         # Create a lookup
-        lookup = [{"street": address}]
+        lookup = Lookup()
+        lookup.street = address
         
-        st.write("Sending lookup to Smarty API:", lookup)
+        st.write("Sending lookup to Smarty API:", {
+            "street": lookup.street
+        })
         
         # Send the lookup
-        response = smarty_client.send_lookup(lookup)
+        smarty_client.send_lookup(lookup)
         
-        st.write("Raw API Response:", response)
+        st.write("Raw API Response:", lookup.result)
         
-        if response and len(response) > 0 and response[0].components:
-            result = response[0]
+        if lookup.result:
+            result = lookup.result[0]
             
             # Create a detailed response dictionary
             smarty_response = {
