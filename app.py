@@ -316,8 +316,9 @@ try:
     SMARTY_AUTH_ID = st.secrets.get("SMARTY_AUTH_ID")
     SMARTY_AUTH_TOKEN = st.secrets.get("SMARTY_AUTH_TOKEN")
     
-    st.write("SMARTY_AUTH_ID exists:", SMARTY_AUTH_ID is not None)
-    st.write("SMARTY_AUTH_TOKEN exists:", SMARTY_AUTH_TOKEN is not None)
+    st.write("\n### Smarty API Configuration ###")
+    st.write(f"Auth ID: {SMARTY_AUTH_ID}")
+    st.write(f"Auth Token (first 4 chars): {SMARTY_AUTH_TOKEN[:4]}...")
     
     if SMARTY_AUTH_ID and SMARTY_AUTH_TOKEN:
         # Initialize client using US Street API
@@ -434,32 +435,26 @@ def validate_address(address: str) -> Dict:
         return None
         
     try:
-        # Debug: Log complete API details for Smarty support
-        st.write("### Smarty API Debug Information ###")
-        st.write("1. Account Credentials:")
-        st.write(f"- Auth ID: {SMARTY_AUTH_ID}")
-        st.write(f"- Auth Token (first 4 chars): {SMARTY_AUTH_TOKEN[:4]}...")
-        
         # Create a lookup
         lookup = Lookup()
         lookup.street = address
         
-        st.write("\n2. API Request Details:")
+        st.write("\n### Smarty API Request ###")
+        st.write("1. Authentication:")
+        st.write(f"- Using Auth ID: {SMARTY_AUTH_ID}")
+        
+        st.write("\n2. Request Details:")
         st.write({
-            "endpoint": "us-street-api",
+            "api": "us-street-api",
             "method": "POST",
-            "authentication": {
-                "auth_id": SMARTY_AUTH_ID
-            },
-            "input_data": {
-                "street": address
+            "request_data": {
+                "street": address,
+                "auth_id": SMARTY_AUTH_ID  # Include auth_id in request details
             }
         })
         
         # Send the lookup
         smarty_client.send_lookup(lookup)
-        
-        st.write("Raw API Response:", lookup.result)
         
         if lookup.result:
             result = lookup.result[0]
@@ -483,10 +478,6 @@ def validate_address(address: str) -> Dict:
                     "timezone": result.metadata.timezone
                 }
 
-            # Debug: Show the raw response in the UI
-            st.write("### Smarty API Response:")
-            st.json(smarty_response)
-            
             # Format the address
             formatted_address = f"{result.delivery_line_1}, {result.components.city_name}, {result.components.state_abbreviation} {result.components.zipcode}"
             
