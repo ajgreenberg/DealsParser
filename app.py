@@ -12,8 +12,6 @@ from datetime import datetime
 import random
 import time
 from smartystreets_python_sdk import ClientBuilder, StaticCredentials
-from smartystreets_python_sdk.us_property import Client as PropertyClient
-from smartystreets_python_sdk.us_property import Lookup as PropertyLookup
 
 # --- Custom CSS for Apple-like styling ---
 st.set_page_config(
@@ -317,9 +315,9 @@ try:
     st.write("SMARTY_AUTH_TOKEN exists:", SMARTY_AUTH_TOKEN is not None)
     
     if SMARTY_AUTH_ID and SMARTY_AUTH_TOKEN:
-        # Initialize client for Property Data API
+        # Initialize client using core SDK
         credentials = StaticCredentials(SMARTY_AUTH_ID, SMARTY_AUTH_TOKEN)
-        smarty_client = PropertyClient(credentials)
+        smarty_client = ClientBuilder(credentials).build()
         SMARTY_ENABLED = True
         st.write("✅ Smarty client initialized successfully")
     else:
@@ -424,75 +422,43 @@ def generate_maps_link(address: str) -> str:
 
 def validate_address(address: str) -> Dict:
     """
-    Validate and enrich address using Smarty Property Data API.
-    Returns property data and formatted address.
+    Validate and enrich address using Smarty API.
+    Returns formatted address and location data.
     """
     if not address or not SMARTY_ENABLED:
         return None
         
-    lookup = PropertyLookup()
-    
-    # Try to parse the address into components
-    # This is a simple parser - you may want to make it more robust
-    address_parts = address.split(',')
-    if len(address_parts) >= 3:
-        street = address_parts[0].strip()
-        city = address_parts[1].strip()
-        state_zip = address_parts[2].strip().split()
-        if len(state_zip) >= 2:
-            state = state_zip[0].strip()
-            zipcode = state_zip[1].strip()
-            
-            lookup.street = street
-            lookup.city = city
-            lookup.state = state
-            lookup.zipcode = zipcode
-    else:
-        # If we can't parse it, just use the full address as street
-        lookup.street = address
-    
     try:
-        st.write("Sending lookup to Smarty API:", {
-            "street": lookup.street,
-            "city": getattr(lookup, 'city', None),
-            "state": getattr(lookup, 'state', None),
-            "zipcode": getattr(lookup, 'zipcode', None)
-        })
+        # Create a lookup
+        lookup = [{"street": address}]
         
+        st.write("Sending lookup to Smarty API:", lookup)
+        
+        # Send the lookup
         response = smarty_client.send_lookup(lookup)
         
         st.write("Raw API Response:", response)
         
-        if response and response.results:
-            result = response.results[0]
+        if response and len(response) > 0 and response[0].components:
+            result = response[0]
             
             # Create a detailed response dictionary
             smarty_response = {
                 "address": {
-                    "street": result.address.street,
-                    "city": result.address.city,
-                    "state": result.address.state,
-                    "zipcode": result.address.zipcode,
-                    "unit": result.address.unit or ""
+                    "street": result.delivery_line_1,
+                    "city": result.components.city_name,
+                    "state": result.components.state_abbreviation,
+                    "zipcode": result.components.zipcode,
+                    "plus4_code": result.components.plus4_code
                 }
             }
             
-            if hasattr(result, 'property'):
-                smarty_response["property"] = {
-                    "type": getattr(result.property, 'property_type', None),
-                    "year_built": getattr(result.property, 'year_built', None),
-                    "bedrooms": getattr(result.property, 'bedrooms', None),
-                    "bathrooms": getattr(result.property, 'bathrooms', None),
-                    "square_footage": getattr(result.property, 'square_footage', None),
-                    "lot_size": getattr(result.property, 'lot_size', None)
-                }
-            
-            if hasattr(result, 'location'):
+            if hasattr(result, 'metadata'):
                 smarty_response["location"] = {
-                    "latitude": getattr(result.location, 'latitude', None),
-                    "longitude": getattr(result.location, 'longitude', None),
-                    "county": getattr(result.location, 'county', None),
-                    "census_tract": getattr(result.location, 'census_tract', None)
+                    "latitude": result.metadata.latitude,
+                    "longitude": result.metadata.longitude,
+                    "county": result.metadata.county_name,
+                    "timezone": result.metadata.timezone
                 }
 
             # Debug: Show the raw response in the UI
@@ -500,13 +466,12 @@ def validate_address(address: str) -> Dict:
             st.json(smarty_response)
             
             # Format the address
-            unit_str = f" {result.address.unit}" if result.address.unit else ""
-            formatted_address = f"{result.address.street}{unit_str}, {result.address.city}, {result.address.state} {result.address.zipcode}"
+            formatted_address = f"{result.delivery_line_1}, {result.components.city_name}, {result.components.state_abbreviation} {result.components.zipcode}"
             
             return {
                 "formatted_address": formatted_address,
-                "latitude": getattr(result.location, 'latitude', None) if hasattr(result, 'location') else None,
-                "longitude": getattr(result.location, 'longitude', None) if hasattr(result, 'location') else None,
+                "latitude": result.metadata.latitude if hasattr(result, 'metadata') else None,
+                "longitude": result.metadata.longitude if hasattr(result, 'metadata') else None,
                 "raw_response": json.dumps(smarty_response, indent=2)
             }
             
@@ -777,4 +742,5 @@ if "summary" in st.session_state:
                 st.session_state["deal_type"],
                 st.session_state["contacts"]
             )
+        st.success("✅ Deal saved to Airtable!")
         st.success("✅ Deal saved to Airtable!")
