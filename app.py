@@ -11,6 +11,8 @@ from typing import Dict, List
 from datetime import datetime
 import random
 import time
+from smartystreets_python_sdk import ClientBuilder
+from smartystreets_python_sdk.us_street import Lookup
 
 # --- Custom CSS for Apple-like styling ---
 st.set_page_config(
@@ -299,6 +301,11 @@ AWS_ACCESS_KEY_ID    = st.secrets["AWS_ACCESS_KEY_ID"]
 AWS_SECRET_ACCESS_KEY= st.secrets["AWS_SECRET_ACCESS_KEY"]
 S3_BUCKET            = st.secrets["S3_BUCKET"]
 S3_REGION            = st.secrets["S3_REGION"]
+SMARTY_AUTH_ID       = st.secrets["SMARTY_AUTH_ID"]
+SMARTY_AUTH_TOKEN    = st.secrets["SMARTY_AUTH_TOKEN"]
+
+# Initialize Smarty client
+smarty_client = ClientBuilder(SMARTY_AUTH_ID, SMARTY_AUTH_TOKEN).build_us_street_api_client()
 
 s3 = boto3.client(
     "s3",
@@ -393,6 +400,75 @@ def generate_maps_link(address: str) -> str:
     formatted_address = address.replace(' ', '+')
     return f"https://www.google.com/maps/search/?api=1&query={formatted_address}"
 
+def validate_address(address: str) -> Dict:
+    """
+    Validate and standardize an address using Smarty API.
+    Returns full Smarty response and formatted address data.
+    """
+    if not address:
+        return None
+        
+    lookup = Lookup()
+    lookup.street = address
+    lookup.match = "enhanced"  # Get the best possible match
+    
+    try:
+        smarty_client.send_lookup(lookup)
+        
+        if lookup.result:
+            result = lookup.result[0]
+            
+            # Create a detailed response dictionary for testing
+            smarty_response = {
+                "delivery_line_1": result.delivery_line_1,
+                "delivery_line_2": result.delivery_line_2,
+                "components": {
+                    "primary_number": result.components.primary_number,
+                    "street_name": result.components.street_name,
+                    "street_suffix": result.components.street_suffix,
+                    "city_name": result.components.city_name,
+                    "state_abbreviation": result.components.state_abbreviation,
+                    "zipcode": result.components.zipcode,
+                    "plus4_code": result.components.plus4_code,
+                    "delivery_point": result.components.delivery_point,
+                    "delivery_point_check_digit": result.components.delivery_point_check_digit
+                },
+                "metadata": {
+                    "latitude": result.metadata.latitude,
+                    "longitude": result.metadata.longitude,
+                    "precision": result.metadata.precision,
+                    "county_name": result.metadata.county_name,
+                    "county_fips": result.metadata.county_fips,
+                    "carrier_route": result.metadata.carrier_route,
+                    "building_default_indicator": result.metadata.building_default_indicator,
+                    "rdi": result.metadata.rdi,
+                    "congressional_district": result.metadata.congressional_district,
+                    "record_type": result.metadata.record_type,
+                    "zip_type": result.metadata.zip_type,
+                    "time_zone": result.metadata.time_zone
+                },
+                "analysis": {
+                    "dpv_match_code": result.analysis.dpv_match_code,
+                    "dpv_footnotes": result.analysis.dpv_footnotes,
+                    "dpv_cmra": result.analysis.dpv_cmra,
+                    "dpv_vacant": result.analysis.dpv_vacant,
+                    "active": result.analysis.active,
+                    "footnotes": result.analysis.footnotes
+                }
+            }
+            
+            return {
+                "formatted_address": f"{result.delivery_line_1}, {result.components.city_name}, {result.components.state_abbreviation} {result.components.zipcode}",
+                "latitude": result.metadata.latitude,
+                "longitude": result.metadata.longitude,
+                "raw_response": json.dumps(smarty_response, indent=2)  # Store the full response as formatted JSON
+            }
+    except Exception as e:
+        st.warning(f"Address validation error: {str(e)}")
+        return None
+    
+    return None
+
 def create_airtable_record(
     data: Dict,
     raw_notes: str,
@@ -408,8 +484,20 @@ def create_airtable_record(
         "Content-Type": "application/json"
     }
     
-    # Generate maps link from location
-    maps_link = generate_maps_link(data.get("Location", ""))
+    # Validate and standardize the address
+    location = data.get("Location", "")
+    address_data = validate_address(location)
+    
+    if address_data:
+        maps_link = generate_maps_link(address_data["formatted_address"])
+        validated_location = address_data["formatted_address"]
+        geo_point = f"{address_data['latitude']}, {address_data['longitude']}"
+        smarty_raw_response = address_data["raw_response"]
+    else:
+        maps_link = generate_maps_link(location)
+        validated_location = location
+        geo_point = ""
+        smarty_raw_response = ""
     
     fields = {
         "Deal Type": [deal_type],
@@ -423,8 +511,10 @@ def create_airtable_record(
         "Key Highlights": "\n".join(data.get("Key Highlights", [])),
         "Risks": "\n".join(data.get("Risks or Red Flags", [])),
         "Property Name": data.get("Property Name"),
-        "Location": data.get("Location"),
+        "Location": validated_location,
+        "Coordinates": geo_point,
         "Maps Link": maps_link,
+        "Smarty Raw Response": smarty_raw_response,  # New field for testing
         "Asset Class": data.get("Asset Class"),
         "Purchase Price": data.get("Purchase Price"),
         "Loan Amount": data.get("Loan Amount"),
