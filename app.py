@@ -435,23 +435,21 @@ def validate_address(address: str) -> Dict:
         return None
         
     try:
+        # Create API request details
+        api_details = {
+            "api": "us-street-api",
+            "method": "POST",
+            "credentials": {
+                "auth_id": SMARTY_AUTH_ID
+            },
+            "request_data": {
+                "street": address
+            }
+        }
+        
         # Create a lookup
         lookup = Lookup()
         lookup.street = address
-        
-        st.write("\n### Smarty API Request ###")
-        st.write("1. Authentication:")
-        st.write(f"- Using Auth ID: {SMARTY_AUTH_ID}")
-        
-        st.write("\n2. Request Details:")
-        st.write({
-            "api": "us-street-api",
-            "method": "POST",
-            "request_data": {
-                "street": address,
-                "auth_id": SMARTY_AUTH_ID  # Include auth_id in request details
-            }
-        })
         
         # Send the lookup
         smarty_client.send_lookup(lookup)
@@ -477,7 +475,7 @@ def validate_address(address: str) -> Dict:
                     "county": result.metadata.county_name,
                     "timezone": result.metadata.timezone
                 }
-
+            
             # Format the address
             formatted_address = f"{result.delivery_line_1}, {result.components.city_name}, {result.components.state_abbreviation} {result.components.zipcode}"
             
@@ -488,12 +486,11 @@ def validate_address(address: str) -> Dict:
                 "raw_response": json.dumps(smarty_response, indent=2)
             }
             
-        st.write("No results found for address:", address)
-        return None
-        
     except Exception as e:
-        st.error(f"Smarty API error: {str(e)}")
-        st.write("Full error details:", str(e))
+        st.error("Smarty API Error")
+        st.write("### API Request Details (for Smarty Support):")
+        st.write(api_details)
+        st.write("\nError Message:", str(e))
         return None
     
     return None
@@ -755,5 +752,4 @@ if "summary" in st.session_state:
                 st.session_state["deal_type"],
                 st.session_state["contacts"]
             )
-        st.success("✅ Deal saved to Airtable!")
         st.success("✅ Deal saved to Airtable!")
