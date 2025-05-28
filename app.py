@@ -12,7 +12,7 @@ from datetime import datetime
 import random
 import time
 from smartystreets_python_sdk import ClientBuilder, StaticCredentials
-from smartystreets_python_sdk.us_enrichment import Lookup as EnrichmentLookup
+from smartystreets_python_sdk.us_street import Lookup
 
 # --- Custom CSS for Apple-like styling ---
 st.set_page_config(
@@ -316,9 +316,9 @@ try:
     st.write("SMARTY_AUTH_TOKEN exists:", SMARTY_AUTH_TOKEN is not None)
     
     if SMARTY_AUTH_ID and SMARTY_AUTH_TOKEN:
-        # Initialize client for US Property Data API
+        # Initialize client for US Street API (we'll add property data later)
         credentials = StaticCredentials(SMARTY_AUTH_ID, SMARTY_AUTH_TOKEN)
-        smarty_client = ClientBuilder(credentials).build_us_enrichment_api_client()
+        smarty_client = ClientBuilder(credentials).build_us_street_api_client()
         SMARTY_ENABLED = True
         st.write("✅ Smarty client initialized successfully")
     else:
@@ -423,44 +423,35 @@ def generate_maps_link(address: str) -> str:
 
 def validate_address(address: str) -> Dict:
     """
-    Validate and enrich address using Smarty US Property Data API.
-    Returns enriched property data and formatted address.
+    Validate and standardize an address using Smarty API.
+    Returns standardized address data.
     """
     if not address or not SMARTY_ENABLED:
         return None
         
-    lookup = EnrichmentLookup()
+    lookup = Lookup()
     lookup.street = address
     lookup.match = "enhanced"
     
     try:
-        result = smarty_client.send_lookup(lookup)
+        smarty_client.send_lookup(lookup)
         
-        if result and result.results:
-            property_data = result.results[0]
+        if lookup.result:
+            result = lookup.result[0]
             
-            # Create a detailed response dictionary for testing
+            # Create a simplified response dictionary
             smarty_response = {
                 "address": {
-                    "street": property_data.address.street,
-                    "city": property_data.address.city,
-                    "state": property_data.address.state,
-                    "zipcode": property_data.address.zipcode,
-                    "unit": property_data.address.unit or ""
-                },
-                "property": {
-                    "type": property_data.property.property_type,
-                    "year_built": property_data.property.year_built,
-                    "bedrooms": property_data.property.bedrooms,
-                    "bathrooms": property_data.property.bathrooms,
-                    "square_footage": property_data.property.square_footage,
-                    "lot_size": property_data.property.lot_size
+                    "street": result.delivery_line_1,
+                    "city": result.components.city_name,
+                    "state": result.components.state_abbreviation,
+                    "zipcode": result.components.zipcode,
                 },
                 "location": {
-                    "latitude": property_data.location.latitude,
-                    "longitude": property_data.location.longitude,
-                    "county": property_data.location.county,
-                    "census_tract": property_data.location.census_tract
+                    "latitude": result.metadata.latitude,
+                    "longitude": result.metadata.longitude,
+                    "county": result.metadata.county_name,
+                    "timezone": result.metadata.time_zone
                 }
             }
 
@@ -468,18 +459,13 @@ def validate_address(address: str) -> Dict:
             st.write("### Smarty API Response:")
             st.json(smarty_response)
             
-            # Format the address
-            unit_str = f" {property_data.address.unit}" if property_data.address.unit else ""
-            formatted_address = f"{property_data.address.street}{unit_str}, {property_data.address.city}, {property_data.address.state} {property_data.address.zipcode}"
+            formatted_address = f"{result.delivery_line_1}, {result.components.city_name}, {result.components.state_abbreviation} {result.components.zipcode}"
             
             return {
                 "formatted_address": formatted_address,
-                "latitude": property_data.location.latitude,
-                "longitude": property_data.location.longitude,
-                "raw_response": json.dumps(smarty_response, indent=2),
-                "property_type": property_data.property.property_type,
-                "square_footage": property_data.property.square_footage,
-                "year_built": property_data.property.year_built
+                "latitude": result.metadata.latitude,
+                "longitude": result.metadata.longitude,
+                "raw_response": json.dumps(smarty_response, indent=2)
             }
     except Exception as e:
         st.error(f"Smarty API error: {str(e)}")
