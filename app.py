@@ -11,8 +11,8 @@ from typing import Dict, List
 from datetime import datetime
 import random
 import time
-from smartystreets_python_sdk import ClientBuilder, StaticCredentials
-from smartystreets_python_sdk.us_property import Lookup
+from smartystreets_python_sdk_enterprise import ClientBuilder, StaticCredentials
+from smartystreets_python_sdk_enterprise.us_property import Lookup
 
 # --- Custom CSS for Apple-like styling ---
 st.set_page_config(
@@ -322,13 +322,13 @@ try:
             "auth_token_prefix": SMARTY_AUTH_TOKEN[:4] if SMARTY_AUTH_TOKEN else None
         },
         "sdk_info": {
-            "client_builder": "smartystreets_python_sdk.ClientBuilder",
+            "client_builder": "smartystreets_python_sdk_enterprise.ClientBuilder",
             "api_type": "us_property_api_client"
         }
     })
     
     if SMARTY_AUTH_ID and SMARTY_AUTH_TOKEN:
-        # Initialize client using Property API
+        # Initialize client using Property API from Enterprise SDK
         credentials = StaticCredentials(SMARTY_AUTH_ID, SMARTY_AUTH_TOKEN)
         smarty_client = ClientBuilder(credentials).build_us_property_api_client()
         SMARTY_ENABLED = True
