@@ -316,7 +316,9 @@ try:
     st.write("SMARTY_AUTH_TOKEN exists:", SMARTY_AUTH_TOKEN is not None)
     
     if SMARTY_AUTH_ID and SMARTY_AUTH_TOKEN:
-        smarty_client = ClientBuilder(SMARTY_AUTH_ID, SMARTY_AUTH_TOKEN).build_us_street_api_client()
+        # Fixed client initialization
+        credentials = ClientBuilder().with_secret_key(SMARTY_AUTH_TOKEN).with_auth_id(SMARTY_AUTH_ID)
+        smarty_client = credentials.build_us_street_api_client()
         SMARTY_ENABLED = True
         st.write("✅ Smarty client initialized successfully")
     else:
@@ -754,4 +756,3 @@ if "summary" in st.session_state:
                 st.session_state["contacts"]
             )
         st.success("✅ Deal saved to Airtable!")
-        
