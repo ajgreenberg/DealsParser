@@ -302,25 +302,12 @@ S3_BUCKET            = st.secrets["S3_BUCKET"]
 S3_REGION            = st.secrets["S3_REGION"]
 
 # Debug Smarty secrets
-st.write("Checking Smarty credentials...")
 try:
     # Check if keys exist in secrets
     all_secrets = st.secrets.to_dict()
     
     SMARTY_AUTH_ID = st.secrets.get("SMARTY_AUTH_ID")
     SMARTY_AUTH_TOKEN = st.secrets.get("SMARTY_AUTH_TOKEN")
-    
-    st.write("\n=== SMARTY API CONFIGURATION (FOR SUPPORT) ===")
-    st.write("Auth ID:", SMARTY_AUTH_ID)
-    st.write("Auth Token (first 4 chars):", SMARTY_AUTH_TOKEN[:4] if SMARTY_AUTH_TOKEN else None)
-    st.write("\nAPI Details:")
-    st.json({
-        "api_version": "us-property-data-principal",
-        "authentication": {
-            "auth_id": SMARTY_AUTH_ID,
-            "auth_token_prefix": SMARTY_AUTH_TOKEN[:4] if SMARTY_AUTH_TOKEN else None
-        }
-    })
     
     SMARTY_ENABLED = bool(SMARTY_AUTH_ID and SMARTY_AUTH_TOKEN)
     if not SMARTY_ENABLED:
@@ -451,20 +438,6 @@ def validate_address(address: str) -> Dict:
             "zipcode": zipcode
         }
         
-        # Debug: Show what we're sending to Smarty
-        debug_info = {
-            "endpoint": base_url,
-            "request": {
-                "street": street,
-                "city": city,
-                "state": state,
-                "zipcode": zipcode,
-                "auth-id": SMARTY_AUTH_ID
-            }
-        }
-        st.write("Sending lookup to Smarty Property Data API (Principal):")
-        st.json(debug_info)
-        
         # Make the API request
         response = requests.get(base_url, params=params)
         response.raise_for_status()
@@ -524,9 +497,6 @@ def validate_address(address: str) -> Dict:
             
     except requests.exceptions.RequestException as e:
         st.error("Smarty API Error")
-        st.write("### API Request Details (for Smarty Support):")
-        st.json(debug_info)
-        st.write("\nError Message:", str(e))
         return None
     
     return None
@@ -638,19 +608,14 @@ def create_airtable_record(
     location = data.get("Location", "")
     address_data = validate_address(location)
     
-    # Debug: Show what we're sending to Airtable
-    st.write("### Data being sent to Airtable:")
     if address_data:
-        st.write("Address validation successful")
         maps_link = generate_maps_link(address_data["formatted_address"])
         validated_location = address_data["formatted_address"]
-        st.write(f"Validated Location: {validated_location}")
         
         # Format tax and ownership information
         tax_info = format_tax_info(address_data)
         ownership_info = format_ownership_info(address_data)
     else:
-        st.write("Address validation failed or skipped")
         maps_link = generate_maps_link(location)
         validated_location = location
         tax_info = ""
@@ -672,7 +637,7 @@ def create_airtable_record(
         "Maps Link": maps_link,
         "Raw Smarty Response": json.dumps(address_data, indent=2) if address_data else "",
         "Tax Info": tax_info,
-        "Ownership": ownership_info,  # New field for formatted ownership information
+        "Ownership": ownership_info,
         "Asset Class": data.get("Asset Class"),
         "Purchase Price": data.get("Purchase Price"),
         "Loan Amount": data.get("Loan Amount"),
@@ -686,10 +651,6 @@ def create_airtable_record(
         "Size": data.get("Square Footage or Unit Count"),
     }
     
-    # Debug: Show the final fields being sent
-    st.write("### Final Airtable Fields:")
-    st.json(fields)
-    
     resp = requests.post(
         f"https://api.airtable.com/v0/{AIRTABLE_BASE_ID}/{AIRTABLE_TABLE_NAME}",
         headers=headers,
@@ -697,9 +658,6 @@ def create_airtable_record(
     )
     if resp.status_code not in (200, 201):
         st.error(f"Airtable error: {resp.text}")
-    else:
-        st.write("### Airtable Response:")
-        st.json(resp.json())
 
 # --- Streamlit UI ---
 st.markdown("<h1>DealFlow AI</h1>", unsafe_allow_html=True)
