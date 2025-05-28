@@ -487,6 +487,36 @@ def validate_address(address: str) -> Dict:
                         "bathrooms": result.get('attributes', {}).get('bathrooms_total', ''),
                         "lot_size": result.get('attributes', {}).get('acres', ''),
                         "property_type": result.get('attributes', {}).get('land_use_standard', '')
+                    },
+                    "tax_info": {
+                        "current_tax": {
+                            "tax_year": result.get('attributes', {}).get('tax_assess_year', ''),
+                            "tax_amount": result.get('attributes', {}).get('tax_billed_amount', ''),
+                            "tax_rate_area": result.get('attributes', {}).get('tax_rate_area', ''),
+                            "tax_jurisdiction": result.get('attributes', {}).get('tax_jurisdiction', '')
+                        },
+                        "assessment": {
+                            "total_value": result.get('attributes', {}).get('total_market_value', ''),
+                            "assessed_value": result.get('attributes', {}).get('assessed_value', ''),
+                            "land_value": result.get('attributes', {}).get('assessed_land_value', ''),
+                            "improvement_value": result.get('attributes', {}).get('assessed_improvement_value', ''),
+                            "improvement_percent": result.get('attributes', {}).get('assessed_improvement_percent', ''),
+                            "assessment_year": result.get('attributes', {}).get('tax_assess_year', ''),
+                            "last_update": result.get('attributes', {}).get('assessor_last_update', '')
+                        },
+                        "market_values": {
+                            "total_value": result.get('attributes', {}).get('total_market_value', ''),
+                            "land_value": result.get('attributes', {}).get('market_land_value', ''),
+                            "improvement_value": result.get('attributes', {}).get('market_improvement_value', ''),
+                            "improvement_percent": result.get('attributes', {}).get('market_improvement_percent', ''),
+                            "value_year": result.get('attributes', {}).get('market_value_year', '')
+                        }
+                    },
+                    "ownership": {
+                        "owner_name": result.get('attributes', {}).get('owner_full_name', ''),
+                        "owner_occupied": result.get('attributes', {}).get('owner_occupancy_status', ''),
+                        "last_sale_date": result.get('attributes', {}).get('ownership_transfer_date', ''),
+                        "prior_sale_date": result.get('attributes', {}).get('prior_sale_date', '')
                     }
                 }
             }
@@ -500,6 +530,94 @@ def validate_address(address: str) -> Dict:
         return None
     
     return None
+
+def format_tax_info(address_data):
+    """Format tax information from Smarty API response into a readable string."""
+    if not address_data or 'raw_data' not in address_data:
+        return ""
+        
+    tax_info = address_data['raw_data']['tax_info']
+    
+    # Format currency values
+    def format_currency(value):
+        try:
+            if not value:
+                return "N/A"
+            return f"${float(value):,.2f}"
+        except:
+            return str(value)
+    
+    sections = []
+    
+    # Current Tax Information
+    current_tax = tax_info['current_tax']
+    if any(current_tax.values()):
+        sections.append(f"Current Tax Information:\n" +
+                      f"• Tax Year: {current_tax['tax_year']}\n" +
+                      f"• Tax Amount: {format_currency(current_tax['tax_amount'])}\n" +
+                      f"• Tax Rate Area: {current_tax['tax_rate_area']}\n" +
+                      f"• Tax Jurisdiction: {current_tax['tax_jurisdiction']}")
+
+    # Assessment Values
+    assessment = tax_info['assessment']
+    if any(assessment.values()):
+        sections.append(f"Assessment Values:\n" +
+                      f"• Total Value: {format_currency(assessment['total_value'])}\n" +
+                      f"• Assessed Value: {format_currency(assessment['assessed_value'])}\n" +
+                      f"• Land Value: {format_currency(assessment['land_value'])}\n" +
+                      f"• Improvement Value: {format_currency(assessment['improvement_value'])}\n" +
+                      f"• Improvement %: {assessment['improvement_percent']}%\n" +
+                      f"• Assessment Year: {assessment['assessment_year']}\n" +
+                      f"• Last Update: {assessment['last_update']}")
+
+    # Market Values
+    market = tax_info['market_values']
+    if any(market.values()):
+        sections.append(f"Market Values:\n" +
+                      f"• Total Value: {format_currency(market['total_value'])}\n" +
+                      f"• Land Value: {format_currency(market['land_value'])}\n" +
+                      f"• Improvement Value: {format_currency(market['improvement_value'])}\n" +
+                      f"• Improvement %: {market['improvement_percent']}%\n" +
+                      f"• Value Year: {market['value_year']}")
+
+    return "\n\n".join(sections)
+
+def format_ownership_info(address_data):
+    """Format ownership information from Smarty API response into a readable string."""
+    if not address_data or 'raw_data' not in address_data:
+        return ""
+        
+    ownership = address_data['raw_data']['ownership']
+    
+    # Format date values
+    def format_date(date_str):
+        if not date_str:
+            return "N/A"
+        try:
+            # Try to parse and reformat the date
+            date_obj = datetime.strptime(date_str, '%Y-%m-%d')
+            return date_obj.strftime('%B %d, %Y')
+        except:
+            return date_str
+    
+    lines = []
+    
+    # Owner Information
+    if ownership['owner_name']:
+        lines.append(f"• Owner Name: {ownership['owner_name']}")
+    
+    # Occupancy Status
+    if ownership['owner_occupied']:
+        lines.append(f"• Owner Occupied: {ownership['owner_occupied']}")
+    
+    # Sale History
+    if ownership['last_sale_date']:
+        lines.append(f"• Last Sale Date: {format_date(ownership['last_sale_date'])}")
+    
+    if ownership['prior_sale_date']:
+        lines.append(f"• Prior Sale Date: {format_date(ownership['prior_sale_date'])}")
+    
+    return "\n".join(lines) if lines else "No ownership information available"
 
 def create_airtable_record(
     data: Dict,
@@ -527,10 +645,16 @@ def create_airtable_record(
         maps_link = generate_maps_link(address_data["formatted_address"])
         validated_location = address_data["formatted_address"]
         st.write(f"Validated Location: {validated_location}")
+        
+        # Format tax and ownership information
+        tax_info = format_tax_info(address_data)
+        ownership_info = format_ownership_info(address_data)
     else:
         st.write("Address validation failed or skipped")
         maps_link = generate_maps_link(location)
         validated_location = location
+        tax_info = ""
+        ownership_info = ""
     
     fields = {
         "Deal Type": [deal_type],
@@ -547,6 +671,8 @@ def create_airtable_record(
         "Location": validated_location,
         "Maps Link": maps_link,
         "Raw Smarty Response": json.dumps(address_data, indent=2) if address_data else "",
+        "Tax Info": tax_info,
+        "Ownership": ownership_info,  # New field for formatted ownership information
         "Asset Class": data.get("Asset Class"),
         "Purchase Price": data.get("Purchase Price"),
         "Loan Amount": data.get("Loan Amount"),
