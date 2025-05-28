@@ -456,6 +456,10 @@ def validate_address(address: str) -> Dict:
                     "footnotes": result.analysis.footnotes
                 }
             }
+
+            # Debug: Show the raw response in the UI
+            st.write("### Smarty API Response:")
+            st.json(smarty_response)
             
             return {
                 "formatted_address": f"{result.delivery_line_1}, {result.components.city_name}, {result.components.state_abbreviation} {result.components.zipcode}",
@@ -464,7 +468,7 @@ def validate_address(address: str) -> Dict:
                 "raw_response": json.dumps(smarty_response, indent=2)  # Store the full response as formatted JSON
             }
     except Exception as e:
-        st.warning(f"Address validation error: {str(e)}")
+        st.error(f"Smarty API error: {str(e)}")
         return None
     
     return None
@@ -488,12 +492,19 @@ def create_airtable_record(
     location = data.get("Location", "")
     address_data = validate_address(location)
     
+    # Debug: Show what we're sending to Airtable
+    st.write("### Data being sent to Airtable:")
     if address_data:
+        st.write("Address validation successful")
         maps_link = generate_maps_link(address_data["formatted_address"])
         validated_location = address_data["formatted_address"]
         geo_point = f"{address_data['latitude']}, {address_data['longitude']}"
         smarty_raw_response = address_data["raw_response"]
+        st.write(f"Validated Location: {validated_location}")
+        st.write(f"Coordinates: {geo_point}")
+        st.write("Raw Smarty Response:", smarty_raw_response)
     else:
+        st.write("Address validation failed or skipped")
         maps_link = generate_maps_link(location)
         validated_location = location
         geo_point = ""
@@ -527,6 +538,11 @@ def create_airtable_record(
         "Hold Period": data.get("Hold Period"),
         "Size": data.get("Square Footage or Unit Count"),
     }
+    
+    # Debug: Show the final fields being sent
+    st.write("### Final Airtable Fields:")
+    st.json(fields)
+    
     resp = requests.post(
         f"https://api.airtable.com/v0/{AIRTABLE_BASE_ID}/{AIRTABLE_TABLE_NAME}",
         headers=headers,
@@ -534,6 +550,9 @@ def create_airtable_record(
     )
     if resp.status_code not in (200, 201):
         st.error(f"Airtable error: {resp.text}")
+    else:
+        st.write("### Airtable Response:")
+        st.json(resp.json())
 
 # --- Streamlit UI ---
 st.markdown("<h1>DealFlow AI</h1>", unsafe_allow_html=True)
