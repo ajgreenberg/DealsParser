@@ -434,23 +434,25 @@ def validate_address(address: str) -> Dict:
         return None
         
     try:
-        # Debug: Log credentials and API details
-        st.write("### Smarty API Debug Info:")
-        st.write("Account ID (Auth ID):", SMARTY_AUTH_ID)
-        st.write("Auth Token (first 8 chars):", SMARTY_AUTH_TOKEN[:8] if SMARTY_AUTH_TOKEN else None)
+        # Debug: Log complete API details for Smarty support
+        st.write("### Smarty API Debug Information ###")
+        st.write("1. Account Credentials:")
+        st.write(f"- Auth ID: {SMARTY_AUTH_ID}")
+        st.write(f"- Auth Token (first 4 chars): {SMARTY_AUTH_TOKEN[:4]}...")
         
         # Create a lookup
         lookup = Lookup()
         lookup.street = address
         
-        st.write("API Request Details:")
+        st.write("\n2. API Request Details:")
         st.write({
-            "credentials": {
-                "auth_id": SMARTY_AUTH_ID,
-                "auth_token_prefix": SMARTY_AUTH_TOKEN[:8] if SMARTY_AUTH_TOKEN else None
+            "endpoint": "us-street-api",
+            "method": "POST",
+            "authentication": {
+                "auth_id": SMARTY_AUTH_ID
             },
-            "request": {
-                "street": lookup.street
+            "input_data": {
+                "street": address
             }
         })
         
