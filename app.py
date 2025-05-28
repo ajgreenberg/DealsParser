@@ -416,6 +416,9 @@ def validate_address(address: str) -> Dict:
     Returns formatted address and property data.
     """
     if not address or not SMARTY_ENABLED:
+        st.write("### Debug: Smarty API Disabled or No Address")
+        st.write("SMARTY_ENABLED:", SMARTY_ENABLED)
+        st.write("Address:", address)
         return None
         
     try:
@@ -426,6 +429,14 @@ def validate_address(address: str) -> Dict:
         state_zip = address_parts[2].strip().split() if len(address_parts) > 2 else ["", ""]
         state = state_zip[0] if state_zip else ""
         zipcode = state_zip[1] if len(state_zip) > 1 else ""
+
+        st.write("### Debug: Address Components")
+        st.write({
+            "street": street,
+            "city": city,
+            "state": state,
+            "zipcode": zipcode
+        })
 
         # Construct API URL with proper encoding
         base_url = "https://us-enrichment.api.smarty.com/lookup/search/property/principal"
@@ -438,11 +449,20 @@ def validate_address(address: str) -> Dict:
             "zipcode": zipcode
         }
         
+        st.write("### Debug: API Request")
+        st.write("URL:", base_url)
+        st.write("Auth ID (first 4):", SMARTY_AUTH_ID[:4] if SMARTY_AUTH_ID else None)
+        st.write("Auth Token (first 4):", SMARTY_AUTH_TOKEN[:4] if SMARTY_AUTH_TOKEN else None)
+        
         # Make the API request
         response = requests.get(base_url, params=params)
         response.raise_for_status()
         
+        st.write("### Debug: API Response")
+        st.write("Status Code:", response.status_code)
+        
         data = response.json()
+        st.write("Response Data:", json.dumps(data, indent=2))
         
         if data and len(data) > 0:
             result = data[0]
@@ -451,52 +471,14 @@ def validate_address(address: str) -> Dict:
             property_data = {
                 "formatted_address": f"{result['matched_address']['street']}, {result['matched_address']['city']}, {result['matched_address']['state']} {result['matched_address']['zipcode']}",
                 "property_type": result.get('attributes', {}).get('land_use_standard', ''),
-                "raw_data": {
-                    "address": result['matched_address'],
-                    "property": {
-                        "sqft": result.get('attributes', {}).get('building_sqft', ''),
-                        "year_built": result.get('attributes', {}).get('year_built', ''),
-                        "bedrooms": result.get('attributes', {}).get('bedrooms', ''),
-                        "bathrooms": result.get('attributes', {}).get('bathrooms_total', ''),
-                        "lot_size": result.get('attributes', {}).get('acres', ''),
-                        "property_type": result.get('attributes', {}).get('land_use_standard', '')
-                    },
-                    "tax_info": {
-                        "current_tax": {
-                            "tax_year": result.get('attributes', {}).get('tax_assess_year', ''),
-                            "tax_amount": result.get('attributes', {}).get('tax_billed_amount', ''),
-                            "tax_rate_area": result.get('attributes', {}).get('tax_rate_area', ''),
-                            "tax_jurisdiction": result.get('attributes', {}).get('tax_jurisdiction', '')
-                        },
-                        "assessment": {
-                            "total_value": result.get('attributes', {}).get('total_market_value', ''),
-                            "assessed_value": result.get('attributes', {}).get('assessed_value', ''),
-                            "land_value": result.get('attributes', {}).get('assessed_land_value', ''),
-                            "improvement_value": result.get('attributes', {}).get('assessed_improvement_value', ''),
-                            "improvement_percent": result.get('attributes', {}).get('assessed_improvement_percent', ''),
-                            "assessment_year": result.get('attributes', {}).get('tax_assess_year', ''),
-                            "last_update": result.get('attributes', {}).get('assessor_last_update', '')
-                        },
-                        "market_values": {
-                            "total_value": result.get('attributes', {}).get('total_market_value', ''),
-                            "land_value": result.get('attributes', {}).get('market_land_value', ''),
-                            "improvement_value": result.get('attributes', {}).get('market_improvement_value', ''),
-                            "improvement_percent": result.get('attributes', {}).get('market_improvement_percent', ''),
-                            "value_year": result.get('attributes', {}).get('market_value_year', '')
-                        }
-                    },
-                    "ownership": {
-                        "owner_name": result.get('attributes', {}).get('owner_full_name', ''),
-                        "owner_occupied": result.get('attributes', {}).get('owner_occupancy_status', ''),
-                        "last_sale_date": result.get('attributes', {}).get('ownership_transfer_date', ''),
-                        "prior_sale_date": result.get('attributes', {}).get('prior_sale_date', '')
-                    }
-                }
+                "raw_data": result
             }
             return property_data
             
     except requests.exceptions.RequestException as e:
         st.error("Smarty API Error")
+        st.write("### Debug: API Error")
+        st.write("Error:", str(e))
         return None
     
     return None
