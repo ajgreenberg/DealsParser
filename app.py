@@ -442,21 +442,37 @@ def validate_address(address: str) -> Dict:
         return None
         
     try:
+        # Parse address components
+        address_parts = address.split(',')
+        street = address_parts[0].strip()
+        city = address_parts[1].strip() if len(address_parts) > 1 else ""
+        state_zip = address_parts[2].strip().split() if len(address_parts) > 2 else ["", ""]
+        state = state_zip[0] if state_zip else ""
+        zipcode = state_zip[1] if len(state_zip) > 1 else ""
+
         # Create API request details
         api_details = {
             "api": "us-property-api",
-            "method": "POST",
+            "method": "GET",
             "credentials": {
                 "auth_id": SMARTY_AUTH_ID
             },
             "request_data": {
-                "street": address
+                "street": street,
+                "city": city,
+                "state": state,
+                "zipcode": zipcode
             }
         }
         
-        # Create a lookup
+        # Create a lookup with parsed components
         lookup = Lookup()
-        lookup.street = address
+        lookup.street = street
+        lookup.city = city
+        lookup.state = state
+        lookup.zipcode = zipcode
+        
+        st.write("Making Property API request with:", api_details["request_data"])
         
         # Send the lookup
         smarty_client.send_lookup(lookup)
@@ -464,31 +480,12 @@ def validate_address(address: str) -> Dict:
         if lookup.result:
             result = lookup.result[0]
             
-            # Create a detailed response dictionary with property data
-            smarty_response = {
-                "address": {
-                    "street": result.address.street,
-                    "city": result.address.city,
-                    "state": result.address.state,
-                    "zipcode": result.address.zipcode,
-                    "unit": result.address.unit or ""
-                }
-            }
-            
-            if hasattr(result, 'property'):
-                smarty_response["property"] = {
-                    "type": result.property.general.property_type,
-                    "year_built": result.property.general.year_built,
-                    "square_footage": result.property.general.square_footage
-                }
-            
             # Format the address
             formatted_address = f"{result.address.street}, {result.address.city}, {result.address.state} {result.address.zipcode}"
             
             return {
                 "formatted_address": formatted_address,
-                "property_type": result.property.general.property_type if hasattr(result, 'property') else None,
-                "raw_response": json.dumps(smarty_response, indent=2)
+                "property_type": result.property.general.property_type if hasattr(result, 'property') else None
             }
             
     except Exception as e:
@@ -525,14 +522,11 @@ def create_airtable_record(
         st.write("Address validation successful")
         maps_link = generate_maps_link(address_data["formatted_address"])
         validated_location = address_data["formatted_address"]
-        smarty_raw_response = address_data["raw_response"]
         st.write(f"Validated Location: {validated_location}")
-        st.write("Raw Smarty Response:", smarty_raw_response)
     else:
         st.write("Address validation failed or skipped")
         maps_link = generate_maps_link(location)
         validated_location = location
-        smarty_raw_response = ""
     
     fields = {
         "Deal Type": [deal_type],
@@ -548,7 +542,7 @@ def create_airtable_record(
         "Property Name": data.get("Property Name"),
         "Location": validated_location,
         "Maps Link": maps_link,
-        "Smarty Raw Response": smarty_raw_response,
+        "Raw Smarty Response": json.dumps(address_data, indent=2) if address_data else "",
         "Asset Class": data.get("Asset Class"),
         "Purchase Price": data.get("Purchase Price"),
         "Loan Amount": data.get("Loan Amount"),
