@@ -12,7 +12,8 @@ from datetime import datetime
 import random
 import time
 from smartystreets_python_sdk import ClientBuilder, StaticCredentials
-from smartystreets_python_sdk.us_property import Lookup as PropertyLookup
+from smartystreets_python_sdk.us_property import Client as PropertyClient
+from smartystreets_python_sdk.us_property.lookup import Lookup as PropertyLookup
 
 # --- Custom CSS for Apple-like styling ---
 st.set_page_config(
