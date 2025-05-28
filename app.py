@@ -501,57 +501,6 @@ def validate_address(address: str) -> Dict:
     
     return None
 
-def format_tax_info(address_data):
-    """Format tax information from Smarty API response into a readable string."""
-    if not address_data or 'raw_data' not in address_data:
-        return ""
-        
-    tax_info = address_data['raw_data']['tax_info']
-    
-    # Format currency values
-    def format_currency(value):
-        try:
-            if not value:
-                return "N/A"
-            return f"${float(value):,.2f}"
-        except:
-            return str(value)
-    
-    sections = []
-    
-    # Current Tax Information
-    current_tax = tax_info['current_tax']
-    if any(current_tax.values()):
-        sections.append(f"Current Tax Information:\n" +
-                      f"• Tax Year: {current_tax['tax_year']}\n" +
-                      f"• Tax Amount: {format_currency(current_tax['tax_amount'])}\n" +
-                      f"• Tax Rate Area: {current_tax['tax_rate_area']}\n" +
-                      f"• Tax Jurisdiction: {current_tax['tax_jurisdiction']}")
-
-    # Assessment Values
-    assessment = tax_info['assessment']
-    if any(assessment.values()):
-        sections.append(f"Assessment Values:\n" +
-                      f"• Total Value: {format_currency(assessment['total_value'])}\n" +
-                      f"• Assessed Value: {format_currency(assessment['assessed_value'])}\n" +
-                      f"• Land Value: {format_currency(assessment['land_value'])}\n" +
-                      f"• Improvement Value: {format_currency(assessment['improvement_value'])}\n" +
-                      f"• Improvement %: {assessment['improvement_percent']}%\n" +
-                      f"• Assessment Year: {assessment['assessment_year']}\n" +
-                      f"• Last Update: {assessment['last_update']}")
-
-    # Market Values
-    market = tax_info['market_values']
-    if any(market.values()):
-        sections.append(f"Market Values:\n" +
-                      f"• Total Value: {format_currency(market['total_value'])}\n" +
-                      f"• Land Value: {format_currency(market['land_value'])}\n" +
-                      f"• Improvement Value: {format_currency(market['improvement_value'])}\n" +
-                      f"• Improvement %: {market['improvement_percent']}%\n" +
-                      f"• Value Year: {market['value_year']}")
-
-    return "\n\n".join(sections)
-
 def format_ownership_info(address_data):
     """Format ownership information from Smarty API response into a readable string."""
     if not address_data or 'raw_data' not in address_data:
