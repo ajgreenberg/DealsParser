@@ -452,20 +452,27 @@ def validate_address(address: str) -> Dict:
         }
         
         # Debug: Show what we're sending to Smarty
-        st.write("Sending lookup to Smarty Property Data API (Principal):")
-        st.json({
+        debug_info = {
             "endpoint": base_url,
-            "request": {k: v for k, v in params.items() if k not in ["auth-token"]}  # Don't show auth token
-        })
+            "request": {
+                "street": street,
+                "city": city,
+                "state": state,
+                "zipcode": zipcode,
+                "auth-id": SMARTY_AUTH_ID
+            }
+        }
+        st.write("Sending lookup to Smarty Property Data API (Principal):")
+        st.json(debug_info)
         
         # Make the API request
         response = requests.get(base_url, params=params)
-        response.raise_for_status()  # Raise exception for bad status codes
+        response.raise_for_status()
         
         data = response.json()
         
         if data and len(data) > 0:
-            result = data[0]  # Get first match
+            result = data[0]
             
             # Format the address and extract property data
             property_data = {
@@ -488,16 +495,7 @@ def validate_address(address: str) -> Dict:
     except requests.exceptions.RequestException as e:
         st.error("Smarty API Error")
         st.write("### API Request Details (for Smarty Support):")
-        st.write({
-            "endpoint": base_url,
-            "auth_id": SMARTY_AUTH_ID,
-            "request": {
-                "street": street,
-                "city": city,
-                "state": state,
-                "zipcode": zipcode
-            }
-        })
+        st.json(debug_info)
         st.write("\nError Message:", str(e))
         return None
     
