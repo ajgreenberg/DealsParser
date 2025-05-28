@@ -13,6 +13,7 @@ import random
 import time
 from smartystreets_python_sdk import ClientBuilder
 from smartystreets_python_sdk.us_street import Lookup
+from smartystreets_python_sdk import StaticCredentials
 
 # --- Custom CSS for Apple-like styling ---
 st.set_page_config(
@@ -316,9 +317,9 @@ try:
     st.write("SMARTY_AUTH_TOKEN exists:", SMARTY_AUTH_TOKEN is not None)
     
     if SMARTY_AUTH_ID and SMARTY_AUTH_TOKEN:
-        # Fixed client initialization
-        credentials = ClientBuilder().with_secret_key(SMARTY_AUTH_TOKEN).with_auth_id(SMARTY_AUTH_ID)
-        smarty_client = credentials.build_us_street_api_client()
+        # Fixed client initialization using static credentials
+        credentials = StaticCredentials(SMARTY_AUTH_ID, SMARTY_AUTH_TOKEN)
+        smarty_client = ClientBuilder(credentials).build_us_street_api_client()
         SMARTY_ENABLED = True
         st.write("✅ Smarty client initialized successfully")
     else:
