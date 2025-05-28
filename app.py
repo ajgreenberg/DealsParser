@@ -304,6 +304,10 @@ S3_REGION            = st.secrets["S3_REGION"]
 
 # Debug Smarty secrets
 st.write("Checking Smarty credentials...")
+
+# Disable Smarty API due to subscription issues
+# SMARTY_ENABLED = False
+
 try:
     # Check if keys exist in secrets
     all_secrets = st.secrets.to_dict()
@@ -319,13 +323,13 @@ try:
         # Initialize client using US Street API
         credentials = StaticCredentials(SMARTY_AUTH_ID, SMARTY_AUTH_TOKEN)
         smarty_client = ClientBuilder(credentials).build_us_street_api_client()
-        SMARTY_ENABLED = True
+        # SMARTY_ENABLED = True
         st.write("✅ Smarty client initialized successfully")
     else:
-        SMARTY_ENABLED = False
+        # SMARTY_ENABLED = False
         st.warning("Smarty API credentials not found in secrets. Address validation will be disabled.")
 except Exception as e:
-    SMARTY_ENABLED = False
+    # SMARTY_ENABLED = False
     st.warning(f"Error initializing Smarty API: {str(e)}. Address validation will be disabled.")
 
 s3 = boto3.client(
@@ -430,12 +434,24 @@ def validate_address(address: str) -> Dict:
         return None
         
     try:
+        # Debug: Log credentials and API details
+        st.write("### Smarty API Debug Info:")
+        st.write("Account ID (Auth ID):", SMARTY_AUTH_ID)
+        st.write("Auth Token (first 8 chars):", SMARTY_AUTH_TOKEN[:8] if SMARTY_AUTH_TOKEN else None)
+        
         # Create a lookup
         lookup = Lookup()
         lookup.street = address
         
-        st.write("Sending lookup to Smarty API:", {
-            "street": lookup.street
+        st.write("API Request Details:")
+        st.write({
+            "credentials": {
+                "auth_id": SMARTY_AUTH_ID,
+                "auth_token_prefix": SMARTY_AUTH_TOKEN[:8] if SMARTY_AUTH_TOKEN else None
+            },
+            "request": {
+                "street": lookup.street
+            }
         })
         
         # Send the lookup
