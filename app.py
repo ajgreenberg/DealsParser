@@ -12,7 +12,7 @@ from datetime import datetime
 import random
 import time
 from smartystreets_python_sdk import ClientBuilder, StaticCredentials
-from smartystreets_python_sdk.us_street import Lookup
+from smartystreets_python_sdk.us_property import Lookup as PropertyLookup
 
 # --- Custom CSS for Apple-like styling ---
 st.set_page_config(
@@ -316,9 +316,9 @@ try:
     st.write("SMARTY_AUTH_TOKEN exists:", SMARTY_AUTH_TOKEN is not None)
     
     if SMARTY_AUTH_ID and SMARTY_AUTH_TOKEN:
-        # Initialize client for US Street API (we'll add property data later)
+        # Initialize client for Property Data API
         credentials = StaticCredentials(SMARTY_AUTH_ID, SMARTY_AUTH_TOKEN)
-        smarty_client = ClientBuilder(credentials).build_us_street_api_client()
+        smarty_client = ClientBuilder(credentials).build_us_property_api_client()
         SMARTY_ENABLED = True
         st.write("✅ Smarty client initialized successfully")
     else:
@@ -423,52 +423,77 @@ def generate_maps_link(address: str) -> str:
 
 def validate_address(address: str) -> Dict:
     """
-    Validate and standardize an address using Smarty API.
-    Returns standardized address data.
+    Validate and enrich address using Smarty Property Data API.
+    Returns property data and formatted address.
     """
     if not address or not SMARTY_ENABLED:
         return None
         
-    lookup = Lookup()
+    lookup = PropertyLookup()
     lookup.street = address
-    lookup.match = "enhanced"
     
     try:
-        smarty_client.send_lookup(lookup)
+        st.write("Sending lookup to Smarty API:", {
+            "street": lookup.street
+        })
         
-        if lookup.result:
-            result = lookup.result[0]
+        response = smarty_client.send_lookup(lookup)
+        
+        st.write("Raw API Response:", response)
+        
+        if response and response.results:
+            result = response.results[0]
             
-            # Create a simplified response dictionary
+            # Create a detailed response dictionary
             smarty_response = {
                 "address": {
-                    "street": result.delivery_line_1,
-                    "city": result.components.city_name,
-                    "state": result.components.state_abbreviation,
-                    "zipcode": result.components.zipcode,
-                },
-                "location": {
-                    "latitude": result.metadata.latitude,
-                    "longitude": result.metadata.longitude,
-                    "county": result.metadata.county_name,
-                    "timezone": result.metadata.time_zone
+                    "street": result.address.street,
+                    "city": result.address.city,
+                    "state": result.address.state,
+                    "zipcode": result.address.zipcode,
+                    "unit": result.address.unit or ""
                 }
             }
+            
+            if hasattr(result, 'property'):
+                smarty_response["property"] = {
+                    "type": getattr(result.property, 'property_type', None),
+                    "year_built": getattr(result.property, 'year_built', None),
+                    "bedrooms": getattr(result.property, 'bedrooms', None),
+                    "bathrooms": getattr(result.property, 'bathrooms', None),
+                    "square_footage": getattr(result.property, 'square_footage', None),
+                    "lot_size": getattr(result.property, 'lot_size', None)
+                }
+            
+            if hasattr(result, 'location'):
+                smarty_response["location"] = {
+                    "latitude": getattr(result.location, 'latitude', None),
+                    "longitude": getattr(result.location, 'longitude', None),
+                    "county": getattr(result.location, 'county', None),
+                    "census_tract": getattr(result.location, 'census_tract', None)
+                }
 
             # Debug: Show the raw response in the UI
             st.write("### Smarty API Response:")
             st.json(smarty_response)
             
-            formatted_address = f"{result.delivery_line_1}, {result.components.city_name}, {result.components.state_abbreviation} {result.components.zipcode}"
+            # Format the address
+            unit_str = f" {result.address.unit}" if result.address.unit else ""
+            formatted_address = f"{result.address.street}{unit_str}, {result.address.city}, {result.address.state} {result.address.zipcode}"
             
             return {
                 "formatted_address": formatted_address,
-                "latitude": result.metadata.latitude,
-                "longitude": result.metadata.longitude,
+                "latitude": getattr(result.location, 'latitude', None) if hasattr(result, 'location') else None,
+                "longitude": getattr(result.location, 'longitude', None) if hasattr(result, 'location') else None,
                 "raw_response": json.dumps(smarty_response, indent=2)
             }
+            
+        st.write("No results found for address:", address)
+        return None
+        
     except Exception as e:
         st.error(f"Smarty API error: {str(e)}")
+        st.write("Full error details:", str(e))
         return None
     
     return None
@@ -498,16 +523,13 @@ def create_airtable_record(
         st.write("Address validation successful")
         maps_link = generate_maps_link(address_data["formatted_address"])
         validated_location = address_data["formatted_address"]
-        geo_point = f"{address_data['latitude']}, {address_data['longitude']}"
         smarty_raw_response = address_data["raw_response"]
         st.write(f"Validated Location: {validated_location}")
-        st.write(f"Coordinates: {geo_point}")
         st.write("Raw Smarty Response:", smarty_raw_response)
     else:
         st.write("Address validation failed or skipped")
         maps_link = generate_maps_link(location)
         validated_location = location
-        geo_point = ""
         smarty_raw_response = ""
     
     fields = {
@@ -523,9 +545,8 @@ def create_airtable_record(
         "Risks": "\n".join(data.get("Risks or Red Flags", [])),
         "Property Name": data.get("Property Name"),
         "Location": validated_location,
-        "Coordinates": geo_point,
         "Maps Link": maps_link,
-        "Smarty Raw Response": smarty_raw_response,  # New field for testing
+        "Smarty Raw Response": smarty_raw_response,
         "Asset Class": data.get("Asset Class"),
         "Purchase Price": data.get("Purchase Price"),
         "Loan Amount": data.get("Loan Amount"),
