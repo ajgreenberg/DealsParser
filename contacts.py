@@ -1,20 +1,21 @@
 import streamlit as st
 import requests
-from pydantic import BaseModel
 from fastapi import FastAPI
+from pydantic import BaseModel
 from fastapi.responses import JSONResponse
+import uvicorn
+from threading import Thread
 
-# Airtable API setup
-AIRTABLE_BASE_ID = "your_base_id"
+# Set up Airtable credentials securely using Streamlit's Secrets
+AIRTABLE_BASE_ID = st.secrets["AIRTABLE_BASE_ID"]
+AIRTABLE_API_KEY = st.secrets["AIRTABLE_API_KEY"]
 AIRTABLE_TABLE_NAME = "Contacts"
-AIRTABLE_API_KEY = "your_private_airtable_api_key"
 AIRTABLE_URL = f"https://api.airtable.com/v0/{AIRTABLE_BASE_ID}/{AIRTABLE_TABLE_NAME}"
 
-# FastAPI for backend functionality
-from fastapi import FastAPI
-
+# FastAPI app to handle the POST request to save contacts
 app = FastAPI()
 
+# Define Pydantic model for request data (contact name and email)
 class Contact(BaseModel):
     name: str
     email: str
@@ -33,6 +34,7 @@ async def save_contact(contact: Contact):
         }
     }
 
+    # Send request to Airtable to save the contact
     response = requests.post(AIRTABLE_URL, headers=headers, json=payload)
 
     if response.status_code == 201:
@@ -40,26 +42,15 @@ async def save_contact(contact: Contact):
     else:
         return JSONResponse(content={"status": "error", "message": "Failed to save contact"}, status_code=400)
 
-# Streamlit UI
-def run_streamlit_app():
-    st.title("Airtable Contact Manager")
+# Run FastAPI backend
+def run_backend():
+    uvicorn.run(app, host="0.0.0.0", port=8000)
 
-    name = st.text_input("Name")
-    email = st.text_input("Email")
+# Start FastAPI backend and keep Streamlit running
+def start_app():
+    thread = Thread(target=run_backend)
+    thread.start()
 
-    if st.button("Save Contact"):
-        if name and email:
-            response = requests.post(
-                "http://localhost:8000/save-contact",
-                json={"name": name, "email": email}
-            )
-            if response.status_code == 200:
-                st.success("Contact saved successfully!")
-            else:
-                st.error("Failed to save contact.")
-        else:
-            st.error("Please fill out both fields.")
-
-# Running Streamlit app
+# Keep Streamlit running without UI
 if __name__ == "__main__":
-    run_streamlit_app()
+    start_app()
