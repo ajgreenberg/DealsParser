@@ -33,3 +33,8 @@ async def save_contact(contact: Contact):
         return {"status": "success", "message": "Contact saved to Airtable"}
     else:
         raise HTTPException(status_code=response.status_code, detail="Failed to save contact")
+
+if __name__ == "__main__":
+    import uvicorn
+    uvicorn.run(app, host="0.0.0.0", port=8000)
+
