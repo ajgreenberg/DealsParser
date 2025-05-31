@@ -817,8 +817,8 @@ def create_contact_record(
             "Name": contact_data.get("Name", ""),
             "Email": contact_data.get("Email", ""),
             "Phone": contact_data.get("Phone", ""),
-            "Address": contact_data.get("Address", ""),  # Changed back to simple text
-            "Website": website,  # Changed back to simple text
+            "Address": contact_data.get("Address", ""),
+            "Website": website,
             "Notes": contact_data.get("Notes", ""),
             "Attachments": [{"url": u} for u in attachments] if attachments else []
         }
@@ -827,7 +827,7 @@ def create_contact_record(
         st.write("Attempting to create contact with fields:", fields)
         
         resp = requests.post(
-            f"https://api.airtable.com/v0/{AIRTABLE_BASE_ID}/{AIRTABLE_CONTACTS_TABLE}",
+            f"https://api.airtable.com/v0/{AIRTABLE_BASE_ID}/Contacts",  # Changed to use 'Contacts' directly
             headers=headers,
             json={"fields": fields}
         )
