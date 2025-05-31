@@ -624,21 +624,12 @@ def format_ownership_sale_info(result):
         except:
             return str(date_str)
     
-    def format_currency(value):
-        try:
-            if not value:
-                return "N/A"
-            return f"${float(value):,.2f}"
-        except:
-            return str(value)
-    
     fields = {
         "Owner Full Name": attrs.get('owner_full_name', 'N/A'),
         "Owner Occupancy Status": attrs.get('owner_occupancy_status', 'N/A'),
         "Deed Owner Full Name": attrs.get('deed_owner_full_name', 'N/A'),
         "Deed Owner Last Name": attrs.get('deed_owner_last_name', 'N/A'),
         "Deed Sale Date": format_date(attrs.get('deed_sale_date')),
-        "Deed Sale Price": format_currency(attrs.get('deed_sale_price')),
         "Deed Transaction ID": attrs.get('deed_transaction_id', 'N/A'),
         "Ownership Transfer Date": format_date(attrs.get('ownership_transfer_date')),
         "Prior Sale Date": format_date(attrs.get('prior_sale_date')),
@@ -767,8 +758,8 @@ def create_airtable_record(
 # --- Streamlit UI ---
 st.markdown("<h1>DealFlow AI</h1>", unsafe_allow_html=True)
 
-# Default deal type
-deal_type_value = "Equity"
+deal_type = st.radio("Select Deal Type", ["🏢 Equity", "🏦 Debt"], horizontal=True, label_visibility="visible")
+deal_type_value = "Debt" if "Debt" in deal_type else "Equity"
 
 uploaded_main = st.file_uploader("Upload Deal Memo", type=["pdf","doc","docx"], 
     label_visibility="visible")
@@ -886,15 +877,6 @@ if "summary" in st.session_state:
         hold_period = st.text_input("Hold Period", value=s.get("Hold Period",""))
         exit_strategy = st.text_input("Exit Strategy", value=s.get("Exit Strategy",""))
 
-        st.markdown("---")
-        
-        # Property Information
-        st.markdown("### Property Information")
-        physical_property = st.text_area("Physical Property", value=s.get("Physical Property", ""), height=120)
-        parcel_tax = st.text_area("Parcel & Tax", value=s.get("Parcel & Tax", ""), height=120)
-        ownership_sale = st.text_area("Ownership & Sale", value=s.get("Ownership & Sale", ""), height=120)
-        mortgage_lender = st.text_area("Mortgage & Lender", value=s.get("Mortgage & Lender", ""), height=120)
-        
         st.markdown("---")
         
         # Analysis
