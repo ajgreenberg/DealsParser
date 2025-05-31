@@ -624,12 +624,21 @@ def format_ownership_sale_info(result):
         except:
             return str(date_str)
     
+    def format_currency(value):
+        try:
+            if not value:
+                return "N/A"
+            return f"${float(value):,.2f}"
+        except:
+            return str(value)
+    
     fields = {
         "Owner Full Name": attrs.get('owner_full_name', 'N/A'),
         "Owner Occupancy Status": attrs.get('owner_occupancy_status', 'N/A'),
         "Deed Owner Full Name": attrs.get('deed_owner_full_name', 'N/A'),
         "Deed Owner Last Name": attrs.get('deed_owner_last_name', 'N/A'),
         "Deed Sale Date": format_date(attrs.get('deed_sale_date')),
+        "Deed Sale Price": format_currency(attrs.get('deed_sale_price')),
         "Deed Transaction ID": attrs.get('deed_transaction_id', 'N/A'),
         "Ownership Transfer Date": format_date(attrs.get('ownership_transfer_date')),
         "Prior Sale Date": format_date(attrs.get('prior_sale_date')),
@@ -957,3 +966,4 @@ if "summary" in st.session_state:
                 st.session_state["contacts"]
             )
         st.success("✅ Deal saved to Airtable!")
+        
