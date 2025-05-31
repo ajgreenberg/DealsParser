@@ -845,12 +845,43 @@ def create_contact_record(
         return False
 
 # --- Streamlit UI ---
-st.markdown("<h1>DealFlow AI</h1>", unsafe_allow_html=True)
+st.markdown("<h1 style='text-align: center;'>Real Estate AI Tools</h1>", unsafe_allow_html=True)
 
-# Feature selector
-feature = st.radio("Select Feature", ["🤖 DealFlow AI", "👥 Contact AI"], horizontal=True, label_visibility="visible")
+# Main navigation
+if 'current_page' not in st.session_state:
+    st.session_state.current_page = 'home'
 
-if feature == "🤖 DealFlow AI":
+# Home page with big buttons
+if st.session_state.current_page == 'home':
+    col1, col2 = st.columns(2)
+    
+    with col1:
+        if st.button("🤖 DealFlow AI", use_container_width=True, key="dealflow_btn"):
+            st.session_state.current_page = 'dealflow'
+            st.rerun()
+    
+    with col2:
+        if st.button("👥 Contact AI", use_container_width=True, key="contact_btn"):
+            st.session_state.current_page = 'contact'
+            st.rerun()
+    
+    # Add descriptions below buttons
+    col1.markdown("""
+        #### Deal Analysis Tool
+        Upload deal memos and supporting documents for instant analysis and organization.
+    """)
+    
+    col2.markdown("""
+        #### Contact Management
+        Extract and organize contact information from email signatures and business cards.
+    """)
+
+elif st.session_state.current_page == 'dealflow':
+    st.markdown("<h1>DealFlow AI</h1>", unsafe_allow_html=True)
+    if st.button("← Back to Home", key="back_dealflow"):
+        st.session_state.current_page = 'home'
+        st.rerun()
+    
     deal_type = st.radio("Select Deal Type", ["🏢 Equity", "🏦 Debt"], horizontal=True, label_visibility="visible")
     deal_type_value = "Debt" if "Debt" in deal_type else "Equity"
 
@@ -1049,7 +1080,12 @@ if feature == "🤖 DealFlow AI":
                     st.session_state["contacts"]
                 )
             st.success("✅ Deal saved to Airtable!")
-elif feature == "👥 Contact AI":
+elif st.session_state.current_page == 'contact':
+    st.markdown("<h1>Contact AI</h1>", unsafe_allow_html=True)
+    if st.button("← Back to Home", key="back_contact"):
+        st.session_state.current_page = 'home'
+        st.rerun()
+    
     st.markdown("### Contact Information Parser")
     st.markdown("Paste a signature block or contact information below, and I'll extract the key details.")
     
@@ -1120,7 +1156,12 @@ elif feature == "👥 Contact AI":
                     # Delete S3 files after successful save
                     for url in st.session_state.get('s3_urls', []):
                         delete_from_s3(url)
-                    st.success("✅ Contact saved to Airtable!")
+                    st.success(f"""
+                        ✅ Contact Successfully Added!
+                        
+                        **{name}** has been added to your contacts database.
+                        You can view and manage all contacts in your Airtable base.
+                    """)
                     # Clear the form
                     st.session_state.show_form = False
                     st.session_state.contact_data = None
