@@ -764,206 +764,328 @@ def create_airtable_record(
         for attachment_url in attachments:
             delete_from_s3(attachment_url)
 
+def parse_contact_info(text: str) -> Dict:
+    """Parse contact information from text using GPT."""
+    prompt = (
+        "Extract contact information from the following text block. "
+        "Return a JSON object with these fields (leave empty if not found):\n"
+        "- Name (full name)\n"
+        "- Email\n"
+        "- Phone (primary phone number)\n"
+        "- Address (full address)\n"
+        "- Website\n"
+        "- Notes (any additional relevant information)\n\n"
+        f"Text:\n{text}"
+    )
+    
+    res = client.chat.completions.create(
+        model="gpt-3.5-turbo",
+        messages=[{"role": "user", "content": prompt}],
+        temperature=0.3
+    )
+    
+    try:
+        # Clean the response and parse JSON
+        content = res.choices[0].message.content
+        # Remove any markdown code block syntax
+        content = re.sub(r"```(?:json)?", "", content).strip()
+        # Remove any text before the first {
+        content = re.sub(r"^[^\{]*", "", content, flags=re.DOTALL)
+        return json.loads(content)
+    except Exception as e:
+        st.error(f"Error parsing contact info: {str(e)}")
+        return {}
+
+def create_contact_record(
+    contact_data: Dict,
+    attachments: List[str]
+):
+    """Create a new record in the Contacts table."""
+    headers = {
+        "Authorization": f"Bearer {AIRTABLE_PAT}",
+        "Content-Type": "application/json"
+    }
+    
+    fields = {
+        "Name": contact_data.get("Name", ""),
+        "Email": contact_data.get("Email", ""),
+        "Phone": contact_data.get("Phone", ""),
+        "Address": contact_data.get("Address", ""),
+        "Website": contact_data.get("Website", ""),
+        "Notes": contact_data.get("Notes", ""),
+        "Attachments": [{"url": u} for u in attachments]
+    }
+    
+    resp = requests.post(
+        f"https://api.airtable.com/v0/{AIRTABLE_BASE_ID}/Contacts",
+        headers=headers,
+        json={"fields": fields}
+    )
+    
+    if resp.status_code not in (200, 201):
+        st.error(f"Airtable error: {resp.text}")
+        return False
+    return True
+
 # --- Streamlit UI ---
 st.markdown("<h1>DealFlow AI</h1>", unsafe_allow_html=True)
 
-deal_type = st.radio("Select Deal Type", ["🏢 Equity", "🏦 Debt"], horizontal=True, label_visibility="visible")
-deal_type_value = "Debt" if "Debt" in deal_type else "Equity"
+# Feature selector
+feature = st.radio("Select Feature", ["🤖 DealFlow AI", "👥 Contact AI"], horizontal=True, label_visibility="visible")
 
-uploaded_main = st.file_uploader("Upload Deal Memo", type=["pdf","doc","docx"], 
-    label_visibility="visible")
+if feature == "🤖 DealFlow AI":
+    deal_type = st.radio("Select Deal Type", ["🏢 Equity", "🏦 Debt"], horizontal=True, label_visibility="visible")
+    deal_type_value = "Debt" if "Debt" in deal_type else "Equity"
 
-uploaded_files = st.file_uploader(
-    "Supporting Documents",
-    type=["pdf","doc","docx","xls","xlsx","jpg","png"],
-    accept_multiple_files=True,
-    label_visibility="visible"
-)
+    uploaded_main = st.file_uploader("Upload Deal Memo", type=["pdf","doc","docx"], 
+        label_visibility="visible")
 
-extra_notes = st.text_area(
-    "Deal Notes or Email Thread",
-    height=150,
-    label_visibility="visible"
-)
+    uploaded_files = st.file_uploader(
+        "Supporting Documents",
+        type=["pdf","doc","docx","xls","xlsx","jpg","png"],
+        accept_multiple_files=True,
+        label_visibility="visible"
+    )
 
-analyze_button = st.button("🚀 Analyze Deal")
+    extra_notes = st.text_area(
+        "Deal Notes or Email Thread",
+        height=150,
+        label_visibility="visible"
+    )
 
-if analyze_button:
-    status_container = st.empty()
-    
-    try:
-        for i in range(5):
-            # Update message first
-            status_container.markdown(
-                f'<div class="status-message"><div class="spinner"></div>{get_loading_message(i)}</div>',
-                unsafe_allow_html=True
-            )
-            
-            # Add a small delay between messages
-            time.sleep(0.5)  # Half second delay between messages
-            
-            if i == 0:
-                # Initial document processing
-                source_text = ""
-                if uploaded_main:
-                    ext = uploaded_main.name.lower().rsplit(".",1)[-1]
-                    if ext == "pdf":
-                        source_text = extract_text_from_pdf(uploaded_main)
-                    elif ext == "docx":
-                        source_text = extract_text_from_docx(uploaded_main)
-                    else:
-                        uploaded_main.seek(0)
-                        source_text = extract_text_from_doc(uploaded_main)
-            
-            elif i == 1 and (source_text or extra_notes.strip()):
-                # Process text and generate summary
-                combined = (source_text + "\n\n" + extra_notes).strip()
-                summary = gpt_extract_summary(combined, deal_type_value)
-            
-            elif i == 2:
-                # Process notes and contact info
-                notes_summary = summarize_notes(extra_notes)
-                contact_info = extract_contact_info(combined)
-            
-            elif i == 3:
-                # Handle attachments
-                s3_urls = []
-                if uploaded_main:
-                    uploaded_main.seek(0)
-                    s3_urls.append(upload_to_s3(uploaded_main, uploaded_main.name))
-                for f in uploaded_files:
-                    f.seek(0)
-                    s3_urls.append(upload_to_s3(f, f.name))
-            
-            elif i == 4:
-                # Update session state
-                st.session_state.update({
-                    "summary": summary,
-                    "raw_notes": extra_notes,
-                    "notes_summary": notes_summary,
-                    "contacts": contact_info,
-                    "attachments": s3_urls,
-                    "deal_type": deal_type_value
-                })
+    analyze_button = st.button("🚀 Analyze Deal")
 
-                # If we have address data, add property information to session state
-                location = summary.get("Location", "")
-                if location:
-                    address_data = validate_address(location)
-                    if address_data:
-                        result = address_data.get('raw_data', {})
-                        st.session_state.update({
-                            "Physical Property": format_physical_property(result),
-                            "Parcel & Tax": format_parcel_tax_info(result),
-                            "Ownership & Sale": format_ownership_sale_info(result),
-                            "Mortgage & Lender": format_mortgage_lender_info(result)
-                        })
-                
-            # Add another message update right after processing
-            if i < 4:  # Don't update after the last step
+    if analyze_button:
+        status_container = st.empty()
+        
+        try:
+            for i in range(5):
+                # Update message first
                 status_container.markdown(
-                    f'<div class="status-message"><div class="spinner"></div>{get_loading_message(i + 1)}</div>',
+                    f'<div class="status-message"><div class="spinner"></div>{get_loading_message(i)}</div>',
                     unsafe_allow_html=True
                 )
-    
-    except Exception as e:
-        st.error(f"An error occurred: {str(e)}")
-    finally:
-        status_container.empty()
+                
+                # Add a small delay between messages
+                time.sleep(0.5)  # Half second delay between messages
+                
+                if i == 0:
+                    # Initial document processing
+                    source_text = ""
+                    if uploaded_main:
+                        ext = uploaded_main.name.lower().rsplit(".",1)[-1]
+                        if ext == "pdf":
+                            source_text = extract_text_from_pdf(uploaded_main)
+                        elif ext == "docx":
+                            source_text = extract_text_from_docx(uploaded_main)
+                        else:
+                            uploaded_main.seek(0)
+                            source_text = extract_text_from_doc(uploaded_main)
+                
+                elif i == 1 and (source_text or extra_notes.strip()):
+                    # Process text and generate summary
+                    combined = (source_text + "\n\n" + extra_notes).strip()
+                    summary = gpt_extract_summary(combined, deal_type_value)
+                
+                elif i == 2:
+                    # Process notes and contact info
+                    notes_summary = summarize_notes(extra_notes)
+                    contact_info = extract_contact_info(combined)
+                
+                elif i == 3:
+                    # Handle attachments
+                    s3_urls = []
+                    if uploaded_main:
+                        uploaded_main.seek(0)
+                        s3_urls.append(upload_to_s3(uploaded_main, uploaded_main.name))
+                    for f in uploaded_files:
+                        f.seek(0)
+                        s3_urls.append(upload_to_s3(f, f.name))
+                
+                elif i == 4:
+                    # Update session state
+                    st.session_state.update({
+                        "summary": summary,
+                        "raw_notes": extra_notes,
+                        "notes_summary": notes_summary,
+                        "contacts": contact_info,
+                        "attachments": s3_urls,
+                        "deal_type": deal_type_value
+                    })
 
-# Editable form + upload
-if "summary" in st.session_state:
-    st.markdown("<h2>Review & Edit Deal Details</h2>", unsafe_allow_html=True)
-    
-    with st.form("edit_form", clear_on_submit=False):
-        s = st.session_state["summary"]
+                    # If we have address data, add property information to session state
+                    location = summary.get("Location", "")
+                    if location:
+                        address_data = validate_address(location)
+                        if address_data:
+                            result = address_data.get('raw_data', {})
+                            st.session_state.update({
+                                "Physical Property": format_physical_property(result),
+                                "Parcel & Tax": format_parcel_tax_info(result),
+                                "Ownership & Sale": format_ownership_sale_info(result),
+                                "Mortgage & Lender": format_mortgage_lender_info(result)
+                            })
+                    
+                # Add another message update right after processing
+                if i < 4:  # Don't update after the last step
+                    status_container.markdown(
+                        f'<div class="status-message"><div class="spinner"></div>{get_loading_message(i + 1)}</div>',
+                        unsafe_allow_html=True
+                    )
         
-        # Property Details
-        property_name = st.text_input("Property Name", value=s.get("Property Name",""))
-        location = st.text_input("Location", value=s.get("Location",""))
-        asset_class = st.text_input("Asset Class", value=s.get("Asset Class",""))
-        size = st.text_input("Size (Sq Ft or Unit Count)", value=s.get("Square Footage or Unit Count",""))
-        
-        # Deal Team
-        sponsor = st.text_input("Sponsor", value=s.get("Sponsor",""))
-        broker = st.text_input("Broker", value=s.get("Broker",""))
-        
-        # Financial Details
-        purchase_price = st.text_input("Purchase Price", value=s.get("Purchase Price",""))
-        loan_amount = st.text_input("Loan Amount", value=s.get("Loan Amount",""))
-        in_cap_rate = st.text_input("In-Place Cap Rate", value=s.get("In-Place Cap Rate",""))
-        stab_cap_rate = st.text_input("Stabilized Cap Rate", value=s.get("Stabilized Cap Rate",""))
-        interest_rate = st.text_input("Interest Rate", value=s.get("Interest Rate",""))
-        term = st.text_input("Term", value=s.get("Term",""))
-        proj_irr = st.text_input("Projected IRR", value=s.get("Projected IRR",""))
-        hold_period = st.text_input("Hold Period", value=s.get("Hold Period",""))
-        exit_strategy = st.text_input("Exit Strategy", value=s.get("Exit Strategy",""))
+        except Exception as e:
+            st.error(f"An error occurred: {str(e)}")
+        finally:
+            status_container.empty()
 
-        st.markdown("---")
+    # Editable form + upload
+    if "summary" in st.session_state:
+        st.markdown("<h2>Review & Edit Deal Details</h2>", unsafe_allow_html=True)
         
-        # Analysis
-        highlights_text = "\n".join(f"• {highlight}" for highlight in s.get("Key Highlights", []) if highlight.strip())
-        key_highlights = st.text_area("Key Highlights", value=highlights_text, height=120)
-        
-        risks_text = "\n".join(f"• {risk}" for risk in s.get("Risks or Red Flags", []) if risk.strip())
-        risks = st.text_area("Risks or Red Flags", value=risks_text, height=120)
-        
-        summary_text = st.text_area("Summary", value=s.get("Summary",""), height=100)
-        physical_property = st.text_area("Physical Property", value=st.session_state.get("Physical Property", ""), height=120)
-        parcel_tax = st.text_area("Parcel & Tax", value=st.session_state.get("Parcel & Tax", ""), height=120)
-        ownership_sale = st.text_area("Ownership & Sale", value=st.session_state.get("Ownership & Sale", ""), height=120)
-        mortgage_lender = st.text_area("Mortgage & Lender", value=st.session_state.get("Mortgage & Lender", ""), height=120)
-        raw_notes = st.text_area("Raw Notes", value=st.session_state.get("raw_notes",""), height=120)
-        
-        submitted = st.form_submit_button("Save to Airtable")
-
-    if submitted:
-        with st.spinner("Saving to Airtable"):
-            # Process Key Highlights - ensure each line starts with a bullet
-            key_highlights_list = [
-                f"• {line.strip().replace('• ', '')}" if not line.strip().startswith('•') else line.strip()
-                for line in key_highlights.split('\n')
-                if line.strip() and not line.isspace()
-            ]
+        with st.form("edit_form", clear_on_submit=False):
+            s = st.session_state["summary"]
             
-            # Process Risks - ensure each line starts with a bullet
-            risks_list = [
-                f"• {line.strip().replace('• ', '')}" if not line.strip().startswith('•') else line.strip()
-                for line in risks.split('\n')
-                if line.strip() and not line.isspace()
-            ]
+            # Property Details
+            property_name = st.text_input("Property Name", value=s.get("Property Name",""))
+            location = st.text_input("Location", value=s.get("Location",""))
+            asset_class = st.text_input("Asset Class", value=s.get("Asset Class",""))
+            size = st.text_input("Size (Sq Ft or Unit Count)", value=s.get("Square Footage or Unit Count",""))
             
-            updated = {
-                "Property Name":       property_name,
-                "Location":            location,
-                "Maps Link":           generate_maps_link(location),
-                "Asset Class":         asset_class,
-                "Sponsor":             sponsor,
-                "Broker":              broker,
-                "Purchase Price":      purchase_price,
-                "Loan Amount":         loan_amount,
-                "In-Place Cap Rate":   in_cap_rate,
-                "Stabilized Cap Rate": stab_cap_rate,
-                "Interest Rate":       interest_rate,
-                "Term":                term,
-                "Exit Strategy":       exit_strategy,
-                "Projected IRR":       proj_irr,
-                "Hold Period":         hold_period,
-                "Size":                size,
-                "Physical Property":   physical_property,
-                "Parcel & Tax":        parcel_tax,
-                "Ownership & Sale":    ownership_sale,
-                "Mortgage & Lender":   mortgage_lender,
-                "Key Highlights":      key_highlights_list,
-                "Risks or Red Flags":  risks_list,
-                "Summary":             summary_text
-            }
-            create_airtable_record(
-                updated,
-                raw_notes,
-                st.session_state["attachments"],
-                st.session_state["deal_type"],
-                st.session_state["contacts"]
-            )
-        st.success("✅ Deal saved to Airtable!")
-        
+            # Deal Team
+            sponsor = st.text_input("Sponsor", value=s.get("Sponsor",""))
+            broker = st.text_input("Broker", value=s.get("Broker",""))
+            
+            # Financial Details
+            purchase_price = st.text_input("Purchase Price", value=s.get("Purchase Price",""))
+            loan_amount = st.text_input("Loan Amount", value=s.get("Loan Amount",""))
+            in_cap_rate = st.text_input("In-Place Cap Rate", value=s.get("In-Place Cap Rate",""))
+            stab_cap_rate = st.text_input("Stabilized Cap Rate", value=s.get("Stabilized Cap Rate",""))
+            interest_rate = st.text_input("Interest Rate", value=s.get("Interest Rate",""))
+            term = st.text_input("Term", value=s.get("Term",""))
+            proj_irr = st.text_input("Projected IRR", value=s.get("Projected IRR",""))
+            hold_period = st.text_input("Hold Period", value=s.get("Hold Period",""))
+            exit_strategy = st.text_input("Exit Strategy", value=s.get("Exit Strategy",""))
+
+            st.markdown("---")
+            
+            # Analysis
+            highlights_text = "\n".join(f"• {highlight}" for highlight in s.get("Key Highlights", []) if highlight.strip())
+            key_highlights = st.text_area("Key Highlights", value=highlights_text, height=120)
+            
+            risks_text = "\n".join(f"• {risk}" for risk in s.get("Risks or Red Flags", []) if risk.strip())
+            risks = st.text_area("Risks or Red Flags", value=risks_text, height=120)
+            
+            summary_text = st.text_area("Summary", value=s.get("Summary",""), height=100)
+            physical_property = st.text_area("Physical Property", value=st.session_state.get("Physical Property", ""), height=120)
+            parcel_tax = st.text_area("Parcel & Tax", value=st.session_state.get("Parcel & Tax", ""), height=120)
+            ownership_sale = st.text_area("Ownership & Sale", value=st.session_state.get("Ownership & Sale", ""), height=120)
+            mortgage_lender = st.text_area("Mortgage & Lender", value=st.session_state.get("Mortgage & Lender", ""), height=120)
+            raw_notes = st.text_area("Raw Notes", value=st.session_state.get("raw_notes",""), height=120)
+            
+            submitted = st.form_submit_button("Save to Airtable")
+
+        if submitted:
+            with st.spinner("Saving to Airtable"):
+                # Process Key Highlights - ensure each line starts with a bullet
+                key_highlights_list = [
+                    f"• {line.strip().replace('• ', '')}" if not line.strip().startswith('•') else line.strip()
+                    for line in key_highlights.split('\n')
+                    if line.strip() and not line.isspace()
+                ]
+                
+                # Process Risks - ensure each line starts with a bullet
+                risks_list = [
+                    f"• {line.strip().replace('• ', '')}" if not line.strip().startswith('•') else line.strip()
+                    for line in risks.split('\n')
+                    if line.strip() and not line.isspace()
+                ]
+                
+                updated = {
+                    "Property Name":       property_name,
+                    "Location":            location,
+                    "Maps Link":           generate_maps_link(location),
+                    "Asset Class":         asset_class,
+                    "Sponsor":             sponsor,
+                    "Broker":              broker,
+                    "Purchase Price":      purchase_price,
+                    "Loan Amount":         loan_amount,
+                    "In-Place Cap Rate":   in_cap_rate,
+                    "Stabilized Cap Rate": stab_cap_rate,
+                    "Interest Rate":       interest_rate,
+                    "Term":                term,
+                    "Exit Strategy":       exit_strategy,
+                    "Projected IRR":       proj_irr,
+                    "Hold Period":         hold_period,
+                    "Size":                size,
+                    "Physical Property":   physical_property,
+                    "Parcel & Tax":        parcel_tax,
+                    "Ownership & Sale":    ownership_sale,
+                    "Mortgage & Lender":   mortgage_lender,
+                    "Key Highlights":      key_highlights_list,
+                    "Risks or Red Flags":  risks_list,
+                    "Summary":             summary_text
+                }
+                create_airtable_record(
+                    updated,
+                    raw_notes,
+                    st.session_state["attachments"],
+                    st.session_state["deal_type"],
+                    st.session_state["contacts"]
+                )
+            st.success("✅ Deal saved to Airtable!")
+else:  # Contact AI
+    st.markdown("### Contact Information Parser")
+    st.markdown("Paste a signature block or contact information below, and I'll extract the key details.")
+    
+    contact_text = st.text_area(
+        "Contact Information",
+        height=150,
+        placeholder="Paste signature block or contact information here...",
+        label_visibility="visible"
+    )
+    
+    contact_files = st.file_uploader(
+        "Attachments (Optional)",
+        type=["pdf","doc","docx","jpg","png"],
+        accept_multiple_files=True,
+        label_visibility="visible"
+    )
+    
+    if st.button("🔍 Parse Contact"):
+        if not contact_text.strip():
+            st.error("Please enter some contact information to parse.")
+        else:
+            with st.spinner("Parsing contact information..."):
+                # Parse the contact information
+                contact_data = parse_contact_info(contact_text)
+                
+                # Upload any attachments to S3
+                s3_urls = []
+                for f in contact_files:
+                    s3_urls.append(upload_to_s3(f, f.name))
+                
+                # Show the parsed information for review
+                st.markdown("### Review Parsed Information")
+                with st.form("contact_form"):
+                    name = st.text_input("Name", value=contact_data.get("Name", ""))
+                    email = st.text_input("Email", value=contact_data.get("Email", ""))
+                    phone = st.text_input("Phone", value=contact_data.get("Phone", ""))
+                    address = st.text_input("Address", value=contact_data.get("Address", ""))
+                    website = st.text_input("Website", value=contact_data.get("Website", ""))
+                    notes = st.text_area("Notes", value=contact_data.get("Notes", ""), height=100)
+                    
+                    if st.form_submit_button("Save Contact"):
+                        updated_data = {
+                            "Name": name,
+                            "Email": email,
+                            "Phone": phone,
+                            "Address": address,
+                            "Website": website,
+                            "Notes": notes
+                        }
+                        
+                        if create_contact_record(updated_data, s3_urls):
+                            # Delete S3 files after successful save
+                            for url in s3_urls:
+                                delete_from_s3(url)
+                            st.success("✅ Contact saved to Airtable!")
