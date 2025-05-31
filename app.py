@@ -1125,6 +1125,6 @@ elif feature == "👥 Contact AI":
                     st.session_state.show_form = False
                     st.session_state.contact_data = None
                     st.session_state.s3_urls = []
-                    st.experimental_rerun()
+                    st.rerun()
                 else:
                     st.error("Failed to save contact to Airtable. Please check the error messages above.")
