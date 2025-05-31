@@ -320,52 +320,44 @@ st.markdown("""
         }
         
         /* Container for back button and heading */
-        .nav-container {
-            display: flex;
-            align-items: center;
-            margin-bottom: 2rem;
+        .page-header {
             position: relative;
+            margin-bottom: 2rem;
         }
         
-        /* Back button styling */
-        .nav-container .element-container:first-child {
+        /* Back button container */
+        .page-header > div:first-child {
             position: absolute;
             left: -40px;
             top: 50%;
             transform: translateY(-50%);
         }
         
-        /* Heading container */
-        .nav-container .element-container:nth-child(2) {
-            flex-grow: 1;
-            margin-left: 0 !important;
-        }
-        
-        /* Remove default button margins */
-        .stButton {
-            margin: 0 !important;
-        }
-        
-        /* Back button specific styling */
+        /* Back button styling */
         .stButton > button[kind="secondary"] {
             background-color: transparent !important;
-            border: 1px solid #0c3c60 !important;
-            color: #0c3c60 !important;
+            border: none !important;
+            color: #666 !important;
+            font-size: 24px !important;
+            padding: 0.25rem !important;
+            margin: 0 !important;
+            min-width: 32px !important;
+            width: 32px !important;
         }
         
         .stButton > button[kind="secondary"]:hover {
-            background-color: rgba(12, 60, 96, 0.1) !important;
-            transform: scale(1.02);
+            color: #333 !important;
+            background-color: transparent !important;
+            transform: none !important;
         }
         
         /* Dark mode adjustments */
         @media (prefers-color-scheme: dark) {
             .stButton > button[kind="secondary"] {
-                border-color: #4a90e2 !important;
-                color: #4a90e2 !important;
+                color: #999 !important;
             }
             .stButton > button[kind="secondary"]:hover {
-                background-color: rgba(74, 144, 226, 0.1) !important;
+                color: #fff !important;
             }
         }
     </style>
@@ -971,14 +963,12 @@ if st.session_state.current_page == 'home':
     """)
 
 elif st.session_state.current_page == 'dealflow':
-    # Back button and heading in columns
-    col1, col2 = st.columns([2, 20])
-    with col1:
-        if st.button("←", key="back_dealflow", type="secondary"):
-            st.session_state.current_page = 'home'
-            st.rerun()
-    with col2:
-        st.markdown("<h1>DealFlow AI</h1>", unsafe_allow_html=True)
+    st.markdown('<div class="page-header">', unsafe_allow_html=True)
+    if st.button("←", key="back_dealflow", type="secondary"):
+        st.session_state.current_page = 'home'
+        st.rerun()
+    st.markdown("<h1>DealFlow AI</h1>", unsafe_allow_html=True)
+    st.markdown('</div>', unsafe_allow_html=True)
     
     deal_type = st.radio("Select Deal Type", ["🏢 Equity", "🏦 Debt"], horizontal=True, label_visibility="visible")
     
@@ -1179,14 +1169,12 @@ elif st.session_state.current_page == 'dealflow':
             st.success("✅ Deal saved to Airtable!")
 
 elif st.session_state.current_page == 'contact':
-    # Back button and heading in columns
-    col1, col2 = st.columns([2, 20])
-    with col1:
-        if st.button("←", key="back_contact", type="secondary"):
-            st.session_state.current_page = 'home'
-            st.rerun()
-    with col2:
-        st.markdown("<h1>Contact AI</h1>", unsafe_allow_html=True)
+    st.markdown('<div class="page-header">', unsafe_allow_html=True)
+    if st.button("←", key="back_contact", type="secondary"):
+        st.session_state.current_page = 'home'
+        st.rerun()
+    st.markdown("<h1>Contact AI</h1>", unsafe_allow_html=True)
+    st.markdown('</div>', unsafe_allow_html=True)
     
     st.markdown("Paste a signature block or contact information below, and I'll extract the key details.")
     
@@ -1256,4 +1244,3 @@ elif st.session_state.current_page == 'contact':
                     st.session_state.s3_urls = []
                 else:
                     st.error("Failed to save contact to Airtable. Please try again.")
-                    
