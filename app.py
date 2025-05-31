@@ -742,7 +742,7 @@ def create_airtable_record(
 # --- Streamlit UI ---
 st.markdown("<h1>DealFlow AI</h1>", unsafe_allow_html=True)
 
-deal_type = st.radio("Select Deal Type", ["🏢 Equity", "🏦 Debt"], horizontal=True, label_visibility="visible")
+deal_type = st.radio(["🏢 Equity", "🏦 Debt"], horizontal=True, label_visibility="visible")
 deal_type_value = "Debt" if "Debt" in deal_type else "Equity"
 
 uploaded_main = st.file_uploader("Upload Deal Memo", type=["pdf","doc","docx"], 
