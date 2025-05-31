@@ -873,18 +873,11 @@ def create_contact_record(
             "Attachments": [{"url": u} for u in attachments] if attachments else []
         }
         
-        # Debug info
-        st.write("Attempting to create contact with fields:", fields)
-        
         resp = requests.post(
-            f"https://api.airtable.com/v0/{AIRTABLE_BASE_ID}/Contacts",  # Changed to use 'Contacts' directly
+            f"https://api.airtable.com/v0/{AIRTABLE_BASE_ID}/Contacts",
             headers=headers,
             json={"fields": fields}
         )
-        
-        # Debug info
-        st.write("Airtable response status code:", resp.status_code)
-        st.write("Airtable response:", resp.text)
         
         if resp.status_code not in (200, 201):
             st.error(f"Airtable error: {resp.text}")
@@ -928,28 +921,14 @@ if st.session_state.current_page == 'home':
     """)
 
 elif st.session_state.current_page == 'dealflow':
-    st.markdown("""
-        <div class="page-container">
-            <div class="back-button" onclick="goHome()">←</div>
-            <h1>DealFlow AI</h1>
-        </div>
-        <script>
-            function goHome() {
-                const selectbox = window.parent.document.querySelector('select[aria-label="Select page"]');
-                if (selectbox) {
-                    selectbox.value = 'home';
-                    selectbox.dispatchEvent(new Event('change'));
-                }
-            }
-        </script>
-    """, unsafe_allow_html=True)
-    
-    # Hide only the back arrow button
-    st.markdown("<style>[kind='secondary'][aria-label='←'] {display: none;}</style>", unsafe_allow_html=True)
-    
-    if st.button("←", key="back_dealflow", help=None):
-        st.session_state.current_page = 'home'
-        st.rerun()
+    # Back button and title in a clean layout
+    col1, col2 = st.columns([1, 20])
+    with col1:
+        if st.button("←", key="back_dealflow"):
+            st.session_state.current_page = 'home'
+            st.rerun()
+    with col2:
+        st.markdown("<h1>DealFlow AI</h1>", unsafe_allow_html=True)
     
     deal_type = st.radio("Select Deal Type", ["🏢 Equity", "🏦 Debt"], horizontal=True, label_visibility="visible")
     deal_type_value = "Debt" if "Debt" in deal_type else "Equity"
@@ -1150,28 +1129,14 @@ elif st.session_state.current_page == 'dealflow':
                 )
             st.success("✅ Deal saved to Airtable!")
 elif st.session_state.current_page == 'contact':
-    st.markdown("""
-        <div class="page-container">
-            <div class="back-button" onclick="goHome()">←</div>
-            <h1>Contact AI</h1>
-        </div>
-        <script>
-            function goHome() {
-                const selectbox = window.parent.document.querySelector('select[aria-label="Select page"]');
-                if (selectbox) {
-                    selectbox.value = 'home';
-                    selectbox.dispatchEvent(new Event('change'));
-                }
-            }
-        </script>
-    """, unsafe_allow_html=True)
-    
-    # Hide only the back arrow button
-    st.markdown("<style>[kind='secondary'][aria-label='←'] {display: none;}</style>", unsafe_allow_html=True)
-    
-    if st.button("←", key="back_contact", help=None):
-        st.session_state.current_page = 'home'
-        st.rerun()
+    # Back button and title in a clean layout
+    col1, col2 = st.columns([1, 20])
+    with col1:
+        if st.button("←", key="back_contact"):
+            st.session_state.current_page = 'home'
+            st.rerun()
+    with col2:
+        st.markdown("<h1>Contact AI</h1>", unsafe_allow_html=True)
     
     st.markdown("Paste a signature block or contact information below, and I'll extract the key details.")
     
