@@ -930,18 +930,26 @@ if st.session_state.current_page == 'home':
 elif st.session_state.current_page == 'dealflow':
     st.markdown("""
         <div class="page-container">
-            <a href="#" class="back-button" onclick="handleBackClick(); return false;">←</a>
+            <div class="back-button" onclick="goHome()">←</div>
             <h1>DealFlow AI</h1>
         </div>
         <script>
-            function handleBackClick() {
-                window.location.href = window.location.pathname;
+            function goHome() {
+                const selectbox = window.parent.document.querySelector('select[aria-label="Select page"]');
+                if (selectbox) {
+                    selectbox.value = 'home';
+                    selectbox.dispatchEvent(new Event('change'));
+                }
             }
         </script>
     """, unsafe_allow_html=True)
     
-    # Remove the blue arrow button
-    st.markdown("<style>.stButton {display: none;}</style>", unsafe_allow_html=True)
+    # Hide only the back arrow button
+    st.markdown("<style>[kind='secondary'][aria-label='←'] {display: none;}</style>", unsafe_allow_html=True)
+    
+    if st.button("←", key="back_dealflow", help=None):
+        st.session_state.current_page = 'home'
+        st.rerun()
     
     deal_type = st.radio("Select Deal Type", ["🏢 Equity", "🏦 Debt"], horizontal=True, label_visibility="visible")
     deal_type_value = "Debt" if "Debt" in deal_type else "Equity"
@@ -1144,18 +1152,26 @@ elif st.session_state.current_page == 'dealflow':
 elif st.session_state.current_page == 'contact':
     st.markdown("""
         <div class="page-container">
-            <a href="#" class="back-button" onclick="handleBackClick(); return false;">←</a>
+            <div class="back-button" onclick="goHome()">←</div>
             <h1>Contact AI</h1>
         </div>
         <script>
-            function handleBackClick() {
-                window.location.href = window.location.pathname;
+            function goHome() {
+                const selectbox = window.parent.document.querySelector('select[aria-label="Select page"]');
+                if (selectbox) {
+                    selectbox.value = 'home';
+                    selectbox.dispatchEvent(new Event('change'));
+                }
             }
         </script>
     """, unsafe_allow_html=True)
     
-    # Remove the blue arrow button
-    st.markdown("<style>.stButton {display: none;}</style>", unsafe_allow_html=True)
+    # Hide only the back arrow button
+    st.markdown("<style>[kind='secondary'][aria-label='←'] {display: none;}</style>", unsafe_allow_html=True)
+    
+    if st.button("←", key="back_contact", help=None):
+        st.session_state.current_page = 'home'
+        st.rerun()
     
     st.markdown("Paste a signature block or contact information below, and I'll extract the key details.")
     
