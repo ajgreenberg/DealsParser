@@ -1068,53 +1068,64 @@ else:  # Contact AI
         label_visibility="visible"
     )
     
-    if st.button("🔍 Parse Contact"):
+    parse_clicked = st.button("🔍 Parse Contact")
+    
+    if parse_clicked:
         if not contact_text.strip():
             st.error("Please enter some contact information to parse.")
         else:
-            with st.spinner("Parsing contact information..."):
-                # Parse the contact information
-                contact_data = parse_contact_info(contact_text)
+            # Parse the contact information
+            contact_data = parse_contact_info(contact_text)
+            st.session_state.contact_data = contact_data
+            st.session_state.show_form = True
+            
+            # Upload any attachments to S3
+            s3_urls = []
+            for f in contact_files:
+                s3_urls.append(upload_to_s3(f, f.name))
+            st.session_state.s3_urls = s3_urls
+            
+            st.write("Parsed contact data:", contact_data)
+            if s3_urls:
+                st.write("Uploaded attachments:", s3_urls)
+    
+    # Show form if we have parsed data
+    if st.session_state.get('show_form', False):
+        st.markdown("### Review Parsed Information")
+        with st.form("contact_form", clear_on_submit=False):
+            contact_data = st.session_state.contact_data
+            name = st.text_input("Name", value=contact_data.get("Name", ""))
+            email = st.text_input("Email", value=contact_data.get("Email", ""))
+            phone = st.text_input("Phone", value=contact_data.get("Phone", ""))
+            address = st.text_input("Address", value=contact_data.get("Address", ""))
+            website = st.text_input("Website", value=contact_data.get("Website", ""))
+            notes = st.text_area("Notes", value=contact_data.get("Notes", ""), height=100)
+            
+            submitted = st.form_submit_button("Save Contact")
+            if submitted:
+                st.write("Form submitted!")  # Debug line
+                updated_data = {
+                    "Name": name,
+                    "Email": email,
+                    "Phone": phone,
+                    "Address": address,
+                    "Website": website,
+                    "Notes": notes
+                }
                 
-                # Debug info
-                st.write("Parsed contact data:", contact_data)
+                st.write("Saving contact with data:", updated_data)
+                success = create_contact_record(updated_data, st.session_state.get('s3_urls', []))
+                st.write("Save result:", success)  # Debug line
                 
-                # Upload any attachments to S3
-                s3_urls = []
-                for f in contact_files:
-                    s3_urls.append(upload_to_s3(f, f.name))
-                
-                # Debug info
-                if s3_urls:
-                    st.write("Uploaded attachments:", s3_urls)
-                
-                # Show the parsed information for review
-                st.markdown("### Review Parsed Information")
-                with st.form("contact_form"):
-                    name = st.text_input("Name", value=contact_data.get("Name", ""))
-                    email = st.text_input("Email", value=contact_data.get("Email", ""))
-                    phone = st.text_input("Phone", value=contact_data.get("Phone", ""))
-                    address = st.text_input("Address", value=contact_data.get("Address", ""))
-                    website = st.text_input("Website", value=contact_data.get("Website", ""))
-                    notes = st.text_area("Notes", value=contact_data.get("Notes", ""), height=100)
-                    
-                    if st.form_submit_button("Save Contact"):
-                        updated_data = {
-                            "Name": name,
-                            "Email": email,
-                            "Phone": phone,
-                            "Address": address,
-                            "Website": website,
-                            "Notes": notes
-                        }
-                        
-                        # Debug info
-                        st.write("Attempting to save contact with data:", updated_data)
-                        
-                        if create_contact_record(updated_data, s3_urls):
-                            # Delete S3 files after successful save
-                            for url in s3_urls:
-                                delete_from_s3(url)
-                            st.success("✅ Contact saved to Airtable!")
-                        else:
-                            st.error("Failed to save contact to Airtable. Please check the error messages above.")
+                if success:
+                    # Delete S3 files after successful save
+                    for url in st.session_state.get('s3_urls', []):
+                        delete_from_s3(url)
+                    st.success("✅ Contact saved to Airtable!")
+                    # Clear the form
+                    st.session_state.show_form = False
+                    st.session_state.contact_data = None
+                    st.session_state.s3_urls = []
+                    st.experimental_rerun()
+                else:
+                    st.error("Failed to save contact to Airtable. Please check the error messages above.")
