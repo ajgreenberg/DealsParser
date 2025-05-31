@@ -971,7 +971,14 @@ if st.session_state.current_page == 'home':
     """)
 
 elif st.session_state.current_page == 'dealflow':
-    st.markdown("<h1>DealFlow AI</h1>", unsafe_allow_html=True)
+    # Back button and heading in columns
+    col1, col2 = st.columns([2, 20])
+    with col1:
+        if st.button("←", key="back_dealflow", type="secondary"):
+            st.session_state.current_page = 'home'
+            st.rerun()
+    with col2:
+        st.markdown("<h1>DealFlow AI</h1>", unsafe_allow_html=True)
     
     deal_type = st.radio("Select Deal Type", ["🏢 Equity", "🏦 Debt"], horizontal=True, label_visibility="visible")
     
@@ -1171,14 +1178,15 @@ elif st.session_state.current_page == 'dealflow':
                 )
             st.success("✅ Deal saved to Airtable!")
 
-    # Back button at the bottom
-    st.markdown("---")
-    if st.button("← Back to Home", key="back_dealflow"):
-        st.session_state.current_page = 'home'
-        st.rerun()
-
 elif st.session_state.current_page == 'contact':
-    st.markdown("<h1>Contact AI</h1>", unsafe_allow_html=True)
+    # Back button and heading in columns
+    col1, col2 = st.columns([2, 20])
+    with col1:
+        if st.button("←", key="back_contact", type="secondary"):
+            st.session_state.current_page = 'home'
+            st.rerun()
+    with col2:
+        st.markdown("<h1>Contact AI</h1>", unsafe_allow_html=True)
     
     st.markdown("Paste a signature block or contact information below, and I'll extract the key details.")
     
@@ -1248,9 +1256,4 @@ elif st.session_state.current_page == 'contact':
                     st.session_state.s3_urls = []
                 else:
                     st.error("Failed to save contact to Airtable. Please try again.")
-    
-    # Back button at the bottom
-    st.markdown("---")
-    if st.button("← Back to Home", key="back_contact"):
-        st.session_state.current_page = 'home'
-        st.rerun()
+                    
