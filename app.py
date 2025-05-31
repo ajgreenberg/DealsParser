@@ -318,6 +318,57 @@ st.markdown("""
                 color: #68d391;
             }
         }
+        
+        /* Container for back button and heading */
+        .nav-container {
+            display: flex;
+            align-items: center;
+            margin-bottom: 2rem;
+            position: relative;
+        }
+        
+        /* Back button styling */
+        .nav-container .element-container:first-child {
+            position: absolute;
+            left: -40px;
+            top: 50%;
+            transform: translateY(-50%);
+        }
+        
+        /* Heading container */
+        .nav-container .element-container:nth-child(2) {
+            flex-grow: 1;
+            margin-left: 0 !important;
+        }
+        
+        /* Remove default button margins */
+        .stButton {
+            margin: 0 !important;
+        }
+        
+        /* Style the back button */
+        .stButton > button[kind="secondary"] {
+            padding: 0.5rem !important;
+            border: none !important;
+            background: none !important;
+            color: #666 !important;
+            font-size: 24px !important;
+        }
+        
+        .stButton > button[kind="secondary"]:hover {
+            color: #333 !important;
+            background: none !important;
+        }
+        
+        /* Dark mode adjustments */
+        @media (prefers-color-scheme: dark) {
+            .stButton > button[kind="secondary"] {
+                color: #999 !important;
+            }
+            .stButton > button[kind="secondary"]:hover {
+                color: #fff !important;
+            }
+        }
     </style>
 """, unsafe_allow_html=True)
 
@@ -921,14 +972,13 @@ if st.session_state.current_page == 'home':
     """)
 
 elif st.session_state.current_page == 'dealflow':
-    # Back button and title in a clean layout
-    col1, col2 = st.columns([1, 20])
-    with col1:
-        if st.button("←", key="back_dealflow"):
-            st.session_state.current_page = 'home'
-            st.rerun()
-    with col2:
-        st.markdown("<h1>DealFlow AI</h1>", unsafe_allow_html=True)
+    # Create container for back button and heading
+    st.markdown('<div class="nav-container">', unsafe_allow_html=True)
+    if st.button("←", key="back_dealflow"):
+        st.session_state.current_page = 'home'
+        st.rerun()
+    st.markdown("<h1>DealFlow AI</h1>", unsafe_allow_html=True)
+    st.markdown('</div>', unsafe_allow_html=True)
     
     deal_type = st.radio("Select Deal Type", ["🏢 Equity", "🏦 Debt"], horizontal=True, label_visibility="visible")
     deal_type_value = "Debt" if "Debt" in deal_type else "Equity"
@@ -1129,14 +1179,13 @@ elif st.session_state.current_page == 'dealflow':
                 )
             st.success("✅ Deal saved to Airtable!")
 elif st.session_state.current_page == 'contact':
-    # Back button and title in a clean layout
-    col1, col2 = st.columns([1, 20])
-    with col1:
-        if st.button("←", key="back_contact"):
-            st.session_state.current_page = 'home'
-            st.rerun()
-    with col2:
-        st.markdown("<h1>Contact AI</h1>", unsafe_allow_html=True)
+    # Create container for back button and heading
+    st.markdown('<div class="nav-container">', unsafe_allow_html=True)
+    if st.button("←", key="back_contact"):
+        st.session_state.current_page = 'home'
+        st.rerun()
+    st.markdown("<h1>Contact AI</h1>", unsafe_allow_html=True)
+    st.markdown('</div>', unsafe_allow_html=True)
     
     st.markdown("Paste a signature block or contact information below, and I'll extract the key details.")
     
