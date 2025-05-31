@@ -836,6 +836,19 @@ if analyze_button:
                     "attachments": s3_urls,
                     "deal_type": deal_type_value
                 })
+
+                # If we have address data, add property information to session state
+                location = summary.get("Location", "")
+                if location:
+                    address_data = validate_address(location)
+                    if address_data:
+                        result = address_data.get('raw_data', {})
+                        st.session_state.update({
+                            "Physical Property": format_physical_property(result),
+                            "Parcel & Tax": format_parcel_tax_info(result),
+                            "Ownership & Sale": format_ownership_sale_info(result),
+                            "Mortgage & Lender": format_mortgage_lender_info(result)
+                        })
                 
             # Add another message update right after processing
             if i < 4:  # Don't update after the last step
@@ -879,15 +892,6 @@ if "summary" in st.session_state:
 
         st.markdown("---")
         
-        # Property Information
-        st.markdown("### Property Information")
-        physical_property = st.text_area("Physical Property", value=s.get("Physical Property", ""), height=120)
-        parcel_tax = st.text_area("Parcel & Tax", value=s.get("Parcel & Tax", ""), height=120)
-        ownership_sale = st.text_area("Ownership & Sale", value=s.get("Ownership & Sale", ""), height=120)
-        mortgage_lender = st.text_area("Mortgage & Lender", value=s.get("Mortgage & Lender", ""), height=120)
-        
-        st.markdown("---")
-        
         # Analysis
         highlights_text = "\n".join(f"• {highlight}" for highlight in s.get("Key Highlights", []) if highlight.strip())
         key_highlights = st.text_area("Key Highlights", value=highlights_text, height=120)
@@ -896,6 +900,10 @@ if "summary" in st.session_state:
         risks = st.text_area("Risks or Red Flags", value=risks_text, height=120)
         
         summary_text = st.text_area("Summary", value=s.get("Summary",""), height=100)
+        physical_property = st.text_area("Physical Property", value=st.session_state.get("Physical Property", ""), height=120)
+        parcel_tax = st.text_area("Parcel & Tax", value=st.session_state.get("Parcel & Tax", ""), height=120)
+        ownership_sale = st.text_area("Ownership & Sale", value=st.session_state.get("Ownership & Sale", ""), height=120)
+        mortgage_lender = st.text_area("Mortgage & Lender", value=st.session_state.get("Mortgage & Lender", ""), height=120)
         raw_notes = st.text_area("Raw Notes", value=st.session_state.get("raw_notes",""), height=120)
         
         submitted = st.form_submit_button("Save to Airtable")
