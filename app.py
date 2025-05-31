@@ -972,17 +972,10 @@ if st.session_state.current_page == 'home':
     """)
 
 elif st.session_state.current_page == 'dealflow':
-    # Create container for back button and heading
-    st.markdown('<div class="nav-container">', unsafe_allow_html=True)
-    if st.button("←", key="back_dealflow"):
-        st.session_state.current_page = 'home'
-        st.rerun()
     st.markdown("<h1>DealFlow AI</h1>", unsafe_allow_html=True)
-    st.markdown('</div>', unsafe_allow_html=True)
     
     deal_type = st.radio("Select Deal Type", ["🏢 Equity", "🏦 Debt"], horizontal=True, label_visibility="visible")
-    deal_type_value = "Debt" if "Debt" in deal_type else "Equity"
-
+    
     uploaded_main = st.file_uploader("Upload Deal Memo", type=["pdf","doc","docx"], 
         label_visibility="visible")
 
@@ -1030,7 +1023,7 @@ elif st.session_state.current_page == 'dealflow':
                 elif i == 1 and (source_text or extra_notes.strip()):
                     # Process text and generate summary
                     combined = (source_text + "\n\n" + extra_notes).strip()
-                    summary = gpt_extract_summary(combined, deal_type_value)
+                    summary = gpt_extract_summary(combined, deal_type)
                 
                 elif i == 2:
                     # Process notes and contact info
@@ -1055,7 +1048,7 @@ elif st.session_state.current_page == 'dealflow':
                         "notes_summary": notes_summary,
                         "contacts": contact_info,
                         "attachments": s3_urls,
-                        "deal_type": deal_type_value
+                        "deal_type": deal_type
                     })
 
                     # If we have address data, add property information to session state
@@ -1178,14 +1171,15 @@ elif st.session_state.current_page == 'dealflow':
                     st.session_state["contacts"]
                 )
             st.success("✅ Deal saved to Airtable!")
-elif st.session_state.current_page == 'contact':
-    # Create container for back button and heading
-    st.markdown('<div class="nav-container">', unsafe_allow_html=True)
-    if st.button("←", key="back_contact"):
+
+    # Back button at the bottom
+    st.markdown("---")
+    if st.button("← Back to Home", key="back_dealflow"):
         st.session_state.current_page = 'home'
         st.rerun()
+
+elif st.session_state.current_page == 'contact':
     st.markdown("<h1>Contact AI</h1>", unsafe_allow_html=True)
-    st.markdown('</div>', unsafe_allow_html=True)
     
     st.markdown("Paste a signature block or contact information below, and I'll extract the key details.")
     
@@ -1255,3 +1249,9 @@ elif st.session_state.current_page == 'contact':
                     st.session_state.s3_urls = []
                 else:
                     st.error("Failed to save contact to Airtable. Please try again.")
+    
+    # Back button at the bottom
+    st.markdown("---")
+    if st.button("← Back to Home", key="back_contact"):
+        st.session_state.current_page = 'home'
+        st.rerun()
