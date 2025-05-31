@@ -802,36 +802,47 @@ def create_contact_record(
     attachments: List[str]
 ):
     """Create a new record in the Contacts table."""
-    headers = {
-        "Authorization": f"Bearer {AIRTABLE_PAT}",
-        "Content-Type": "application/json"
-    }
-    
-    # Format website as URL if it exists and doesn't start with http
-    website = contact_data.get("Website", "")
-    if website and not website.startswith(('http://', 'https://')):
-        website = f"https://{website}"
-    
-    fields = {
-        "Name": contact_data.get("Name", ""),
-        "Email": contact_data.get("Email", ""),
-        "Phone": contact_data.get("Phone", ""),
-        "Address": {"longText": contact_data.get("Address", "")},
-        "Website": {"url": website} if website else "",
-        "Notes": contact_data.get("Notes", ""),
-        "Attachments": [{"url": u} for u in attachments] if attachments else []
-    }
-    
-    resp = requests.post(
-        f"https://api.airtable.com/v0/{AIRTABLE_BASE_ID}/{AIRTABLE_CONTACTS_TABLE}",
-        headers=headers,
-        json={"fields": fields}
-    )
-    
-    if resp.status_code not in (200, 201):
-        st.error(f"Airtable error: {resp.text}")
+    try:
+        headers = {
+            "Authorization": f"Bearer {AIRTABLE_PAT}",
+            "Content-Type": "application/json"
+        }
+        
+        # Format website as URL if it exists and doesn't start with http
+        website = contact_data.get("Website", "")
+        if website and not website.startswith(('http://', 'https://')):
+            website = f"https://{website}"
+        
+        fields = {
+            "Name": contact_data.get("Name", ""),
+            "Email": contact_data.get("Email", ""),
+            "Phone": contact_data.get("Phone", ""),
+            "Address": contact_data.get("Address", ""),  # Changed back to simple text
+            "Website": website,  # Changed back to simple text
+            "Notes": contact_data.get("Notes", ""),
+            "Attachments": [{"url": u} for u in attachments] if attachments else []
+        }
+        
+        # Debug info
+        st.write("Attempting to create contact with fields:", fields)
+        
+        resp = requests.post(
+            f"https://api.airtable.com/v0/{AIRTABLE_BASE_ID}/{AIRTABLE_CONTACTS_TABLE}",
+            headers=headers,
+            json={"fields": fields}
+        )
+        
+        # Debug info
+        st.write("Airtable response status code:", resp.status_code)
+        st.write("Airtable response:", resp.text)
+        
+        if resp.status_code not in (200, 201):
+            st.error(f"Airtable error: {resp.text}")
+            return False
+        return True
+    except Exception as e:
+        st.error(f"Error creating contact: {str(e)}")
         return False
-    return True
 
 # --- Streamlit UI ---
 st.markdown("<h1>DealFlow AI</h1>", unsafe_allow_html=True)
@@ -1065,10 +1076,17 @@ else:  # Contact AI
                 # Parse the contact information
                 contact_data = parse_contact_info(contact_text)
                 
+                # Debug info
+                st.write("Parsed contact data:", contact_data)
+                
                 # Upload any attachments to S3
                 s3_urls = []
                 for f in contact_files:
                     s3_urls.append(upload_to_s3(f, f.name))
+                
+                # Debug info
+                if s3_urls:
+                    st.write("Uploaded attachments:", s3_urls)
                 
                 # Show the parsed information for review
                 st.markdown("### Review Parsed Information")
@@ -1090,8 +1108,13 @@ else:  # Contact AI
                             "Notes": notes
                         }
                         
+                        # Debug info
+                        st.write("Attempting to save contact with data:", updated_data)
+                        
                         if create_contact_record(updated_data, s3_urls):
                             # Delete S3 files after successful save
                             for url in s3_urls:
                                 delete_from_s3(url)
                             st.success("✅ Contact saved to Airtable!")
+                        else:
+                            st.error("Failed to save contact to Airtable. Please check the error messages above.")
