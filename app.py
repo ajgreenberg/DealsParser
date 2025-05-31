@@ -879,6 +879,15 @@ if "summary" in st.session_state:
 
         st.markdown("---")
         
+        # Property Information
+        st.markdown("### Property Information")
+        physical_property = st.text_area("Physical Property", value=s.get("Physical Property", ""), height=120)
+        parcel_tax = st.text_area("Parcel & Tax", value=s.get("Parcel & Tax", ""), height=120)
+        ownership_sale = st.text_area("Ownership & Sale", value=s.get("Ownership & Sale", ""), height=120)
+        mortgage_lender = st.text_area("Mortgage & Lender", value=s.get("Mortgage & Lender", ""), height=120)
+        
+        st.markdown("---")
+        
         # Analysis
         highlights_text = "\n".join(f"• {highlight}" for highlight in s.get("Key Highlights", []) if highlight.strip())
         key_highlights = st.text_area("Key Highlights", value=highlights_text, height=120)
@@ -924,6 +933,10 @@ if "summary" in st.session_state:
                 "Projected IRR":       proj_irr,
                 "Hold Period":         hold_period,
                 "Size":                size,
+                "Physical Property":   physical_property,
+                "Parcel & Tax":        parcel_tax,
+                "Ownership & Sale":    ownership_sale,
+                "Mortgage & Lender":   mortgage_lender,
                 "Key Highlights":      key_highlights_list,
                 "Risks or Red Flags":  risks_list,
                 "Summary":             summary_text
