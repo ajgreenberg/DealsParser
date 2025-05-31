@@ -346,27 +346,26 @@ st.markdown("""
             margin: 0 !important;
         }
         
-        /* Style the back button */
+        /* Back button specific styling */
         .stButton > button[kind="secondary"] {
-            padding: 0.5rem !important;
-            border: none !important;
-            background: none !important;
-            color: #666 !important;
-            font-size: 24px !important;
+            background-color: transparent !important;
+            border: 1px solid #0c3c60 !important;
+            color: #0c3c60 !important;
         }
         
         .stButton > button[kind="secondary"]:hover {
-            color: #333 !important;
-            background: none !important;
+            background-color: rgba(12, 60, 96, 0.1) !important;
+            transform: scale(1.02);
         }
         
         /* Dark mode adjustments */
         @media (prefers-color-scheme: dark) {
             .stButton > button[kind="secondary"] {
-                color: #999 !important;
+                border-color: #4a90e2 !important;
+                color: #4a90e2 !important;
             }
             .stButton > button[kind="secondary"]:hover {
-                color: #fff !important;
+                background-color: rgba(74, 144, 226, 0.1) !important;
             }
         }
     </style>
