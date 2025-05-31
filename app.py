@@ -845,7 +845,6 @@ def create_contact_record(
         return False
 
 # --- Streamlit UI ---
-st.markdown("<h1 style='text-align: center;'>Real Estate AI Tools</h1>", unsafe_allow_html=True)
 
 # Main navigation
 if 'current_page' not in st.session_state:
@@ -853,6 +852,8 @@ if 'current_page' not in st.session_state:
 
 # Home page with big buttons
 if st.session_state.current_page == 'home':
+    st.markdown("<h1 style='text-align: center;'>Real Estate AI Tools</h1>", unsafe_allow_html=True)
+    
     col1, col2 = st.columns(2)
     
     with col1:
@@ -877,10 +878,14 @@ if st.session_state.current_page == 'home':
     """)
 
 elif st.session_state.current_page == 'dealflow':
-    st.markdown("<h1>DealFlow AI</h1>", unsafe_allow_html=True)
-    if st.button("← Back to Home", key="back_dealflow"):
-        st.session_state.current_page = 'home'
-        st.rerun()
+    # Subtle back button in the corner
+    col1, col2 = st.columns([1, 20])
+    with col1:
+        if st.button("←", key="back_dealflow"):
+            st.session_state.current_page = 'home'
+            st.rerun()
+    with col2:
+        st.markdown("<h1>DealFlow AI</h1>", unsafe_allow_html=True)
     
     deal_type = st.radio("Select Deal Type", ["🏢 Equity", "🏦 Debt"], horizontal=True, label_visibility="visible")
     deal_type_value = "Debt" if "Debt" in deal_type else "Equity"
@@ -1081,12 +1086,15 @@ elif st.session_state.current_page == 'dealflow':
                 )
             st.success("✅ Deal saved to Airtable!")
 elif st.session_state.current_page == 'contact':
-    st.markdown("<h1>Contact AI</h1>", unsafe_allow_html=True)
-    if st.button("← Back to Home", key="back_contact"):
-        st.session_state.current_page = 'home'
-        st.rerun()
+    # Subtle back button in the corner
+    col1, col2 = st.columns([1, 20])
+    with col1:
+        if st.button("←", key="back_contact"):
+            st.session_state.current_page = 'home'
+            st.rerun()
+    with col2:
+        st.markdown("<h1>Contact AI</h1>", unsafe_allow_html=True)
     
-    st.markdown("### Contact Information Parser")
     st.markdown("Paste a signature block or contact information below, and I'll extract the key details.")
     
     contact_text = st.text_area(
@@ -1119,10 +1127,6 @@ elif st.session_state.current_page == 'contact':
             for f in contact_files:
                 s3_urls.append(upload_to_s3(f, f.name))
             st.session_state.s3_urls = s3_urls
-            
-            st.write("Parsed contact data:", contact_data)
-            if s3_urls:
-                st.write("Uploaded attachments:", s3_urls)
     
     # Show form if we have parsed data
     if st.session_state.get('show_form', False):
@@ -1138,7 +1142,6 @@ elif st.session_state.current_page == 'contact':
             
             submitted = st.form_submit_button("Save Contact")
             if submitted:
-                st.write("Form submitted!")  # Debug line
                 updated_data = {
                     "Name": name,
                     "Email": email,
@@ -1148,20 +1151,13 @@ elif st.session_state.current_page == 'contact':
                     "Notes": notes
                 }
                 
-                st.write("Saving contact with data:", updated_data)
                 success = create_contact_record(updated_data, st.session_state.get('s3_urls', []))
-                st.write("Save result:", success)  # Debug line
                 
                 if success:
                     # Delete S3 files after successful save
                     for url in st.session_state.get('s3_urls', []):
                         delete_from_s3(url)
-                    st.success(f"""
-                        ✅ Contact Successfully Added!
-                        
-                        **{name}** has been added to your contacts database.
-                        You can view and manage all contacts in your Airtable base.
-                    """)
+                    st.success("✅ Contact saved to Airtable!")
                     # Clear the form
                     st.session_state.show_form = False
                     st.session_state.contact_data = None
