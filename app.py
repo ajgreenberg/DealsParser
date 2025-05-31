@@ -330,6 +330,18 @@ def upload_to_s3(file_data, filename) -> str:
     s3.upload_fileobj(file_data, S3_BUCKET, key)
     return f"https://{S3_BUCKET}.s3.{S3_REGION}.amazonaws.com/{key}"
 
+def delete_from_s3(s3_url: str):
+    """Delete a file from S3 given its URL."""
+    try:
+        # Extract the key from the S3 URL
+        parsed_url = urllib.parse.urlparse(s3_url)
+        key = parsed_url.path.lstrip('/')
+        
+        # Delete the object
+        s3.delete_object(Bucket=S3_BUCKET, Key=key)
+    except Exception as e:
+        st.warning(f"Failed to delete file from S3: {str(e)}")
+
 def extract_text_from_pdf(f) -> str:
     doc = fitz.open(stream=f.read(), filetype="pdf")
     return "\n".join(page.get_text() for page in doc)
@@ -671,18 +683,6 @@ def format_mortgage_lender_info(result):
     
     return "\n".join(f"• {k}: {v}" for k, v in fields.items() if v != "N/A")
 
-def delete_from_s3(s3_url: str):
-    """Delete a file from S3 given its URL."""
-    try:
-        # Extract the key from the S3 URL
-        parsed_url = urllib.parse.urlparse(s3_url)
-        key = parsed_url.path.lstrip('/')
-        
-        # Delete the object
-        s3.delete_object(Bucket=S3_BUCKET, Key=key)
-    except Exception as e:
-        st.warning(f"Failed to delete file from S3: {str(e)}")
-
 def create_airtable_record(
     data: Dict,
     raw_notes: str,
@@ -767,7 +767,7 @@ def create_airtable_record(
 # --- Streamlit UI ---
 st.markdown("<h1>DealFlow AI</h1>", unsafe_allow_html=True)
 
-# Set a default deal type instead of having a selector
+# Default deal type
 deal_type_value = "Equity"
 
 uploaded_main = st.file_uploader("Upload Deal Memo", type=["pdf","doc","docx"], 
@@ -888,12 +888,6 @@ if "summary" in st.session_state:
 
         st.markdown("---")
         
-        # Analysis
-        highlights_text = "\n".join(f"• {highlight}" for highlight in s.get("Key Highlights", []) if highlight.strip())
-        key_highlights = st.text_area("Key Highlights", value=highlights_text, height=120)
-        
-        st.markdown("---")
-        
         # Property Information
         st.markdown("### Property Information")
         physical_property = st.text_area("Physical Property", value=s.get("Physical Property", ""), height=120)
@@ -902,6 +896,10 @@ if "summary" in st.session_state:
         mortgage_lender = st.text_area("Mortgage & Lender", value=s.get("Mortgage & Lender", ""), height=120)
         
         st.markdown("---")
+        
+        # Analysis
+        highlights_text = "\n".join(f"• {highlight}" for highlight in s.get("Key Highlights", []) if highlight.strip())
+        key_highlights = st.text_area("Key Highlights", value=highlights_text, height=120)
         
         risks_text = "\n".join(f"• {risk}" for risk in s.get("Risks or Red Flags", []) if risk.strip())
         risks = st.text_area("Risks or Red Flags", value=risks_text, height=120)
