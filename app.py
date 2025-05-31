@@ -296,6 +296,7 @@ client = OpenAI(api_key=st.secrets["OPENAI_API_KEY"])
 AIRTABLE_PAT         = st.secrets["AIRTABLE_PAT"]
 AIRTABLE_BASE_ID     = st.secrets["AIRTABLE_BASE_ID"]
 AIRTABLE_TABLE_NAME  = st.secrets["AIRTABLE_TABLE_NAME"]
+AIRTABLE_CONTACTS_TABLE = st.secrets["AIRTABLE_CONTACTS_TABLE"]
 AWS_ACCESS_KEY_ID    = st.secrets["AWS_ACCESS_KEY_ID"]
 AWS_SECRET_ACCESS_KEY= st.secrets["AWS_SECRET_ACCESS_KEY"]
 S3_BUCKET            = st.secrets["S3_BUCKET"]
@@ -806,18 +807,23 @@ def create_contact_record(
         "Content-Type": "application/json"
     }
     
+    # Format website as URL if it exists and doesn't start with http
+    website = contact_data.get("Website", "")
+    if website and not website.startswith(('http://', 'https://')):
+        website = f"https://{website}"
+    
     fields = {
         "Name": contact_data.get("Name", ""),
         "Email": contact_data.get("Email", ""),
         "Phone": contact_data.get("Phone", ""),
-        "Address": contact_data.get("Address", ""),
-        "Website": contact_data.get("Website", ""),
+        "Address": {"longText": contact_data.get("Address", "")},
+        "Website": {"url": website} if website else "",
         "Notes": contact_data.get("Notes", ""),
-        "Attachments": [{"url": u} for u in attachments]
+        "Attachments": [{"url": u} for u in attachments] if attachments else []
     }
     
     resp = requests.post(
-        f"https://api.airtable.com/v0/{AIRTABLE_BASE_ID}/Contacts",
+        f"https://api.airtable.com/v0/{AIRTABLE_BASE_ID}/{AIRTABLE_CONTACTS_TABLE}",
         headers=headers,
         json={"fields": fields}
     )
