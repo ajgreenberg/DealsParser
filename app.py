@@ -930,14 +930,18 @@ if st.session_state.current_page == 'home':
 elif st.session_state.current_page == 'dealflow':
     st.markdown("""
         <div class="page-container">
-            <button class="back-button" onclick="window.history.back()">←</button>
+            <a href="#" class="back-button" onclick="handleBackClick(); return false;">←</a>
             <h1>DealFlow AI</h1>
         </div>
+        <script>
+            function handleBackClick() {
+                window.location.href = window.location.pathname;
+            }
+        </script>
     """, unsafe_allow_html=True)
     
-    if st.button("←", key="back_dealflow", help=None):
-        st.session_state.current_page = 'home'
-        st.rerun()
+    # Remove the blue arrow button
+    st.markdown("<style>.stButton {display: none;}</style>", unsafe_allow_html=True)
     
     deal_type = st.radio("Select Deal Type", ["🏢 Equity", "🏦 Debt"], horizontal=True, label_visibility="visible")
     deal_type_value = "Debt" if "Debt" in deal_type else "Equity"
@@ -1140,14 +1144,18 @@ elif st.session_state.current_page == 'dealflow':
 elif st.session_state.current_page == 'contact':
     st.markdown("""
         <div class="page-container">
-            <button class="back-button" onclick="window.history.back()">←</button>
+            <a href="#" class="back-button" onclick="handleBackClick(); return false;">←</a>
             <h1>Contact AI</h1>
         </div>
+        <script>
+            function handleBackClick() {
+                window.location.href = window.location.pathname;
+            }
+        </script>
     """, unsafe_allow_html=True)
     
-    if st.button("←", key="back_contact", help=None):
-        st.session_state.current_page = 'home'
-        st.rerun()
+    # Remove the blue arrow button
+    st.markdown("<style>.stButton {display: none;}</style>", unsafe_allow_html=True)
     
     st.markdown("Paste a signature block or contact information below, and I'll extract the key details.")
     
@@ -1168,16 +1176,15 @@ elif st.session_state.current_page == 'contact':
     parse_clicked = st.button("🔍 Parse Contact")
     
     if parse_clicked and contact_text.strip():
-        with st.spinner("Parsing contact information..."):
-            contact_data = parse_contact_info(contact_text)
-            st.session_state.contact_data = contact_data
-            st.session_state.show_form = True
-            
-            # Upload any attachments to S3
-            s3_urls = []
-            for f in contact_files:
-                s3_urls.append(upload_to_s3(f, f.name))
-            st.session_state.s3_urls = s3_urls
+        contact_data = parse_contact_info(contact_text)
+        st.session_state.contact_data = contact_data
+        st.session_state.show_form = True
+        
+        # Upload any attachments to S3
+        s3_urls = []
+        for f in contact_files:
+            s3_urls.append(upload_to_s3(f, f.name))
+        st.session_state.s3_urls = s3_urls
     elif parse_clicked:
         st.error("Please enter some contact information to parse.")
     
@@ -1196,27 +1203,25 @@ elif st.session_state.current_page == 'contact':
             submitted = st.form_submit_button("Save Contact")
             
             if submitted:
-                with st.spinner("Saving contact..."):
-                    updated_data = {
-                        "Name": name,
-                        "Email": email,
-                        "Phone": phone,
-                        "Address": address,
-                        "Website": website,
-                        "Notes": notes
-                    }
-                    
-                    success = create_contact_record(updated_data, st.session_state.get('s3_urls', []))
-                    
-                    if success:
-                        # Delete S3 files after successful save
-                        for url in st.session_state.get('s3_urls', []):
-                            delete_from_s3(url)
-                        st.markdown('<div class="success-message">✅ Contact saved to Airtable!</div>', unsafe_allow_html=True)
-                        time.sleep(1)  # Brief pause to show success message
-                        st.session_state.show_form = False
-                        st.session_state.contact_data = None
-                        st.session_state.s3_urls = []
-                        st.rerun()
-                    else:
-                        st.error("Failed to save contact to Airtable. Please try again.")
+                updated_data = {
+                    "Name": name,
+                    "Email": email,
+                    "Phone": phone,
+                    "Address": address,
+                    "Website": website,
+                    "Notes": notes
+                }
+                
+                success = create_contact_record(updated_data, st.session_state.get('s3_urls', []))
+                
+                if success:
+                    # Delete S3 files after successful save
+                    for url in st.session_state.get('s3_urls', []):
+                        delete_from_s3(url)
+                    st.success("✅ Contact saved to Airtable!")
+                    # Clear the form
+                    st.session_state.show_form = False
+                    st.session_state.contact_data = None
+                    st.session_state.s3_urls = []
+                else:
+                    st.error("Failed to save contact to Airtable. Please try again.")
