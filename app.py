@@ -612,12 +612,21 @@ def format_ownership_sale_info(result):
         except:
             return str(date_str)
     
+    def format_currency(value):
+        try:
+            if not value:
+                return "N/A"
+            return f"${float(value):,.2f}"
+        except:
+            return str(value)
+    
     fields = {
         "Owner Full Name": attrs.get('owner_full_name', 'N/A'),
         "Owner Occupancy Status": attrs.get('owner_occupancy_status', 'N/A'),
         "Deed Owner Full Name": attrs.get('deed_owner_full_name', 'N/A'),
         "Deed Owner Last Name": attrs.get('deed_owner_last_name', 'N/A'),
         "Deed Sale Date": format_date(attrs.get('deed_sale_date')),
+        "Deed Sale Price": format_currency(attrs.get('deed_sale_price')),
         "Deed Transaction ID": attrs.get('deed_transaction_id', 'N/A'),
         "Ownership Transfer Date": format_date(attrs.get('ownership_transfer_date')),
         "Prior Sale Date": format_date(attrs.get('prior_sale_date')),
@@ -661,6 +670,18 @@ def format_mortgage_lender_info(result):
     }
     
     return "\n".join(f"• {k}: {v}" for k, v in fields.items() if v != "N/A")
+
+def delete_from_s3(s3_url: str):
+    """Delete a file from S3 given its URL."""
+    try:
+        # Extract the key from the S3 URL
+        parsed_url = urllib.parse.urlparse(s3_url)
+        key = parsed_url.path.lstrip('/')
+        
+        # Delete the object
+        s3.delete_object(Bucket=S3_BUCKET, Key=key)
+    except Exception as e:
+        st.warning(f"Failed to delete file from S3: {str(e)}")
 
 def create_airtable_record(
     data: Dict,
@@ -738,12 +759,16 @@ def create_airtable_record(
     )
     if resp.status_code not in (200, 201):
         st.error(f"Airtable error: {resp.text}")
+    else:
+        # Delete files from S3 after successful Airtable upload
+        for attachment_url in attachments:
+            delete_from_s3(attachment_url)
 
 # --- Streamlit UI ---
 st.markdown("<h1>DealFlow AI</h1>", unsafe_allow_html=True)
 
-deal_type = st.radio("Select Deal Type", ["🏢 Equity", "🏦 Debt"], horizontal=True, label_visibility="visible")
-deal_type_value = "Debt" if "Debt" in deal_type else "Equity"
+# Set a default deal type instead of having a selector
+deal_type_value = "Equity"
 
 uploaded_main = st.file_uploader("Upload Deal Memo", type=["pdf","doc","docx"], 
     label_visibility="visible")
@@ -866,6 +891,17 @@ if "summary" in st.session_state:
         # Analysis
         highlights_text = "\n".join(f"• {highlight}" for highlight in s.get("Key Highlights", []) if highlight.strip())
         key_highlights = st.text_area("Key Highlights", value=highlights_text, height=120)
+        
+        st.markdown("---")
+        
+        # Property Information
+        st.markdown("### Property Information")
+        physical_property = st.text_area("Physical Property", value=s.get("Physical Property", ""), height=120)
+        parcel_tax = st.text_area("Parcel & Tax", value=s.get("Parcel & Tax", ""), height=120)
+        ownership_sale = st.text_area("Ownership & Sale", value=s.get("Ownership & Sale", ""), height=120)
+        mortgage_lender = st.text_area("Mortgage & Lender", value=s.get("Mortgage & Lender", ""), height=120)
+        
+        st.markdown("---")
         
         risks_text = "\n".join(f"• {risk}" for risk in s.get("Risks or Red Flags", []) if risk.strip())
         risks = st.text_area("Risks or Red Flags", value=risks_text, height=120)
