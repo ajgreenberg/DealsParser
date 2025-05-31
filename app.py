@@ -874,7 +874,6 @@ if feature == "🤖 DealFlow AI":
 
     if analyze_button:
         status_container = st.empty()
-        
         try:
             for i in range(5):
                 # Update message first
@@ -1050,7 +1049,7 @@ if feature == "🤖 DealFlow AI":
                     st.session_state["contacts"]
                 )
             st.success("✅ Deal saved to Airtable!")
-else:  # Contact AI
+elif feature == "👥 Contact AI":
     st.markdown("### Contact Information Parser")
     st.markdown("Paste a signature block or contact information below, and I'll extract the key details.")
     
