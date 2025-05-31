@@ -338,10 +338,13 @@ st.markdown("""
             background-color: transparent !important;
             border: 1px solid #0c3c60 !important;
             color: #0c3c60 !important;
+            transition: all 0.2s ease !important;
         }
         
         .stButton > button[kind="secondary"]:hover {
-            background-color: rgba(12, 60, 96, 0.1) !important;
+            background-color: #0c3c60 !important;
+            color: white !important;
+            transform: scale(1.02);
         }
         
         /* Dark mode adjustments */
@@ -351,7 +354,8 @@ st.markdown("""
                 color: #4a90e2 !important;
             }
             .stButton > button[kind="secondary"]:hover {
-                background-color: rgba(74, 144, 226, 0.1) !important;
+                background-color: #4a90e2 !important;
+                color: #1a1a1a !important;
             }
         }
     </style>
@@ -1236,4 +1240,3 @@ elif st.session_state.current_page == 'contact':
                     st.session_state.s3_urls = []
                 else:
                     st.error("Failed to save contact to Airtable. Please try again.")
-                    
