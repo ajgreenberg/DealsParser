@@ -1041,7 +1041,7 @@ elif st.session_state.current_page == 'dealflow':
                         "notes_summary": notes_summary,
                         "contacts": contact_info,
                         "attachments": s3_urls,
-                        "deal_type": deal_type
+                        "deal_type": deal_type.split(" ")[1] if deal_type else ""  # Extract just "Equity" or "Debt"
                     })
 
                     # If we have address data, add property information to session state
