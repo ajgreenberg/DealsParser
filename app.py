@@ -967,7 +967,13 @@ elif st.session_state.current_page == 'dealflow':
         st.rerun()
     st.markdown("<br>", unsafe_allow_html=True)
     
-    deal_type = st.radio("Select Deal Type", ["🏢 Equity", "🏦 Debt"], horizontal=True, label_visibility="visible")
+    # Map display values to Airtable values
+    DEAL_TYPE_MAP = {
+        "🏢 Equity": "Equity",
+        "🏦 Debt": "Debt"
+    }
+    
+    deal_type = st.radio("Select Deal Type", list(DEAL_TYPE_MAP.keys()), horizontal=True, label_visibility="visible")
     
     uploaded_main = st.file_uploader("Upload Deal Memo", type=["pdf","doc","docx"], 
         label_visibility="visible")
@@ -1016,7 +1022,7 @@ elif st.session_state.current_page == 'dealflow':
                 elif i == 1 and (source_text or extra_notes.strip()):
                     # Process text and generate summary
                     combined = (source_text + "\n\n" + extra_notes).strip()
-                    summary = gpt_extract_summary(combined, deal_type)
+                    summary = gpt_extract_summary(combined, DEAL_TYPE_MAP[deal_type])
                 
                 elif i == 2:
                     # Process notes and contact info
@@ -1041,7 +1047,7 @@ elif st.session_state.current_page == 'dealflow':
                         "notes_summary": notes_summary,
                         "contacts": contact_info,
                         "attachments": s3_urls,
-                        "deal_type": deal_type.split(" ")[1] if deal_type else ""  # Extract just "Equity" or "Debt"
+                        "deal_type": DEAL_TYPE_MAP[deal_type] if deal_type else ""  # Map to Airtable value
                     })
 
                     # If we have address data, add property information to session state
@@ -1160,7 +1166,7 @@ elif st.session_state.current_page == 'dealflow':
                     updated,
                     raw_notes,
                     st.session_state["attachments"],
-                    st.session_state["deal_type"],
+                    DEAL_TYPE_MAP[deal_type],
                     st.session_state["contacts"]
                 )
             st.success("✅ Deal saved to Airtable!")
