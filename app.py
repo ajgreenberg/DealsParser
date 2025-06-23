@@ -1344,46 +1344,50 @@ elif st.session_state.current_page == 'property':
                     # Display the validated address
                     st.success(f"✅ Address validated: {address_data.get('formatted_address', property_address)}")
                     
-                    # Create tabs for different information sections
-                    tab1, tab2, tab3, tab4 = st.tabs(["Physical Property", "Parcel & Tax", "Ownership & Sale", "Mortgage & Lender"])
-                    
-                    with tab1:
-                        st.markdown("### Physical Property Information")
-                        physical_info = format_physical_property(result)
-                        if physical_info:
-                            st.text_area("Physical Property Details", value=physical_info, height=200, disabled=True)
-                        else:
-                            st.info("No physical property information available.")
-                    
-                    with tab2:
-                        st.markdown("### Parcel & Tax Information")
-                        tax_info = format_parcel_tax_info(result)
-                        if tax_info:
-                            st.text_area("Tax Details", value=tax_info, height=200, disabled=True)
-                        else:
-                            st.info("No tax information available.")
-                    
-                    with tab3:
-                        st.markdown("### Ownership & Sale Information")
-                        ownership_info = format_ownership_sale_info(result)
-                        if ownership_info:
-                            st.text_area("Ownership Details", value=ownership_info, height=200, disabled=True)
-                        else:
-                            st.info("No ownership information available.")
-                    
-                    with tab4:
-                        st.markdown("### Mortgage & Lender Information")
-                        mortgage_info = format_mortgage_lender_info(result)
-                        if mortgage_info:
-                            st.text_area("Mortgage Details", value=mortgage_info, height=200, disabled=True)
-                        else:
-                            st.info("No mortgage information available.")
-                    
                     # Add Google Maps link
                     maps_link = generate_maps_link(address_data.get('formatted_address', property_address))
                     if maps_link:
                         st.markdown(f"📍 [View on Google Maps]({maps_link})")
-                        
+                    
+                    st.markdown("---")
+                    
+                    # Physical Property Information
+                    st.markdown("### Physical Property Information")
+                    physical_info = format_physical_property(result)
+                    if physical_info:
+                        st.text_area("Physical Property Details", value=physical_info, height=150, disabled=True)
+                    else:
+                        st.info("No physical property information available.")
+                    
+                    st.markdown("---")
+                    
+                    # Parcel & Tax Information
+                    st.markdown("### Parcel & Tax Information")
+                    tax_info = format_parcel_tax_info(result)
+                    if tax_info:
+                        st.text_area("Tax Details", value=tax_info, height=200, disabled=True)
+                    else:
+                        st.info("No tax information available.")
+                    
+                    st.markdown("---")
+                    
+                    # Ownership & Sale Information
+                    st.markdown("### Ownership & Sale Information")
+                    ownership_info = format_ownership_sale_info(result)
+                    if ownership_info:
+                        st.text_area("Ownership Details", value=ownership_info, height=150, disabled=True)
+                    else:
+                        st.info("No ownership information available.")
+                    
+                    st.markdown("---")
+                    
+                    # Mortgage & Lender Information
+                    st.markdown("### Mortgage & Lender Information")
+                    mortgage_info = format_mortgage_lender_info(result)
+                    if mortgage_info:
+                        st.text_area("Mortgage Details", value=mortgage_info, height=150, disabled=True)
+                    else:
+                        st.info("No mortgage information available.")
                 else:
                     st.error("Could not validate this address. Please check the format and try again.")
         else:
