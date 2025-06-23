@@ -1141,7 +1141,7 @@ elif st.session_state.current_page == 'dealflow':
                         else:
                             st.error("Could not validate this address. Please check the format and try again.")
         elif st.session_state.get("address_validated") == True:
-            st.success("✅ Property address validated successfully! Detailed property information is available below.")
+            pass
         
         with st.form("edit_form", clear_on_submit=False):
             s = st.session_state["summary"]
@@ -1341,9 +1341,6 @@ elif st.session_state.current_page == 'property':
                 if address_data:
                     result = address_data.get('raw_data', {})
                     
-                    # Display the validated address
-                    st.success(f"✅ Address validated: {address_data.get('formatted_address', property_address)}")
-                    
                     # Add Google Maps link
                     maps_link = generate_maps_link(address_data.get('formatted_address', property_address))
                     if maps_link:
@@ -1355,7 +1352,7 @@ elif st.session_state.current_page == 'property':
                     st.markdown("### Physical Property Information")
                     physical_info = format_physical_property(result)
                     if physical_info:
-                        st.text_area("Physical Property Details", value=physical_info, height=150, disabled=True)
+                        st.text_area("Physical Property Details", value=physical_info, height=150)
                     else:
                         st.info("No physical property information available.")
                     
@@ -1365,7 +1362,7 @@ elif st.session_state.current_page == 'property':
                     st.markdown("### Parcel & Tax Information")
                     tax_info = format_parcel_tax_info(result)
                     if tax_info:
-                        st.text_area("Tax Details", value=tax_info, height=200, disabled=True)
+                        st.text_area("Tax Details", value=tax_info, height=200)
                     else:
                         st.info("No tax information available.")
                     
@@ -1375,7 +1372,7 @@ elif st.session_state.current_page == 'property':
                     st.markdown("### Ownership & Sale Information")
                     ownership_info = format_ownership_sale_info(result)
                     if ownership_info:
-                        st.text_area("Ownership Details", value=ownership_info, height=150, disabled=True)
+                        st.text_area("Ownership Details", value=ownership_info, height=150)
                     else:
                         st.info("No ownership information available.")
                     
@@ -1385,7 +1382,7 @@ elif st.session_state.current_page == 'property':
                     st.markdown("### Mortgage & Lender Information")
                     mortgage_info = format_mortgage_lender_info(result)
                     if mortgage_info:
-                        st.text_area("Mortgage Details", value=mortgage_info, height=150, disabled=True)
+                        st.text_area("Mortgage Details", value=mortgage_info, height=150)
                     else:
                         st.info("No mortgage information available.")
                 else:
