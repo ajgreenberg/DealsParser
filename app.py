@@ -843,10 +843,7 @@ def create_airtable_record(
             "Property Name": data.get("Property Name"),
             "Location": validated_location,
             "Map": maps_link,
-            "Physical Property": physical_property,
-            "Parcel & Tax": parcel_tax,
-            "Ownership & Sale": ownership_sale,
-            "Mortgage & Lender": mortgage_lender,
+            "Public Records": f"𝗣𝗵𝘆𝘀𝗶𝗰𝗮𝗹 𝗣𝗿𝗼𝗽𝗲𝗿𝘁𝘆: \n{physical_property}\n\n𝗢𝘄𝗻𝗲𝗿𝘀𝗵𝗶𝗽 & 𝗦𝗮𝗹𝗲: \n{ownership_sale}\n\n𝗣𝗮𝗿𝗰𝗲𝗹 & 𝗧𝗮𝘅: \n{parcel_tax}\n\n𝗠𝗼𝗿𝘁𝗴𝗮𝗴𝗲 & 𝗟𝗲𝗻𝗱𝗲𝗿: \n{mortgage_lender}",
             "Asset Class": data.get("Asset Class"),
             "Purchase Price": data.get("Purchase Price"),
             "Loan Amount": data.get("Loan Amount"),
@@ -1250,10 +1247,16 @@ elif st.session_state.current_page == 'dealflow':
             consolidated_notes = f"Summary:\n{summary_text}\n\nKey Highlights:\n{highlights_text}\n\nRisks:\n{risks_text}"
             
             notes = st.text_area("Notes", value=consolidated_notes, height=300)
-            physical_property = st.text_area("Physical Property", value=st.session_state.get("Physical Property", ""), height=120)
-            parcel_tax = st.text_area("Parcel & Tax", value=st.session_state.get("Parcel & Tax", ""), height=120)
-            ownership_sale = st.text_area("Ownership & Sale", value=st.session_state.get("Ownership & Sale", ""), height=120)
-            mortgage_lender = st.text_area("Mortgage & Lender", value=st.session_state.get("Mortgage & Lender", ""), height=120)
+            
+            # Create combined Public Records field
+            physical_property_text = st.session_state.get("Physical Property", "")
+            parcel_tax_text = st.session_state.get("Parcel & Tax", "")
+            ownership_sale_text = st.session_state.get("Ownership & Sale", "")
+            mortgage_lender_text = st.session_state.get("Mortgage & Lender", "")
+            
+            combined_public_records = f"𝗣𝗵𝘆𝘀𝗶𝗰𝗮𝗹 𝗣𝗿𝗼𝗽𝗲𝗿𝘁𝘆: \n{physical_property_text}\n\n𝗢𝘄𝗻𝗲𝗿𝘀𝗵𝗶𝗽 & 𝗦𝗮𝗹𝗲: \n{ownership_sale_text}\n\n𝗣𝗮𝗿𝗰𝗲𝗹 & 𝗧𝗮𝘅: \n{parcel_tax_text}\n\n𝗠𝗼𝗿𝘁𝗴𝗮𝗴𝗲 & 𝗟𝗲𝗻𝗱𝗲𝗿: \n{mortgage_lender_text}"
+            
+            public_records = st.text_area("Public Records", value=combined_public_records, height=400)
             raw_notes = st.text_area("Raw Notes", value=st.session_state.get("raw_notes",""), height=120)
             
             submitted = st.form_submit_button("Save to Airtable")
@@ -1276,10 +1279,7 @@ elif st.session_state.current_page == 'dealflow':
                     "Projected IRR":       proj_irr,
                     "Hold Period":         hold_period,
                     "Size":                size,
-                    "Physical Property":   physical_property,
-                    "Parcel & Tax":        parcel_tax,
-                    "Ownership & Sale":    ownership_sale,
-                    "Mortgage & Lender":   mortgage_lender,
+                    "Public Records":      public_records,
                     "Notes":               notes
                 }
                 create_airtable_record(
