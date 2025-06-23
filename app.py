@@ -419,14 +419,6 @@ s3 = boto3.client(
 def upload_to_s3(file_data, filename) -> str:
     key = f"deal-uploads/{datetime.now().strftime('%Y%m%d-%H%M%S')}-{filename}"
     s3.upload_fileobj(file_data, S3_BUCKET, key)
-    
-    # Make the file publicly accessible
-    s3.put_object_acl(
-        Bucket=S3_BUCKET,
-        Key=key,
-        ACL='public-read'
-    )
-    
     return f"https://{S3_BUCKET}.s3.{S3_REGION}.amazonaws.com/{key}"
 
 def delete_from_s3(s3_url: str):
@@ -820,19 +812,20 @@ def create_airtable_record(
         ownership_sale = ""
         mortgage_lender = ""
     
-    # Try different attachment field names that are common in Airtable
-    attachment_field_names = ["Attachments", "Files", "Documents", "File Attachments", "Uploads", "File Uploads", "Deal Files"]
-    
     fields = {
         "Deal Type": [deal_type],
         "Status": status,
-        "Notes": data.get("Notes"),
+        "Summary": data.get("Summary"),
         "Raw Notes": raw_notes,
         "Contact Info": contact_info,
         "Sponsor": data.get("Sponsor"),
         "Broker": data.get("Broker"),
+        "Attachments": [{"url": u} for u in attachments],
+        "Key Highlights": "\n".join(data.get("Key Highlights", [])),
+        "Risks": "\n".join(data.get("Risks or Red Flags", [])),
         "Property Name": data.get("Property Name"),
         "Location": validated_location,
+        "Maps Link": maps_link,
         "Physical Property": physical_property,
         "Parcel & Tax": parcel_tax,
         "Ownership & Sale": ownership_sale,
@@ -847,91 +840,16 @@ def create_airtable_record(
         "Exit Strategy": data.get("Exit Strategy"),
         "Projected IRR": data.get("Projected IRR"),
         "Hold Period": data.get("Hold Period"),
-        "Size": data.get("Size"),
+        "Size": data.get("Square Footage or Unit Count"),
     }
-    
-    # Add attachments with the correct field name (Attachments)
-    if attachments:
-        fields["Attachments"] = [{"url": u} for u in attachments]
-    
-    # Debug: Show what attachments are being sent
-    if attachments:
-        st.info(f"Uploading {len(attachments)} attachments to Airtable")
-        for i, url in enumerate(attachments):
-            st.write(f"Attachment {i+1}: {url}")
-            # Test if the S3 file is accessible
-            try:
-                test_resp = requests.head(url, timeout=5)
-                if test_resp.status_code == 200:
-                    st.success(f"✅ Attachment {i+1} is accessible")
-                else:
-                    st.warning(f"⚠️ Attachment {i+1} returned status {test_resp.status_code}")
-            except Exception as e:
-                st.error(f"❌ Attachment {i+1} is not accessible: {str(e)}")
-    
-    # Debug: Show the exact payload being sent
-    st.write("**Debug: Airtable payload:**")
-    st.json(fields)
     
     resp = requests.post(
         f"https://api.airtable.com/v0/{AIRTABLE_BASE_ID}/{AIRTABLE_TABLE_NAME}",
         headers=headers,
         json={"fields": fields}
     )
-    
-    # Debug: Show the response
-    st.write(f"**Debug: Airtable response status:** {resp.status_code}")
-    st.write(f"**Debug: Airtable response:**")
-    st.json(resp.json())
-    
-    # If the main request failed, try a minimal test with just attachments
-    if resp.status_code not in (200, 201) and attachments:
-        st.info("Testing with minimal record (just attachments)...")
-        test_fields = {"Attachments": [{"url": attachments[0]}]}
-        test_resp = requests.post(
-            f"https://api.airtable.com/v0/{AIRTABLE_BASE_ID}/{AIRTABLE_TABLE_NAME}",
-            headers=headers,
-            json={"fields": test_fields}
-        )
-        st.write(f"**Debug: Minimal test response status:** {test_resp.status_code}")
-        st.write(f"**Debug: Minimal test response:**")
-        st.json(test_resp.json())
-    
     if resp.status_code not in (200, 201):
         st.error(f"Airtable error: {resp.text}")
-        # Try different attachment field names
-        for field_name in attachment_field_names[1:]:  # Skip "Files" since we already tried it
-            if "Unknown field name" in resp.text:
-                st.info(f"Trying '{field_name}' field name instead...")
-                # Remove previous attachment field
-                for prev_field in attachment_field_names:
-                    fields.pop(prev_field, None)
-                # Add with new field name
-                fields[field_name] = [{"url": u} for u in attachments]
-                resp = requests.post(
-                    f"https://api.airtable.com/v0/{AIRTABLE_BASE_ID}/{AIRTABLE_TABLE_NAME}",
-                    headers=headers,
-                    json={"fields": fields}
-                )
-                if resp.status_code in (200, 201):
-                    st.success(f"Successfully uploaded attachments using '{field_name}' field!")
-                    break
-                elif resp.status_code not in (200, 201):
-                    st.error(f"Airtable error with {field_name} field: {resp.text}")
-        
-        # If all attachment fields failed, save without attachments
-        if resp.status_code not in (200, 201):
-            st.warning("Could not find attachment field. Saving deal without attachments.")
-            # Remove all attachment fields and try again
-            for field_name in attachment_field_names:
-                fields.pop(field_name, None)
-            resp = requests.post(
-                f"https://api.airtable.com/v0/{AIRTABLE_BASE_ID}/{AIRTABLE_TABLE_NAME}",
-                headers=headers,
-                json={"fields": fields}
-            )
-            if resp.status_code not in (200, 201):
-                st.error(f"Final Airtable error: {resp.text}")
     else:
         # Delete files from S3 after successful Airtable upload
         for attachment_url in attachments:
@@ -1008,35 +926,6 @@ def create_contact_record(
     except Exception as e:
         st.error(f"Error creating contact: {str(e)}")
         return False
-
-def list_airtable_fields():
-    """List all available fields in the Airtable base to help identify field names."""
-    try:
-        headers = {
-            "Authorization": f"Bearer {AIRTABLE_PAT}",
-            "Content-Type": "application/json"
-        }
-        
-        # Get table schema
-        resp = requests.get(
-            f"https://api.airtable.com/v0/meta/bases/{AIRTABLE_BASE_ID}/tables",
-            headers=headers
-        )
-        
-        if resp.status_code == 200:
-            tables = resp.json().get('tables', [])
-            for table in tables:
-                if table.get('name') == AIRTABLE_TABLE_NAME:
-                    st.info(f"Available fields in '{AIRTABLE_TABLE_NAME}' table:")
-                    for field in table.get('fields', []):
-                        field_name = field.get('name', '')
-                        field_type = field.get('type', '')
-                        st.write(f"• {field_name} ({field_type})")
-                    return
-        else:
-            st.error(f"Could not fetch table schema: {resp.text}")
-    except Exception as e:
-        st.error(f"Error fetching table schema: {str(e)}")
 
 # --- Streamlit UI ---
 
@@ -1288,15 +1177,14 @@ elif st.session_state.current_page == 'dealflow':
 
             st.markdown("---")
             
-            # Analysis - Consolidated Notes
-            summary_text = s.get("Summary", "")
+            # Analysis
             highlights_text = "\n".join(f"• {highlight}" for highlight in s.get("Key Highlights", []) if highlight.strip())
+            key_highlights = st.text_area("Key Highlights", value=highlights_text, height=120)
+            
             risks_text = "\n".join(f"• {risk}" for risk in s.get("Risks or Red Flags", []) if risk.strip())
+            risks = st.text_area("Risks or Red Flags", value=risks_text, height=120)
             
-            # Create consolidated notes with proper formatting
-            consolidated_notes = f"Summary:\n{summary_text}\n\nKey Highlights:\n{highlights_text}\n\nRisks:\n{risks_text}"
-            
-            notes = st.text_area("Notes", value=consolidated_notes, height=300)
+            summary_text = st.text_area("Summary", value=s.get("Summary",""), height=100)
             physical_property = st.text_area("Physical Property", value=st.session_state.get("Physical Property", ""), height=120)
             parcel_tax = st.text_area("Parcel & Tax", value=st.session_state.get("Parcel & Tax", ""), height=120)
             ownership_sale = st.text_area("Ownership & Sale", value=st.session_state.get("Ownership & Sale", ""), height=120)
@@ -1307,9 +1195,24 @@ elif st.session_state.current_page == 'dealflow':
 
         if submitted:
             with st.spinner("Saving to Airtable"):
+                # Process Key Highlights - ensure each line starts with a bullet
+                key_highlights_list = [
+                    f"• {line.strip().replace('• ', '')}" if not line.strip().startswith('•') else line.strip()
+                    for line in key_highlights.split('\n')
+                    if line.strip() and not line.isspace()
+                ]
+                
+                # Process Risks - ensure each line starts with a bullet
+                risks_list = [
+                    f"• {line.strip().replace('• ', '')}" if not line.strip().startswith('•') else line.strip()
+                    for line in risks.split('\n')
+                    if line.strip() and not line.isspace()
+                ]
+                
                 updated = {
                     "Property Name":       property_name,
                     "Location":            location,
+                    "Maps Link":           generate_maps_link(location),
                     "Asset Class":         asset_class,
                     "Sponsor":             sponsor,
                     "Broker":              broker,
@@ -1327,7 +1230,9 @@ elif st.session_state.current_page == 'dealflow':
                     "Parcel & Tax":        parcel_tax,
                     "Ownership & Sale":    ownership_sale,
                     "Mortgage & Lender":   mortgage_lender,
-                    "Notes":               notes
+                    "Key Highlights":      key_highlights_list,
+                    "Risks or Red Flags":  risks_list,
+                    "Summary":             summary_text
                 }
                 create_airtable_record(
                     updated,
@@ -1337,10 +1242,6 @@ elif st.session_state.current_page == 'dealflow':
                     st.session_state["contacts"]
                 )
             st.success("✅ Deal saved to Airtable!")
-
-    # Add a button to list fields (for debugging)
-    if st.button("🔍 List Airtable Fields", key="list_fields"):
-        list_airtable_fields()
 
 elif st.session_state.current_page == 'contact':
     st.markdown("<h1>Contact AI</h1>", unsafe_allow_html=True)
