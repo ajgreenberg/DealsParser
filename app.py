@@ -419,6 +419,17 @@ s3 = boto3.client(
 def upload_to_s3(file_data, filename) -> str:
     key = f"deal-uploads/{datetime.now().strftime('%Y%m%d-%H%M%S')}-{filename}"
     s3.upload_fileobj(file_data, S3_BUCKET, key)
+    
+    # Make the file publicly accessible
+    try:
+        s3.put_object_acl(
+            Bucket=S3_BUCKET,
+            Key=key,
+            ACL='public-read'
+        )
+    except Exception as e:
+        st.warning(f"Could not make file public: {e}")
+    
     return f"https://{S3_BUCKET}.s3.{S3_REGION}.amazonaws.com/{key}"
 
 def delete_from_s3(s3_url: str):
@@ -849,36 +860,6 @@ def create_airtable_record(
             "Hold Period": data.get("Hold Period"),
             "Size": data.get("Size"),
         }
-        
-        # Test S3 file accessibility before sending to Airtable
-        if attachments:
-            attachment_url = attachments[0]
-            try:
-                test_response = requests.head(attachment_url, timeout=10)
-                st.write(f"S3 file accessibility: {test_response.status_code}")
-                if test_response.status_code != 200:
-                    st.error(f"S3 file not accessible: {test_response.status_code}")
-                    # Try without attachments if S3 file is not accessible
-                    fields.pop("Attachments", None)
-                    st.warning("Removed attachments due to accessibility issues")
-                else:
-                    st.success("S3 file is accessible")
-                    # Try a different attachment format that might work better
-                    filename = attachment_url.split('/')[-1]
-                    filename = urllib.parse.unquote(filename)
-                    
-                    # Try with type field
-                    fields["Attachments"] = [{
-                        "url": attachment_url,
-                        "filename": filename,
-                        "type": "application/pdf"
-                    }]
-                    st.write(f"Trying enhanced attachment format: {fields['Attachments']}")
-            except Exception as e:
-                st.error(f"Error testing S3 file: {e}")
-                # Try without attachments if there's an error
-                fields.pop("Attachments", None)
-                st.warning("Removed attachments due to error")
         
         resp = requests.post(
             f"https://api.airtable.com/v0/{AIRTABLE_BASE_ID}/{AIRTABLE_TABLE_NAME}",
