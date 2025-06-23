@@ -815,17 +815,14 @@ def create_airtable_record(
     fields = {
         "Deal Type": [deal_type],
         "Status": status,
-        "Summary": data.get("Summary"),
+        "Notes": data.get("Notes"),
         "Raw Notes": raw_notes,
         "Contact Info": contact_info,
         "Sponsor": data.get("Sponsor"),
         "Broker": data.get("Broker"),
         "Attachments": [{"url": u} for u in attachments],
-        "Key Highlights": "\n".join(data.get("Key Highlights", [])),
-        "Risks": "\n".join(data.get("Risks or Red Flags", [])),
         "Property Name": data.get("Property Name"),
         "Location": validated_location,
-        "Maps Link": maps_link,
         "Physical Property": physical_property,
         "Parcel & Tax": parcel_tax,
         "Ownership & Sale": ownership_sale,
@@ -840,7 +837,7 @@ def create_airtable_record(
         "Exit Strategy": data.get("Exit Strategy"),
         "Projected IRR": data.get("Projected IRR"),
         "Hold Period": data.get("Hold Period"),
-        "Size": data.get("Square Footage or Unit Count"),
+        "Size": data.get("Size"),
     }
     
     resp = requests.post(
@@ -926,6 +923,35 @@ def create_contact_record(
     except Exception as e:
         st.error(f"Error creating contact: {str(e)}")
         return False
+
+def list_airtable_fields():
+    """List all available fields in the Airtable base to help identify field names."""
+    try:
+        headers = {
+            "Authorization": f"Bearer {AIRTABLE_PAT}",
+            "Content-Type": "application/json"
+        }
+        
+        # Get table schema
+        resp = requests.get(
+            f"https://api.airtable.com/v0/meta/bases/{AIRTABLE_BASE_ID}/tables",
+            headers=headers
+        )
+        
+        if resp.status_code == 200:
+            tables = resp.json().get('tables', [])
+            for table in tables:
+                if table.get('name') == AIRTABLE_TABLE_NAME:
+                    st.info(f"Available fields in '{AIRTABLE_TABLE_NAME}' table:")
+                    for field in table.get('fields', []):
+                        field_name = field.get('name', '')
+                        field_type = field.get('type', '')
+                        st.write(f"• {field_name} ({field_type})")
+                    return
+        else:
+            st.error(f"Could not fetch table schema: {resp.text}")
+    except Exception as e:
+        st.error(f"Error fetching table schema: {str(e)}")
 
 # --- Streamlit UI ---
 
@@ -1177,14 +1203,15 @@ elif st.session_state.current_page == 'dealflow':
 
             st.markdown("---")
             
-            # Analysis
+            # Analysis - Consolidated Notes
+            summary_text = s.get("Summary", "")
             highlights_text = "\n".join(f"• {highlight}" for highlight in s.get("Key Highlights", []) if highlight.strip())
-            key_highlights = st.text_area("Key Highlights", value=highlights_text, height=120)
-            
             risks_text = "\n".join(f"• {risk}" for risk in s.get("Risks or Red Flags", []) if risk.strip())
-            risks = st.text_area("Risks or Red Flags", value=risks_text, height=120)
             
-            summary_text = st.text_area("Summary", value=s.get("Summary",""), height=100)
+            # Create consolidated notes with proper formatting
+            consolidated_notes = f"Summary:\n{summary_text}\n\nKey Highlights:\n{highlights_text}\n\nRisks:\n{risks_text}"
+            
+            notes = st.text_area("Notes", value=consolidated_notes, height=300)
             physical_property = st.text_area("Physical Property", value=st.session_state.get("Physical Property", ""), height=120)
             parcel_tax = st.text_area("Parcel & Tax", value=st.session_state.get("Parcel & Tax", ""), height=120)
             ownership_sale = st.text_area("Ownership & Sale", value=st.session_state.get("Ownership & Sale", ""), height=120)
@@ -1195,24 +1222,9 @@ elif st.session_state.current_page == 'dealflow':
 
         if submitted:
             with st.spinner("Saving to Airtable"):
-                # Process Key Highlights - ensure each line starts with a bullet
-                key_highlights_list = [
-                    f"• {line.strip().replace('• ', '')}" if not line.strip().startswith('•') else line.strip()
-                    for line in key_highlights.split('\n')
-                    if line.strip() and not line.isspace()
-                ]
-                
-                # Process Risks - ensure each line starts with a bullet
-                risks_list = [
-                    f"• {line.strip().replace('• ', '')}" if not line.strip().startswith('•') else line.strip()
-                    for line in risks.split('\n')
-                    if line.strip() and not line.isspace()
-                ]
-                
                 updated = {
                     "Property Name":       property_name,
                     "Location":            location,
-                    "Maps Link":           generate_maps_link(location),
                     "Asset Class":         asset_class,
                     "Sponsor":             sponsor,
                     "Broker":              broker,
@@ -1230,9 +1242,7 @@ elif st.session_state.current_page == 'dealflow':
                     "Parcel & Tax":        parcel_tax,
                     "Ownership & Sale":    ownership_sale,
                     "Mortgage & Lender":   mortgage_lender,
-                    "Key Highlights":      key_highlights_list,
-                    "Risks or Red Flags":  risks_list,
-                    "Summary":             summary_text
+                    "Notes":               notes
                 }
                 create_airtable_record(
                     updated,
@@ -1242,6 +1252,10 @@ elif st.session_state.current_page == 'dealflow':
                     st.session_state["contacts"]
                 )
             st.success("✅ Deal saved to Airtable!")
+
+    # Add a button to list fields (for debugging)
+    if st.button("🔍 List Airtable Fields", key="list_fields"):
+        list_airtable_fields()
 
 elif st.session_state.current_page == 'contact':
     st.markdown("<h1>Contact AI</h1>", unsafe_allow_html=True)
