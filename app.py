@@ -783,76 +783,99 @@ def create_airtable_record(
 ):
     # Always tag new deals as "Pursuing"
     status = "Pursuing"
-
-    headers = {
-        "Authorization": f"Bearer {AIRTABLE_PAT}",
-        "Content-Type": "application/json"
-    }
     
-    # Validate and standardize the address
-    location = data.get("Location", "")
-    address_data = validate_address(location)
+    # Debug: Print attachment information
+    st.write(f"Debug - Number of attachments: {len(attachments)}")
+    st.write(f"Debug - Attachments: {attachments}")
     
-    if address_data:
-        maps_link = generate_maps_link(address_data["formatted_address"])
-        validated_location = address_data["formatted_address"]
+    try:
+        headers = {
+            "Authorization": f"Bearer {AIRTABLE_PAT}",
+            "Content-Type": "application/json"
+        }
         
-        # Format property information using new functions
-        result = address_data.get('raw_data', {})
+        # Get location and validate address
+        location = data.get("Location", "")
+        if location and SMARTY_ENABLED:
+            address_data = validate_address(location)
+            if address_data:
+                # Address validation successful
+                validated_location = address_data.get('formatted_address', location)
+                maps_link = generate_maps_link(validated_location)
+                
+                # Format property information using new functions
+                result = address_data.get('raw_data', {})
+                
+                physical_property = format_physical_property(result)
+                parcel_tax = format_parcel_tax_info(result)
+                ownership_sale = format_ownership_sale_info(result)
+                mortgage_lender = format_mortgage_lender_info(result)
+            else:
+                maps_link = generate_maps_link(location)
+                validated_location = location
+                physical_property = ""
+                parcel_tax = ""
+                ownership_sale = ""
+                mortgage_lender = ""
+        else:
+            maps_link = generate_maps_link(location)
+            validated_location = location
+            physical_property = ""
+            parcel_tax = ""
+            ownership_sale = ""
+            mortgage_lender = ""
         
-        physical_property = format_physical_property(result)
-        parcel_tax = format_parcel_tax_info(result)
-        ownership_sale = format_ownership_sale_info(result)
-        mortgage_lender = format_mortgage_lender_info(result)
-    else:
-        maps_link = generate_maps_link(location)
-        validated_location = location
-        physical_property = ""
-        parcel_tax = ""
-        ownership_sale = ""
-        mortgage_lender = ""
-    
-    fields = {
-        "Deal Type": [deal_type],
-        "Status": status,
-        "Notes": data.get("Notes"),
-        "Raw Notes": raw_notes,
-        "Contact Info": contact_info,
-        "Sponsor": data.get("Sponsor"),
-        "Broker": data.get("Broker"),
-        "Attachments": [{"url": u} for u in attachments],
-        "Property Name": data.get("Property Name"),
-        "Location": validated_location,
-        "Map": maps_link,
-        "Physical Property": physical_property,
-        "Parcel & Tax": parcel_tax,
-        "Ownership & Sale": ownership_sale,
-        "Mortgage & Lender": mortgage_lender,
-        "Asset Class": data.get("Asset Class"),
-        "Purchase Price": data.get("Purchase Price"),
-        "Loan Amount": data.get("Loan Amount"),
-        "In-Place Cap Rate": data.get("In-Place Cap Rate"),
-        "Stabilized Cap Rate": data.get("Stabilized Cap Rate"),
-        "Interest Rate": data.get("Interest Rate"),
-        "Term": data.get("Term"),
-        "Exit Strategy": data.get("Exit Strategy"),
-        "Projected IRR": data.get("Projected IRR"),
-        "Hold Period": data.get("Hold Period"),
-        "Size": data.get("Size"),
-    }
-    
-    resp = requests.post(
-        f"https://api.airtable.com/v0/{AIRTABLE_BASE_ID}/{AIRTABLE_TABLE_NAME}",
-        headers=headers,
-        json={"fields": fields}
-    )
-    
-    if resp.status_code not in (200, 201):
-        st.error(f"Airtable error: {resp.text}")
-    else:
-        # Delete files from S3 after successful Airtable upload
-        for attachment_url in attachments:
-            delete_from_s3(attachment_url)
+        # Debug: Print the attachment field structure
+        attachment_field = [{"url": u} for u in attachments]
+        st.write(f"Debug - Attachment field structure: {attachment_field}")
+        
+        fields = {
+            "Deal Type": [deal_type],
+            "Status": status,
+            "Notes": data.get("Notes"),
+            "Raw Notes": raw_notes,
+            "Contact Info": contact_info,
+            "Sponsor": data.get("Sponsor"),
+            "Broker": data.get("Broker"),
+            "Attachments": attachment_field,
+            "Property Name": data.get("Property Name"),
+            "Location": validated_location,
+            "Map": maps_link,
+            "Physical Property": physical_property,
+            "Parcel & Tax": parcel_tax,
+            "Ownership & Sale": ownership_sale,
+            "Mortgage & Lender": mortgage_lender,
+            "Asset Class": data.get("Asset Class"),
+            "Purchase Price": data.get("Purchase Price"),
+            "Loan Amount": data.get("Loan Amount"),
+            "In-Place Cap Rate": data.get("In-Place Cap Rate"),
+            "Stabilized Cap Rate": data.get("Stabilized Cap Rate"),
+            "Interest Rate": data.get("Interest Rate"),
+            "Term": data.get("Term"),
+            "Exit Strategy": data.get("Exit Strategy"),
+            "Projected IRR": data.get("Projected IRR"),
+            "Hold Period": data.get("Hold Period"),
+            "Size": data.get("Size"),
+        }
+        
+        # Debug: Print the full fields structure
+        st.write(f"Debug - Full fields structure: {fields}")
+        
+        resp = requests.post(
+            f"https://api.airtable.com/v0/{AIRTABLE_BASE_ID}/{AIRTABLE_TABLE_NAME}",
+            headers=headers,
+            json={"fields": fields}
+        )
+        
+        if resp.status_code not in (200, 201):
+            st.error(f"Airtable error: {resp.text}")
+        else:
+            # Delete files from S3 after successful Airtable upload
+            for attachment_url in attachments:
+                delete_from_s3(attachment_url)
+    except Exception as e:
+        st.error(f"Error creating Airtable record: {str(e)}")
+        st.write(f"Debug - Exception details: {e}")
 
 def parse_contact_info(text: str) -> Dict:
     """Parse contact information from text using GPT."""
