@@ -784,10 +784,6 @@ def create_airtable_record(
     # Always tag new deals as "Pursuing"
     status = "Pursuing"
     
-    # Debug: Print attachment information
-    st.write(f"Debug - Number of attachments: {len(attachments)}")
-    st.write(f"Debug - Attachments: {attachments}")
-    
     try:
         headers = {
             "Authorization": f"Bearer {AIRTABLE_PAT}",
@@ -825,10 +821,6 @@ def create_airtable_record(
             ownership_sale = ""
             mortgage_lender = ""
         
-        # Debug: Print the attachment field structure
-        attachment_field = [{"url": u} for u in attachments]
-        st.write(f"Debug - Attachment field structure: {attachment_field}")
-        
         fields = {
             "Deal Type": [deal_type],
             "Status": status,
@@ -837,7 +829,7 @@ def create_airtable_record(
             "Contact Info": contact_info,
             "Sponsor": data.get("Sponsor"),
             "Broker": data.get("Broker"),
-            "Attachments": attachment_field,
+            "Attachments": [{"url": u} for u in attachments],
             "Property Name": data.get("Property Name"),
             "Location": validated_location,
             "Map": maps_link,
@@ -858,9 +850,6 @@ def create_airtable_record(
             "Size": data.get("Size"),
         }
         
-        # Debug: Print the full fields structure
-        st.write(f"Debug - Full fields structure: {fields}")
-        
         resp = requests.post(
             f"https://api.airtable.com/v0/{AIRTABLE_BASE_ID}/{AIRTABLE_TABLE_NAME}",
             headers=headers,
@@ -869,19 +858,12 @@ def create_airtable_record(
         
         if resp.status_code not in (200, 201):
             st.error(f"Airtable error: {resp.text}")
-            # Debug: Show the exact response
-            st.write(f"Debug - Response status: {resp.status_code}")
-            st.write(f"Debug - Response headers: {dict(resp.headers)}")
-            st.write(f"Debug - Response body: {resp.text}")
         else:
-            # Debug: Show successful response
-            st.write(f"Debug - Success! Response: {resp.json()}")
             # Delete files from S3 after successful Airtable upload
             for attachment_url in attachments:
                 delete_from_s3(attachment_url)
     except Exception as e:
         st.error(f"Error creating Airtable record: {str(e)}")
-        st.write(f"Debug - Exception details: {e}")
 
 def parse_contact_info(text: str) -> Dict:
     """Parse contact information from text using GPT."""
