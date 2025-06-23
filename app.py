@@ -961,7 +961,7 @@ if st.session_state.current_page == 'home':
     """)
 
 elif st.session_state.current_page == 'dealflow':
-    st.markdown("<h1>DealFlow AI</h1>", unsafe_allow_html=True)
+    st.markdown("<h1>DealFlO@W AI</h1>", unsafe_allow_html=True)
     if st.button("← Back", key="back_dealflow", type="secondary"):
         st.session_state.current_page = 'home'
         st.rerun()
