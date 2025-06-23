@@ -975,6 +975,13 @@ elif st.session_state.current_page == 'dealflow':
     
     deal_type = st.radio("Select Deal Type", list(DEAL_TYPE_MAP.keys()), horizontal=True, label_visibility="visible")
     
+    # Address input field
+    manual_address = st.text_input(
+        "Property Address (Optional - for better property data)",
+        placeholder="Enter the property address if not detected from documents",
+        help="If the address isn't properly detected from your documents, enter it here to get enhanced property data from Smarty API."
+    )
+    
     uploaded_main = st.file_uploader("Upload Deal Memo", type=["pdf","doc","docx"], 
         label_visibility="visible")
 
@@ -1052,8 +1059,10 @@ elif st.session_state.current_page == 'dealflow':
 
                     # If we have address data, add property information to session state
                     location = summary.get("Location", "")
-                    if location:
-                        address_data = validate_address(location)
+                    # Use manual address if provided, otherwise use extracted location
+                    address_to_validate = manual_address.strip() if manual_address.strip() else location
+                    if address_to_validate:
+                        address_data = validate_address(address_to_validate)
                         if address_data:
                             result = address_data.get('raw_data', {})
                             st.session_state.update({
@@ -1084,7 +1093,9 @@ elif st.session_state.current_page == 'dealflow':
             
             # Property Details
             property_name = st.text_input("Property Name", value=s.get("Property Name",""))
-            location = st.text_input("Location", value=s.get("Location",""))
+            # Use manual address if provided, otherwise use extracted location
+            default_location = manual_address.strip() if manual_address.strip() else s.get("Location","")
+            location = st.text_input("Location", value=default_location)
             asset_class = st.text_input("Asset Class", value=s.get("Asset Class",""))
             size = st.text_input("Size (Sq Ft or Unit Count)", value=s.get("Square Footage or Unit Count",""))
             
