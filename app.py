@@ -978,8 +978,12 @@ elif st.session_state.current_page == 'dealflow':
     
     deal_type = st.radio("Select Deal Type", list(DEAL_TYPE_MAP.keys()), horizontal=True, label_visibility="visible")
     
+    st.write("After deal type selection")
+    
     # Simple address input field
     manual_address = st.text_input("Property Address (Optional)")
+    
+    st.write("After address field")
     
     uploaded_main = st.file_uploader("Upload Deal Memo", type=["pdf","doc","docx"], 
         label_visibility="visible")
