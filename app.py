@@ -419,6 +419,17 @@ s3 = boto3.client(
 def upload_to_s3(file_data, filename) -> str:
     key = f"deal-uploads/{datetime.now().strftime('%Y%m%d-%H%M%S')}-{filename}"
     s3.upload_fileobj(file_data, S3_BUCKET, key)
+    
+    # Make the file publicly accessible for Airtable
+    try:
+        s3.put_object_acl(
+            Bucket=S3_BUCKET,
+            Key=key,
+            ACL='public-read'
+        )
+    except Exception as e:
+        st.warning(f"Could not make file public: {str(e)}")
+    
     return f"https://{S3_BUCKET}.s3.{S3_REGION}.amazonaws.com/{key}"
 
 def delete_from_s3(s3_url: str):
@@ -823,6 +834,7 @@ def create_airtable_record(
         "Attachments": [{"url": u} for u in attachments],
         "Property Name": data.get("Property Name"),
         "Location": validated_location,
+        "Maps Link": maps_link,
         "Physical Property": physical_property,
         "Parcel & Tax": parcel_tax,
         "Ownership & Sale": ownership_sale,
