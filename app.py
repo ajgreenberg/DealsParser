@@ -976,13 +976,6 @@ elif st.session_state.current_page == 'dealflow':
     
     deal_type = st.radio("Select Deal Type", list(DEAL_TYPE_MAP.keys()), horizontal=True, label_visibility="visible")
     
-    # Address field below deal type selection
-    manual_address = st.text_input(
-        label="Property Address (Optional)",
-        placeholder="Enter property address if not detected from documents",
-        help="Enter the property address if not detected from documents"
-    )
-    
     uploaded_main = st.file_uploader("Upload Deal Memo", type=["pdf","doc","docx"], 
         label_visibility="visible")
 
@@ -1058,27 +1051,39 @@ elif st.session_state.current_page == 'dealflow':
                         "deal_type": DEAL_TYPE_MAP[deal_type] if deal_type else ""  # Map to Airtable value
                     })
 
-                    # If we have address data, add property information to session state
+                    # Try to validate address from extracted location
                     location = summary.get("Location", "")
-                    # Use manual address if provided, otherwise use extracted location
-                    address_to_validate = manual_address.strip() if manual_address.strip() else location
-                    if address_to_validate:
-                        address_data = validate_address(address_to_validate)
+                    if location:
+                        address_data = validate_address(location)
                         if address_data:
+                            # Address validation successful
                             result = address_data.get('raw_data', {})
                             st.session_state.update({
                                 "Physical Property": format_physical_property(result),
                                 "Parcel & Tax": format_parcel_tax_info(result),
                                 "Ownership & Sale": format_ownership_sale_info(result),
-                                "Mortgage & Lender": format_mortgage_lender_info(result)
+                                "Mortgage & Lender": format_mortgage_lender_info(result),
+                                "address_validated": True
                             })
-                    
-                # Add another message update right after processing
-                if i < 4:  # Don't update after the last step
-                    status_container.markdown(
-                        f'<div class="status-message"><div class="spinner"></div>{get_loading_message(i + 1)}</div>',
-                        unsafe_allow_html=True
-                    )
+                        else:
+                            # Address validation failed - will prompt user for manual input
+                            st.session_state.update({
+                                "address_validated": False,
+                                "extracted_location": location
+                            })
+                    else:
+                        # No location extracted - will prompt user for manual input
+                        st.session_state.update({
+                            "address_validated": False,
+                            "extracted_location": ""
+                        })
+
+                    # Add another message update right after processing
+                    if i < 4:  # Don't update after the last step
+                        status_container.markdown(
+                            f'<div class="status-message"><div class="spinner"></div>{get_loading_message(i + 1)}</div>',
+                            unsafe_allow_html=True
+                        )
         
         except Exception as e:
             st.error(f"An error occurred: {str(e)}")
@@ -1089,13 +1094,54 @@ elif st.session_state.current_page == 'dealflow':
     if "summary" in st.session_state:
         st.markdown("<h2>Review & Edit Deal Details</h2>", unsafe_allow_html=True)
         
+        # Show address input if validation failed
+        manual_address = ""
+        if st.session_state.get("address_validated") == False:
+            st.markdown("### Address Validation")
+            extracted_loc = st.session_state.get("extracted_location", "")
+            if extracted_loc:
+                st.info(f"Could not validate the extracted address: '{extracted_loc}'. Please provide a valid property address.")
+            else:
+                st.info("No property address was detected from the documents. Please provide a valid property address.")
+            
+            manual_address = st.text_input(
+                label="Property Address",
+                placeholder="e.g., 123 Main St, City, State 12345",
+                help="Enter the property address to get detailed property information"
+            )
+            
+            if manual_address.strip():
+                if st.button("🔍 Validate Address"):
+                    with st.spinner("Validating address..."):
+                        address_data = validate_address(manual_address.strip())
+                        if address_data:
+                            result = address_data.get('raw_data', {})
+                            st.session_state.update({
+                                "Physical Property": format_physical_property(result),
+                                "Parcel & Tax": format_parcel_tax_info(result),
+                                "Ownership & Sale": format_ownership_sale_info(result),
+                                "Mortgage & Lender": format_mortgage_lender_info(result),
+                                "address_validated": True
+                            })
+                            st.success("Address validated successfully! Property information has been updated.")
+                            st.rerun()
+                        else:
+                            st.error("Could not validate this address. Please check the format and try again.")
+        elif st.session_state.get("address_validated") == True:
+            st.success("✅ Property address validated successfully! Detailed property information is available below.")
+        
         with st.form("edit_form", clear_on_submit=False):
             s = st.session_state["summary"]
             
             # Property Details
             property_name = st.text_input("Property Name", value=s.get("Property Name",""))
-            # Use manual address if provided, otherwise use extracted location
-            default_location = manual_address.strip() if manual_address.strip() else s.get("Location","")
+            # Use validated address if available, otherwise use extracted location
+            if st.session_state.get("address_validated") == True:
+                # Use the validated address from Smarty
+                default_location = st.session_state.get("Physical Property", "").split('\n')[0] if st.session_state.get("Physical Property") else s.get("Location","")
+            else:
+                # Use extracted location or manual address
+                default_location = manual_address.strip() if manual_address.strip() else s.get("Location","")
             location = st.text_input("Location", value=default_location)
             asset_class = st.text_input("Asset Class", value=s.get("Asset Class",""))
             size = st.text_input("Size (Sq Ft or Unit Count)", value=s.get("Square Footage or Unit Count",""))
