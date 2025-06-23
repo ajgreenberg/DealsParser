@@ -967,6 +967,9 @@ elif st.session_state.current_page == 'dealflow':
         st.rerun()
     st.markdown("<br>", unsafe_allow_html=True)
     
+    # Test message to verify page loading
+    st.write("Page loaded successfully")
+    
     # Map display values to Airtable values
     DEAL_TYPE_MAP = {
         "🏢 Equity": "Equity",
@@ -975,17 +978,8 @@ elif st.session_state.current_page == 'dealflow':
     
     deal_type = st.radio("Select Deal Type", list(DEAL_TYPE_MAP.keys()), horizontal=True, label_visibility="visible")
     
-    st.markdown("---")
-    
-    # Address input field - moved to prominent position
-    st.markdown("### Property Information")
-    manual_address = st.text_input(
-        "Property Address (Optional)",
-        placeholder="Enter the property address if not detected from documents",
-        help="If the address isn't properly detected from your documents, enter it here to get enhanced property data from Smarty API."
-    )
-    
-    st.markdown("---")
+    # Simple address input field
+    manual_address = st.text_input("Property Address (Optional)")
     
     uploaded_main = st.file_uploader("Upload Deal Memo", type=["pdf","doc","docx"], 
         label_visibility="visible")
