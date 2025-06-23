@@ -813,7 +813,7 @@ def create_airtable_record(
         mortgage_lender = ""
     
     # Try different attachment field names that are common in Airtable
-    attachment_field_names = ["Files", "Documents", "Attachments", "File Attachments"]
+    attachment_field_names = ["Attachments", "Files", "Documents", "File Attachments", "Uploads", "File Uploads", "Deal Files"]
     
     fields = {
         "Deal Type": [deal_type],
@@ -842,9 +842,9 @@ def create_airtable_record(
         "Size": data.get("Size"),
     }
     
-    # Add attachments with the first field name (Files)
+    # Add attachments with the correct field name (Attachments)
     if attachments:
-        fields["Files"] = [{"url": u} for u in attachments]
+        fields["Attachments"] = [{"url": u} for u in attachments]
     
     # Debug: Show what attachments are being sent
     if attachments:
@@ -859,18 +859,39 @@ def create_airtable_record(
     )
     if resp.status_code not in (200, 201):
         st.error(f"Airtable error: {resp.text}")
-        # If Files field failed, try Documents field
-        if "Files" in resp.text and "Unknown field name" in resp.text:
-            st.info("Trying 'Documents' field name instead...")
-            fields.pop("Files", None)
-            fields["Documents"] = [{"url": u} for u in attachments]
+        # Try different attachment field names
+        for field_name in attachment_field_names[1:]:  # Skip "Files" since we already tried it
+            if "Unknown field name" in resp.text:
+                st.info(f"Trying '{field_name}' field name instead...")
+                # Remove previous attachment field
+                for prev_field in attachment_field_names:
+                    fields.pop(prev_field, None)
+                # Add with new field name
+                fields[field_name] = [{"url": u} for u in attachments]
+                resp = requests.post(
+                    f"https://api.airtable.com/v0/{AIRTABLE_BASE_ID}/{AIRTABLE_TABLE_NAME}",
+                    headers=headers,
+                    json={"fields": fields}
+                )
+                if resp.status_code in (200, 201):
+                    st.success(f"Successfully uploaded attachments using '{field_name}' field!")
+                    break
+                elif resp.status_code not in (200, 201):
+                    st.error(f"Airtable error with {field_name} field: {resp.text}")
+        
+        # If all attachment fields failed, save without attachments
+        if resp.status_code not in (200, 201):
+            st.warning("Could not find attachment field. Saving deal without attachments.")
+            # Remove all attachment fields and try again
+            for field_name in attachment_field_names:
+                fields.pop(field_name, None)
             resp = requests.post(
                 f"https://api.airtable.com/v0/{AIRTABLE_BASE_ID}/{AIRTABLE_TABLE_NAME}",
                 headers=headers,
                 json={"fields": fields}
             )
             if resp.status_code not in (200, 201):
-                st.error(f"Airtable error with Documents field: {resp.text}")
+                st.error(f"Final Airtable error: {resp.text}")
     else:
         # Delete files from S3 after successful Airtable upload
         for attachment_url in attachments:
@@ -947,6 +968,35 @@ def create_contact_record(
     except Exception as e:
         st.error(f"Error creating contact: {str(e)}")
         return False
+
+def list_airtable_fields():
+    """List all available fields in the Airtable base to help identify field names."""
+    try:
+        headers = {
+            "Authorization": f"Bearer {AIRTABLE_PAT}",
+            "Content-Type": "application/json"
+        }
+        
+        # Get table schema
+        resp = requests.get(
+            f"https://api.airtable.com/v0/meta/bases/{AIRTABLE_BASE_ID}/tables",
+            headers=headers
+        )
+        
+        if resp.status_code == 200:
+            tables = resp.json().get('tables', [])
+            for table in tables:
+                if table.get('name') == AIRTABLE_TABLE_NAME:
+                    st.info(f"Available fields in '{AIRTABLE_TABLE_NAME}' table:")
+                    for field in table.get('fields', []):
+                        field_name = field.get('name', '')
+                        field_type = field.get('type', '')
+                        st.write(f"• {field_name} ({field_type})")
+                    return
+        else:
+            st.error(f"Could not fetch table schema: {resp.text}")
+    except Exception as e:
+        st.error(f"Error fetching table schema: {str(e)}")
 
 # --- Streamlit UI ---
 
@@ -1247,6 +1297,10 @@ elif st.session_state.current_page == 'dealflow':
                     st.session_state["contacts"]
                 )
             st.success("✅ Deal saved to Airtable!")
+
+    # Add a button to list fields (for debugging)
+    if st.button("🔍 List Airtable Fields", key="list_fields"):
+        list_airtable_fields()
 
 elif st.session_state.current_page == 'contact':
     st.markdown("<h1>Contact AI</h1>", unsafe_allow_html=True)
