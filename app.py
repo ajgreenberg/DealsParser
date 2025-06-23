@@ -937,16 +937,22 @@ if 'current_page' not in st.session_state:
 if st.session_state.current_page == 'home':
     st.markdown("<h1 style='text-align: center;'>Real Estate AI Tools</h1>", unsafe_allow_html=True)
     
-    col1, col2 = st.columns(2)
+    # Create two columns for the main buttons
+    col1, col2, col3 = st.columns(3)
     
     with col1:
-        if st.button("🤖 DealFlow AI", use_container_width=True, key="dealflow_btn"):
+        if st.button("🏢 DealFlow AI", key="dealflow_btn", use_container_width=True):
             st.session_state.current_page = 'dealflow'
             st.rerun()
     
     with col2:
-        if st.button("👥 Contact AI", use_container_width=True, key="contact_btn"):
+        if st.button("📞 Contact AI", key="contact_btn", use_container_width=True):
             st.session_state.current_page = 'contact'
+            st.rerun()
+    
+    with col3:
+        if st.button("🏠 Property Info", key="property_btn", use_container_width=True):
+            st.session_state.current_page = 'property'
             st.rerun()
     
     # Add descriptions below buttons
@@ -958,6 +964,11 @@ if st.session_state.current_page == 'home':
     col2.markdown("""
         #### Contact Management
         Extract and organize contact information from email signatures and business cards.
+    """)
+    
+    col3.markdown("""
+        #### Property Research
+        Get detailed property information and market data for any address.
     """)
 
 elif st.session_state.current_page == 'dealflow':
@@ -1063,7 +1074,8 @@ elif st.session_state.current_page == 'dealflow':
                                 "Parcel & Tax": format_parcel_tax_info(result),
                                 "Ownership & Sale": format_ownership_sale_info(result),
                                 "Mortgage & Lender": format_mortgage_lender_info(result),
-                                "address_validated": True
+                                "address_validated": True,
+                                "address_data": address_data
                             })
                         else:
                             # Address validation failed - will prompt user for manual input
@@ -1121,7 +1133,8 @@ elif st.session_state.current_page == 'dealflow':
                                 "Parcel & Tax": format_parcel_tax_info(result),
                                 "Ownership & Sale": format_ownership_sale_info(result),
                                 "Mortgage & Lender": format_mortgage_lender_info(result),
-                                "address_validated": True
+                                "address_validated": True,
+                                "address_data": address_data
                             })
                             st.success("Address validated successfully! Property information has been updated.")
                             st.rerun()
@@ -1138,7 +1151,8 @@ elif st.session_state.current_page == 'dealflow':
             # Use validated address if available, otherwise use extracted location
             if st.session_state.get("address_validated") == True:
                 # Use the validated address from Smarty
-                default_location = st.session_state.get("Physical Property", "").split('\n')[0] if st.session_state.get("Physical Property") else s.get("Location","")
+                address_data = st.session_state.get("address_data", {})
+                default_location = address_data.get("formatted_address", s.get("Location",""))
             else:
                 # Use extracted location or manual address
                 default_location = manual_address.strip() if manual_address.strip() else s.get("Location","")
@@ -1304,3 +1318,73 @@ elif st.session_state.current_page == 'contact':
                     st.session_state.s3_urls = []
                 else:
                     st.error("Failed to save contact to Airtable. Please try again.")
+
+elif st.session_state.current_page == 'property':
+    st.markdown("<h1>Property Info</h1>", unsafe_allow_html=True)
+    if st.button("← Back", key="back_property", type="secondary"):
+        st.session_state.current_page = 'home'
+        st.rerun()
+    st.markdown("<br>", unsafe_allow_html=True)
+    
+    st.markdown("Enter a property address to get detailed information and market data.")
+    
+    property_address = st.text_input(
+        "Property Address",
+        placeholder="e.g., 123 Main St, City, State 12345",
+        help="Enter the property address to get detailed property information"
+    )
+    
+    if st.button("🔍 Get Property Info", use_container_width=True):
+        if property_address.strip():
+            with st.spinner("Fetching property information..."):
+                address_data = validate_address(property_address.strip())
+                if address_data:
+                    result = address_data.get('raw_data', {})
+                    
+                    # Display the validated address
+                    st.success(f"✅ Address validated: {address_data.get('formatted_address', property_address)}")
+                    
+                    # Create tabs for different information sections
+                    tab1, tab2, tab3, tab4 = st.tabs(["Physical Property", "Parcel & Tax", "Ownership & Sale", "Mortgage & Lender"])
+                    
+                    with tab1:
+                        st.markdown("### Physical Property Information")
+                        physical_info = format_physical_property(result)
+                        if physical_info:
+                            st.text_area("Physical Property Details", value=physical_info, height=200, disabled=True)
+                        else:
+                            st.info("No physical property information available.")
+                    
+                    with tab2:
+                        st.markdown("### Parcel & Tax Information")
+                        tax_info = format_parcel_tax_info(result)
+                        if tax_info:
+                            st.text_area("Tax Details", value=tax_info, height=200, disabled=True)
+                        else:
+                            st.info("No tax information available.")
+                    
+                    with tab3:
+                        st.markdown("### Ownership & Sale Information")
+                        ownership_info = format_ownership_sale_info(result)
+                        if ownership_info:
+                            st.text_area("Ownership Details", value=ownership_info, height=200, disabled=True)
+                        else:
+                            st.info("No ownership information available.")
+                    
+                    with tab4:
+                        st.markdown("### Mortgage & Lender Information")
+                        mortgage_info = format_mortgage_lender_info(result)
+                        if mortgage_info:
+                            st.text_area("Mortgage Details", value=mortgage_info, height=200, disabled=True)
+                        else:
+                            st.info("No mortgage information available.")
+                    
+                    # Add Google Maps link
+                    maps_link = generate_maps_link(address_data.get('formatted_address', property_address))
+                    if maps_link:
+                        st.markdown(f"📍 [View on Google Maps]({maps_link})")
+                        
+                else:
+                    st.error("Could not validate this address. Please check the format and try again.")
+        else:
+            st.error("Please enter a property address.")
