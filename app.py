@@ -823,7 +823,6 @@ def create_airtable_record(
         "Attachments": [{"url": u} for u in attachments],
         "Property Name": data.get("Property Name"),
         "Location": validated_location,
-        "Maps Link": maps_link,
         "Physical Property": physical_property,
         "Parcel & Tax": parcel_tax,
         "Ownership & Sale": ownership_sale,
@@ -1197,7 +1196,6 @@ elif st.session_state.current_page == 'dealflow':
                 updated = {
                     "Property Name":       property_name,
                     "Location":            location,
-                    "Maps Link":           generate_maps_link(location),
                     "Asset Class":         asset_class,
                     "Sponsor":             sponsor,
                     "Broker":              broker,
