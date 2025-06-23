@@ -857,24 +857,9 @@ def create_airtable_record(
                 filename = url.split('/')[-1]
                 filename = urllib.parse.unquote(filename)
                 
-                # Determine file type
-                if filename.lower().endswith('.pdf'):
-                    file_type = "application/pdf"
-                elif filename.lower().endswith(('.jpg', '.jpeg')):
-                    file_type = "image/jpeg"
-                elif filename.lower().endswith('.png'):
-                    file_type = "image/png"
-                elif filename.lower().endswith(('.doc', '.docx')):
-                    file_type = "application/msword"
-                elif filename.lower().endswith(('.xls', '.xlsx')):
-                    file_type = "application/vnd.ms-excel"
-                else:
-                    file_type = "application/octet-stream"
-                
                 attachment_list.append({
                     "url": url,
-                    "filename": filename,
-                    "type": file_type
+                    "filename": filename
                 })
             
             fields["Attachments"] = attachment_list
@@ -888,9 +873,9 @@ def create_airtable_record(
         if resp.status_code not in (200, 201):
             st.error(f"Airtable error: {resp.text}")
         else:
-            # Delete files from S3 after successful Airtable upload
-            for attachment_url in attachments:
-                delete_from_s3(attachment_url)
+            st.success("✅ Deal saved to Airtable!")
+            # Note: S3 files are not automatically deleted to ensure Airtable can access them
+            # You may want to set up a separate cleanup process for old files
     except Exception as e:
         st.error(f"Error creating Airtable record: {str(e)}")
 
