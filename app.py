@@ -1244,7 +1244,7 @@ elif st.session_state.current_page == 'dealflow':
             risks_text = "\n".join(f"• {risk}" for risk in s.get("Risks or Red Flags", []) if risk.strip())
             
             # Create consolidated notes with proper formatting
-            consolidated_notes = f"Summary:\n{summary_text}\n\nKey Highlights:\n{highlights_text}\n\nRisks:\n{risks_text}"
+            consolidated_notes = f"𝗦𝘂𝗺𝗺𝗮𝗿𝘆:\n{summary_text}\n\n𝗞𝗲𝘆 𝗛𝗶𝗴𝗵𝗹𝗶𝗴𝗵𝘁𝘀:\n{highlights_text}\n\n𝗥𝗶𝘀��𝘀:\n{risks_text}"
             
             notes = st.text_area("Notes", value=consolidated_notes, height=300)
             
