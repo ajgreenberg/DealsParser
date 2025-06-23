@@ -812,6 +812,9 @@ def create_airtable_record(
         ownership_sale = ""
         mortgage_lender = ""
     
+    # Try different attachment field names that are common in Airtable
+    attachment_field_names = ["Files", "Documents", "Attachments", "File Attachments"]
+    
     fields = {
         "Deal Type": [deal_type],
         "Status": status,
@@ -820,7 +823,6 @@ def create_airtable_record(
         "Contact Info": contact_info,
         "Sponsor": data.get("Sponsor"),
         "Broker": data.get("Broker"),
-        "Attachments": [{"url": u} for u in attachments],
         "Property Name": data.get("Property Name"),
         "Location": validated_location,
         "Physical Property": physical_property,
@@ -840,6 +842,16 @@ def create_airtable_record(
         "Size": data.get("Size"),
     }
     
+    # Add attachments with the first field name (Files)
+    if attachments:
+        fields["Files"] = [{"url": u} for u in attachments]
+    
+    # Debug: Show what attachments are being sent
+    if attachments:
+        st.info(f"Uploading {len(attachments)} attachments to Airtable")
+        for i, url in enumerate(attachments):
+            st.write(f"Attachment {i+1}: {url}")
+    
     resp = requests.post(
         f"https://api.airtable.com/v0/{AIRTABLE_BASE_ID}/{AIRTABLE_TABLE_NAME}",
         headers=headers,
@@ -847,6 +859,18 @@ def create_airtable_record(
     )
     if resp.status_code not in (200, 201):
         st.error(f"Airtable error: {resp.text}")
+        # If Files field failed, try Documents field
+        if "Files" in resp.text and "Unknown field name" in resp.text:
+            st.info("Trying 'Documents' field name instead...")
+            fields.pop("Files", None)
+            fields["Documents"] = [{"url": u} for u in attachments]
+            resp = requests.post(
+                f"https://api.airtable.com/v0/{AIRTABLE_BASE_ID}/{AIRTABLE_TABLE_NAME}",
+                headers=headers,
+                json={"fields": fields}
+            )
+            if resp.status_code not in (200, 201):
+                st.error(f"Airtable error with Documents field: {resp.text}")
     else:
         # Delete files from S3 after successful Airtable upload
         for attachment_url in attachments:
