@@ -975,12 +975,17 @@ elif st.session_state.current_page == 'dealflow':
     
     deal_type = st.radio("Select Deal Type", list(DEAL_TYPE_MAP.keys()), horizontal=True, label_visibility="visible")
     
-    # Address input field
+    st.markdown("---")
+    
+    # Address input field - moved to prominent position
+    st.markdown("### Property Information")
     manual_address = st.text_input(
-        "Property Address (Optional - for better property data)",
+        "Property Address (Optional)",
         placeholder="Enter the property address if not detected from documents",
         help="If the address isn't properly detected from your documents, enter it here to get enhanced property data from Smarty API."
     )
+    
+    st.markdown("---")
     
     uploaded_main = st.file_uploader("Upload Deal Memo", type=["pdf","doc","docx"], 
         label_visibility="visible")
