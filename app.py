@@ -869,7 +869,13 @@ def create_airtable_record(
         
         if resp.status_code not in (200, 201):
             st.error(f"Airtable error: {resp.text}")
+            # Debug: Show the exact response
+            st.write(f"Debug - Response status: {resp.status_code}")
+            st.write(f"Debug - Response headers: {dict(resp.headers)}")
+            st.write(f"Debug - Response body: {resp.text}")
         else:
+            # Debug: Show successful response
+            st.write(f"Debug - Success! Response: {resp.json()}")
             # Delete files from S3 after successful Airtable upload
             for attachment_url in attachments:
                 delete_from_s3(attachment_url)
