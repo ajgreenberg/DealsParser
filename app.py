@@ -419,7 +419,18 @@ s3 = boto3.client(
 def upload_to_s3(file_data, filename) -> str:
     key = f"deal-uploads/{datetime.now().strftime('%Y%m%d-%H%M%S')}-{filename}"
     s3.upload_fileobj(file_data, S3_BUCKET, key)
-    return f"https://{S3_BUCKET}.s3.{S3_REGION}.amazonaws.com/{key}"
+    
+    # Generate a pre-signed URL that's valid for 1 hour
+    try:
+        presigned_url = s3.generate_presigned_url(
+            'get_object',
+            Params={'Bucket': S3_BUCKET, 'Key': key},
+            ExpiresIn=3600  # 1 hour
+        )
+        return presigned_url
+    except Exception as e:
+        # Fallback to regular URL if pre-signed fails
+        return f"https://{S3_BUCKET}.s3.{S3_REGION}.amazonaws.com/{key}"
 
 def delete_from_s3(s3_url: str):
     """Delete a file from S3 given its URL."""
@@ -1278,7 +1289,6 @@ elif st.session_state.current_page == 'dealflow':
                     DEAL_TYPE_MAP[deal_type],
                     st.session_state["contacts"]
                 )
-            st.success("✅ Deal saved to Airtable!")
 
 elif st.session_state.current_page == 'contact':
     st.markdown("<h1>Contact AI</h1>", unsafe_allow_html=True)
