@@ -850,6 +850,22 @@ def create_airtable_record(
             "Size": data.get("Size"),
         }
         
+        # Debug: Print the fields being sent
+        st.write(f"Debug - Fields being sent to Airtable: {fields}")
+        
+        # Try different attachment formats
+        if attachments:
+            # Extract filename from URL
+            attachment_url = attachments[0]
+            filename = attachment_url.split('/')[-1]
+            # URL decode the filename
+            filename = urllib.parse.unquote(filename)
+            
+            # Try with filename
+            attachment_with_filename = [{"url": attachment_url, "filename": filename}]
+            fields["Attachments"] = attachment_with_filename
+            st.write(f"Debug - Attachment with filename: {attachment_with_filename}")
+        
         resp = requests.post(
             f"https://api.airtable.com/v0/{AIRTABLE_BASE_ID}/{AIRTABLE_TABLE_NAME}",
             headers=headers,
@@ -859,6 +875,9 @@ def create_airtable_record(
         if resp.status_code not in (200, 201):
             st.error(f"Airtable error: {resp.text}")
         else:
+            # Debug: Show the response
+            response_data = resp.json()
+            st.write(f"Debug - Airtable response: {response_data}")
             # Delete files from S3 after successful Airtable upload
             for attachment_url in attachments:
                 delete_from_s3(attachment_url)
