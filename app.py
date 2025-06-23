@@ -419,17 +419,6 @@ s3 = boto3.client(
 def upload_to_s3(file_data, filename) -> str:
     key = f"deal-uploads/{datetime.now().strftime('%Y%m%d-%H%M%S')}-{filename}"
     s3.upload_fileobj(file_data, S3_BUCKET, key)
-    
-    # Make the file publicly accessible
-    try:
-        s3.put_object_acl(
-            Bucket=S3_BUCKET,
-            Key=key,
-            ACL='public-read'
-        )
-    except Exception as e:
-        st.warning(f"Could not make file public: {e}")
-    
     return f"https://{S3_BUCKET}.s3.{S3_REGION}.amazonaws.com/{key}"
 
 def delete_from_s3(s3_url: str):
@@ -840,7 +829,6 @@ def create_airtable_record(
             "Contact Info": contact_info,
             "Sponsor": data.get("Sponsor"),
             "Broker": data.get("Broker"),
-            "Attachments": [{"url": u} for u in attachments],
             "Property Name": data.get("Property Name"),
             "Location": validated_location,
             "Map": maps_link,
@@ -860,6 +848,36 @@ def create_airtable_record(
             "Hold Period": data.get("Hold Period"),
             "Size": data.get("Size"),
         }
+        
+        # Add attachments with enhanced format
+        if attachments:
+            attachment_list = []
+            for url in attachments:
+                # Extract filename from URL
+                filename = url.split('/')[-1]
+                filename = urllib.parse.unquote(filename)
+                
+                # Determine file type
+                if filename.lower().endswith('.pdf'):
+                    file_type = "application/pdf"
+                elif filename.lower().endswith(('.jpg', '.jpeg')):
+                    file_type = "image/jpeg"
+                elif filename.lower().endswith('.png'):
+                    file_type = "image/png"
+                elif filename.lower().endswith(('.doc', '.docx')):
+                    file_type = "application/msword"
+                elif filename.lower().endswith(('.xls', '.xlsx')):
+                    file_type = "application/vnd.ms-excel"
+                else:
+                    file_type = "application/octet-stream"
+                
+                attachment_list.append({
+                    "url": url,
+                    "filename": filename,
+                    "type": file_type
+                })
+            
+            fields["Attachments"] = attachment_list
         
         resp = requests.post(
             f"https://api.airtable.com/v0/{AIRTABLE_BASE_ID}/{AIRTABLE_TABLE_NAME}",
