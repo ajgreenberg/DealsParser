@@ -419,6 +419,14 @@ s3 = boto3.client(
 def upload_to_s3(file_data, filename) -> str:
     key = f"deal-uploads/{datetime.now().strftime('%Y%m%d-%H%M%S')}-{filename}"
     s3.upload_fileobj(file_data, S3_BUCKET, key)
+    
+    # Make the file publicly accessible
+    s3.put_object_acl(
+        Bucket=S3_BUCKET,
+        Key=key,
+        ACL='public-read'
+    )
+    
     return f"https://{S3_BUCKET}.s3.{S3_REGION}.amazonaws.com/{key}"
 
 def delete_from_s3(s3_url: str):
