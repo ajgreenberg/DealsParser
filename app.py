@@ -861,6 +861,19 @@ def create_airtable_record(
                     # Try without attachments if S3 file is not accessible
                     fields.pop("Attachments", None)
                     st.warning("Removed attachments due to accessibility issues")
+                else:
+                    st.success("S3 file is accessible")
+                    # Try a different attachment format that might work better
+                    filename = attachment_url.split('/')[-1]
+                    filename = urllib.parse.unquote(filename)
+                    
+                    # Try with type field
+                    fields["Attachments"] = [{
+                        "url": attachment_url,
+                        "filename": filename,
+                        "type": "application/pdf"
+                    }]
+                    st.write(f"Trying enhanced attachment format: {fields['Attachments']}")
             except Exception as e:
                 st.error(f"Error testing S3 file: {e}")
                 # Try without attachments if there's an error
