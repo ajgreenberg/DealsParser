@@ -963,17 +963,18 @@ if st.session_state.current_page == 'home':
 elif st.session_state.current_page == 'dealflow':
     st.markdown("<h1>DealFlow AI</h1>", unsafe_allow_html=True)
     
-    # Test address field - placed at the very beginning
-    test_address = st.text_input("TEST ADDRESS FIELD")
-    st.write(f"Address entered: {test_address}")
+    # Simple address field - completely new implementation
+    st.markdown("### Property Address")
+    manual_address = st.text_input(
+        label="Enter property address (optional)",
+        placeholder="e.g., 123 Main St, City, State 12345",
+        help="Enter the property address if not detected from documents"
+    )
     
     if st.button("← Back", key="back_dealflow", type="secondary"):
         st.session_state.current_page = 'home'
         st.rerun()
     st.markdown("<br>", unsafe_allow_html=True)
-    
-    # Test message to verify page loading
-    st.write("Page loaded successfully")
     
     # Map display values to Airtable values
     DEAL_TYPE_MAP = {
@@ -982,13 +983,6 @@ elif st.session_state.current_page == 'dealflow':
     }
     
     deal_type = st.radio("Select Deal Type", list(DEAL_TYPE_MAP.keys()), horizontal=True, label_visibility="visible")
-    
-    st.write("After deal type selection")
-    
-    # Simple address input field
-    manual_address = st.text_input("Property Address (Optional)")
-    
-    st.write("After address field")
     
     uploaded_main = st.file_uploader("Upload Deal Memo", type=["pdf","doc","docx"], 
         label_visibility="visible")
