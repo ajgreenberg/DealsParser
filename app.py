@@ -851,12 +851,44 @@ def create_airtable_record(
         st.info(f"Uploading {len(attachments)} attachments to Airtable")
         for i, url in enumerate(attachments):
             st.write(f"Attachment {i+1}: {url}")
+            # Test if the S3 file is accessible
+            try:
+                test_resp = requests.head(url, timeout=5)
+                if test_resp.status_code == 200:
+                    st.success(f"✅ Attachment {i+1} is accessible")
+                else:
+                    st.warning(f"⚠️ Attachment {i+1} returned status {test_resp.status_code}")
+            except Exception as e:
+                st.error(f"❌ Attachment {i+1} is not accessible: {str(e)}")
+    
+    # Debug: Show the exact payload being sent
+    st.write("**Debug: Airtable payload:**")
+    st.json(fields)
     
     resp = requests.post(
         f"https://api.airtable.com/v0/{AIRTABLE_BASE_ID}/{AIRTABLE_TABLE_NAME}",
         headers=headers,
         json={"fields": fields}
     )
+    
+    # Debug: Show the response
+    st.write(f"**Debug: Airtable response status:** {resp.status_code}")
+    st.write(f"**Debug: Airtable response:**")
+    st.json(resp.json())
+    
+    # If the main request failed, try a minimal test with just attachments
+    if resp.status_code not in (200, 201) and attachments:
+        st.info("Testing with minimal record (just attachments)...")
+        test_fields = {"Attachments": [{"url": attachments[0]}]}
+        test_resp = requests.post(
+            f"https://api.airtable.com/v0/{AIRTABLE_BASE_ID}/{AIRTABLE_TABLE_NAME}",
+            headers=headers,
+            json={"fields": test_fields}
+        )
+        st.write(f"**Debug: Minimal test response status:** {test_resp.status_code}")
+        st.write(f"**Debug: Minimal test response:**")
+        st.json(test_resp.json())
+    
     if resp.status_code not in (200, 201):
         st.error(f"Airtable error: {resp.text}")
         # Try different attachment field names
