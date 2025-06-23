@@ -961,15 +961,7 @@ if st.session_state.current_page == 'home':
     """)
 
 elif st.session_state.current_page == 'dealflow':
-    st.markdown("<h1>DEALFLOW AI</h1>", unsafe_allow_html=True)
-    
-    # Simple address field - completely new implementation
-    st.markdown("### Property Address")
-    manual_address = st.text_input(
-        label="Enter property address (optional)",
-        placeholder="e.g., 123 Main St, City, State 12345",
-        help="Enter the property address if not detected from documents"
-    )
+    st.markdown("<h1>DealFlow AI</h1>", unsafe_allow_html=True)
     
     if st.button("← Back", key="back_dealflow", type="secondary"):
         st.session_state.current_page = 'home'
@@ -983,6 +975,13 @@ elif st.session_state.current_page == 'dealflow':
     }
     
     deal_type = st.radio("Select Deal Type", list(DEAL_TYPE_MAP.keys()), horizontal=True, label_visibility="visible")
+    
+    # Address field below deal type selection
+    manual_address = st.text_input(
+        label="Property Address (Optional)",
+        placeholder="Enter property address if not detected from documents",
+        help="Enter the property address if not detected from documents"
+    )
     
     uploaded_main = st.file_uploader("Upload Deal Memo", type=["pdf","doc","docx"], 
         label_visibility="visible")
