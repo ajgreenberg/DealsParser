@@ -15,7 +15,7 @@ import urllib.parse
 
 # --- Custom CSS for Apple-like styling ---
 st.set_page_config(
-    page_title="DEALFlow AI",
+    page_title="DealFlow AI",
     page_icon="🤖",
     layout="centered"
 )
@@ -962,6 +962,11 @@ if st.session_state.current_page == 'home':
 
 elif st.session_state.current_page == 'dealflow':
     st.markdown("<h1>DealFlow AI</h1>", unsafe_allow_html=True)
+    
+    # Test address field - placed at the very beginning
+    test_address = st.text_input("TEST ADDRESS FIELD")
+    st.write(f"Address entered: {test_address}")
+    
     if st.button("← Back", key="back_dealflow", type="secondary"):
         st.session_state.current_page = 'home'
         st.rerun()
