@@ -823,7 +823,7 @@ def create_airtable_record(
         "Attachments": [{"url": u} for u in attachments],
         "Property Name": data.get("Property Name"),
         "Location": validated_location,
-        "Maps Link": maps_link,
+        "Map": maps_link,
         "Physical Property": physical_property,
         "Parcel & Tax": parcel_tax,
         "Ownership & Sale": ownership_sale,
@@ -1254,10 +1254,6 @@ elif st.session_state.current_page == 'dealflow':
                     st.session_state["contacts"]
                 )
             st.success("✅ Deal saved to Airtable!")
-
-    # Add a button to list fields (for debugging)
-    if st.button("🔍 List Airtable Fields", key="list_fields"):
-        list_airtable_fields()
 
 elif st.session_state.current_page == 'contact':
     st.markdown("<h1>Contact AI</h1>", unsafe_allow_html=True)
