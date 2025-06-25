@@ -1408,7 +1408,7 @@ elif st.session_state.current_page == 'property':
                     # Display Physical Property
                     st.markdown("**𝗣𝗵𝘆𝘀𝗶𝗰𝗮𝗹 𝗣𝗿𝗼𝗽𝗲𝗿𝘁𝘆:**")
                     if physical_property:
-                        st.write(physical_property)
+                        st.markdown(physical_property)
                     else:
                         st.info("No physical property information available.")
                     
@@ -1417,7 +1417,7 @@ elif st.session_state.current_page == 'property':
                     # Display Ownership & Sale
                     st.markdown("**𝗢𝘄𝗻𝗲𝗿𝘀𝗵𝗶𝗽 & 𝗦𝗮𝗹𝗲:**")
                     if ownership_sale:
-                        st.write(ownership_sale)
+                        st.markdown(ownership_sale)
                     else:
                         st.info("No ownership information available.")
                     
@@ -1426,7 +1426,7 @@ elif st.session_state.current_page == 'property':
                     # Display Parcel & Tax
                     st.markdown("**𝗣𝗮𝗿𝗰𝗲𝗹 & 𝗧𝗮𝘅:**")
                     if parcel_tax:
-                        st.write(parcel_tax)
+                        st.markdown(parcel_tax)
                     else:
                         st.info("No tax information available.")
                     
@@ -1435,7 +1435,7 @@ elif st.session_state.current_page == 'property':
                     # Display Mortgage & Lender
                     st.markdown("**𝗠𝗼𝗿𝘁𝗴𝗮𝗴𝗲 & 𝗟𝗲𝗻𝗱𝗲𝗿:**")
                     if mortgage_lender:
-                        st.write(mortgage_lender)
+                        st.markdown(mortgage_lender)
                     else:
                         st.info("No mortgage information available.")
                     
