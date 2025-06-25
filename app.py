@@ -689,12 +689,6 @@ def format_parcel_tax_info(result):
     """Format parcel and tax information from Smarty API response."""
     attrs = result.get('attributes', {})
     
-    # Debug: Print all available fields to see what zoning data is available
-    st.write("Debug - Available Smarty API fields:")
-    for key, value in attrs.items():
-        if 'zoning' in key.lower() or 'land' in key.lower() or 'use' in key.lower():
-            st.write(f"  {key}: {value}")
-    
     def format_currency(value):
         try:
             if not value:
@@ -1403,43 +1397,19 @@ elif st.session_state.current_page == 'property':
                     
                     st.markdown("---")
                     
-                    # Physical Property Information
-                    st.markdown("### Physical Property Information")
-                    physical_info = format_physical_property(result)
-                    if physical_info:
-                        st.text_area("Physical Property Details", value=physical_info, height=150)
-                    else:
-                        st.info("No physical property information available.")
+                    # Format all property information using the same functions as DealFlow AI
+                    physical_property = format_physical_property(result)
+                    parcel_tax = format_parcel_tax_info(result)
+                    ownership_sale = format_ownership_sale_info(result)
+                    mortgage_lender = format_mortgage_lender_info(result)
                     
-                    st.markdown("---")
+                    # Create consolidated Public Records field with same formatting
+                    combined_public_records = f"𝗣𝗵𝘆𝘀𝗶𝗰𝗮𝗹 𝗣𝗿𝗼𝗽𝗲𝗿𝘁𝘆: \n{physical_property}\n\n𝗢𝘄𝗻𝗲𝗿𝘀𝗵𝗶𝗽 & 𝗦𝗮𝗹𝗲: \n{ownership_sale}\n\n𝗣𝗮𝗿𝗰𝗲𝗹 & 𝗧𝗮𝘅: \n{parcel_tax}\n\n𝗠𝗼𝗿𝘁𝗴𝗮𝗴𝗲 & 𝗟𝗲𝗻𝗱𝗲𝗿: \n{mortgage_lender}"
                     
-                    # Parcel & Tax Information
-                    st.markdown("### Parcel & Tax Information")
-                    tax_info = format_parcel_tax_info(result)
-                    if tax_info:
-                        st.text_area("Tax Details", value=tax_info, height=200)
-                    else:
-                        st.info("No tax information available.")
+                    # Display consolidated information
+                    st.markdown("### Property Information")
+                    st.text_area("Public Records", value=combined_public_records, height=600)
                     
-                    st.markdown("---")
-                    
-                    # Ownership & Sale Information
-                    st.markdown("### Ownership & Sale Information")
-                    ownership_info = format_ownership_sale_info(result)
-                    if ownership_info:
-                        st.text_area("Ownership Details", value=ownership_info, height=150)
-                    else:
-                        st.info("No ownership information available.")
-                    
-                    st.markdown("---")
-                    
-                    # Mortgage & Lender Information
-                    st.markdown("### Mortgage & Lender Information")
-                    mortgage_info = format_mortgage_lender_info(result)
-                    if mortgage_info:
-                        st.text_area("Mortgage Details", value=mortgage_info, height=150)
-                    else:
-                        st.info("No mortgage information available.")
                 else:
                     st.error("Could not validate this address. Please check the format and try again.")
         else:
