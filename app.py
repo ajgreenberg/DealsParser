@@ -677,8 +677,7 @@ def format_physical_property(result):
     
     fields = {
         "Acres": format_number(attrs.get('acres')),
-        "Building Sqft": format_number(attrs.get('building_sqft'), 0),
-        "Number of Buildings": attrs.get('number_of_buildings', 'N/A'),
+        "Building Sqft": format_number(attrs.get('building_sqft')),
         "Stories Number": attrs.get('stories_number', 'N/A'),
         "Year Built": attrs.get('year_built', 'N/A')
     }
