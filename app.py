@@ -1402,42 +1402,12 @@ elif st.session_state.current_page == 'property':
                     ownership_sale = format_ownership_sale_info(result)
                     mortgage_lender = format_mortgage_lender_info(result)
                     
+                    # Create consolidated Public Records field with same formatting
+                    combined_public_records = f"𝗣𝗵𝘆𝘀𝗶𝗰𝗮𝗹 𝗣𝗿𝗼𝗽𝗲𝗿𝘁𝘆: \n{physical_property}\n\n𝗢𝘄𝗻𝗲𝗿𝘀𝗵𝗶𝗽 & 𝗦𝗮𝗹𝗲: \n{ownership_sale}\n\n𝗣𝗮𝗿𝗰𝗲𝗹 & 𝗧𝗮𝘅: \n{parcel_tax}\n\n𝗠𝗼𝗿𝘁𝗴𝗮𝗴𝗲 & 𝗟𝗲𝗻𝗱𝗲𝗿: \n{mortgage_lender}"
+                    
                     # Display consolidated information
                     st.markdown("### Property Information")
-                    
-                    # Display Physical Property
-                    st.markdown("**𝗣𝗵𝘆𝘀𝗶𝗰𝗮𝗹 𝗣𝗿𝗼𝗽𝗲𝗿𝘁𝘆:**")
-                    if physical_property:
-                        st.markdown(physical_property)
-                    else:
-                        st.info("No physical property information available.")
-                    
-                    st.markdown("---")
-                    
-                    # Display Ownership & Sale
-                    st.markdown("**𝗢𝘄𝗻𝗲𝗿𝘀𝗵𝗶𝗽 & 𝗦𝗮𝗹𝗲:**")
-                    if ownership_sale:
-                        st.markdown(ownership_sale)
-                    else:
-                        st.info("No ownership information available.")
-                    
-                    st.markdown("---")
-                    
-                    # Display Parcel & Tax
-                    st.markdown("**𝗣𝗮𝗿𝗰𝗲𝗹 & 𝗧𝗮𝘅:**")
-                    if parcel_tax:
-                        st.markdown(parcel_tax)
-                    else:
-                        st.info("No tax information available.")
-                    
-                    st.markdown("---")
-                    
-                    # Display Mortgage & Lender
-                    st.markdown("**𝗠𝗼𝗿𝘁𝗴𝗮𝗴𝗲 & 𝗟𝗲𝗻𝗱𝗲𝗿:**")
-                    if mortgage_lender:
-                        st.markdown(mortgage_lender)
-                    else:
-                        st.info("No mortgage information available.")
+                    st.text_area("Public Records", value=combined_public_records, height=1200)
                     
                 else:
                     st.error("Could not validate this address. Please check the format and try again.")
