@@ -689,6 +689,12 @@ def format_parcel_tax_info(result):
     """Format parcel and tax information from Smarty API response."""
     attrs = result.get('attributes', {})
     
+    # Debug: Print all available fields to see what zoning data is available
+    st.write("Debug - Available Smarty API fields:")
+    for key, value in attrs.items():
+        if 'zoning' in key.lower() or 'land' in key.lower() or 'use' in key.lower():
+            st.write(f"  {key}: {value}")
+    
     def format_currency(value):
         try:
             if not value:
