@@ -708,7 +708,9 @@ def format_parcel_tax_info(result):
         "Tax Billed Amount": format_currency(attrs.get('tax_billed_amount')),
         "Tax Assess Year": attrs.get('tax_assess_year', 'N/A'),
         "Tax Fiscal Year": attrs.get('tax_fiscal_year', 'N/A'),
-        "Tax Jurisdiction": attrs.get('tax_jurisdiction', 'N/A')
+        "Tax Jurisdiction": attrs.get('tax_jurisdiction', 'N/A'),
+        "Zoning": attrs.get('zoning', 'N/A'),
+        "Land Use": attrs.get('land_use_standard', 'N/A')
     }
     
     return "\n".join(f"• {k}: {v}" for k, v in fields.items() if v != "N/A")
