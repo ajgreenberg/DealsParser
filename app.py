@@ -771,10 +771,20 @@ def format_mortgage_lender_info(result):
         except:
             return str(date_str)
     
+    def format_percentage(value):
+        try:
+            if not value:
+                return "N/A"
+            return f"{float(value):.2f}%"
+        except:
+            return str(value) if value else "N/A"
+    
     fields = {
         "Mortgage Amount": format_currency(attrs.get('mortgage_amount')),
         "Mortgage Recording Date": format_date(attrs.get('mortgage_recording_date')),
         "Mortgage Type": attrs.get('mortgage_type', 'N/A'),
+        "Mortgage Interest Type": attrs.get('mortgage_interest_type', 'N/A'),
+        "Interest Rate": format_percentage(attrs.get('interest_rate')),
         "Lender Name": attrs.get('lender_name', 'N/A'),
         "Lender Last Name": attrs.get('lender_last_name', 'N/A'),
         "Lender Code 2": attrs.get('lender_code_2', 'N/A'),
