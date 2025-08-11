@@ -1070,14 +1070,10 @@ if 'current_page' not in st.session_state:
     st.session_state.current_page = 'home'
 
 # Initialize session state variables for Contact AI
-if 'show_form' not in st.session_state:
-    st.session_state.show_form = False
-if 'show_bulk_form' not in st.session_state:
-    st.session_state.show_bulk_form = False
-if 'contact_data' not in st.session_state:
-    st.session_state.contact_data = None
-if 'bulk_contacts' not in st.session_state:
-    st.session_state.bulk_contacts = None
+if 'show_contacts_form' not in st.session_state:
+    st.session_state.show_contacts_form = False
+if 'contacts' not in st.session_state:
+    st.session_state.contacts = []
 if 'parsing_mode' not in st.session_state:
     st.session_state.parsing_mode = None
 if 's3_urls' not in st.session_state:
@@ -1388,127 +1384,119 @@ elif st.session_state.current_page == 'contact':
             st.rerun()
     with col2:
         if st.button("🔄 Parse New Contacts", key="reset_contact", type="secondary"):
-            st.session_state.show_form = False
-            st.session_state.show_bulk_form = False
-            st.session_state.contact_data = None
-            st.session_state.bulk_contacts = None
+            st.session_state.show_contacts_form = False
+            st.session_state.contacts = []
             st.session_state.parsing_mode = None
             st.session_state.s3_urls = []
             st.rerun()
     st.markdown("<br>", unsafe_allow_html=True)
     
-    # Create tabs for single vs bulk contact parsing
-    tab1, tab2 = st.tabs(["📝 Single Contact", "📚 Bulk Contacts"])
+    st.markdown("Paste contact information or upload a document, and I'll extract all contacts automatically.")
     
-    with tab1:
-        st.markdown("Paste a signature block or contact information below, and I'll extract the key details.")
-        
-        contact_text = st.text_area(
-            "Contact Information",
-            height=150,
-            placeholder="Paste signature block or contact information here...",
-            label_visibility="visible",
-            key="single_contact_text"
-        )
-        
-        contact_files = st.file_uploader(
-            "Attachments (Optional)",
-            type=["pdf","doc","docx","jpg","png"],
-            accept_multiple_files=True,
-            label_visibility="visible",
-            key="single_contact_files"
-        )
-        
-        parse_clicked = st.button("🔍 Parse Contact", key="parse_single")
-        
-        if parse_clicked and contact_text.strip():
-            contact_data = parse_contact_info(contact_text)
-            st.session_state.contact_data = contact_data
-            st.session_state.show_form = True
-            st.session_state.parsing_mode = "single"
+    contact_text = st.text_area(
+        "Contact Information",
+        height=200,
+        placeholder="Paste signature blocks, multiple contacts, or any contact information here...",
+        label_visibility="visible"
+    )
+    
+    contact_files = st.file_uploader(
+        "Document with Contacts (Optional)",
+        type=["pdf","doc","docx","txt","jpg","png"],
+        accept_multiple_files=False,
+        label_visibility="visible"
+    )
+    
+    parse_clicked = st.button("🔍 Parse Contacts", use_container_width=True)
+    
+    if parse_clicked:
+        if contact_text.strip() or contact_files:
+            # Extract text from file if uploaded
+            file_text = ""
+            if contact_files:
+                file = contact_files[0]
+                if file.name.lower().endswith('.pdf'):
+                    file_text = extract_text_from_pdf(file)
+                elif file.name.lower().endswith('.docx'):
+                    file_text = extract_text_from_docx(file)
+                elif file.name.lower().endswith('.doc'):
+                    file_text = extract_text_from_doc(file)
+                elif file.name.lower().endswith('.txt'):
+                    file_text = file.read().decode('utf-8')
             
-            # Upload any attachments to S3
-            s3_urls = []
-            for f in contact_files:
-                s3_urls.append(upload_to_s3(f, f.name))
-            st.session_state.s3_urls = s3_urls
-        elif parse_clicked:
-            st.error("Please enter some contact information to parse.")
-    
-    with tab2:
-        st.markdown("Paste multiple contacts or upload a document with multiple contact information, and I'll extract all contacts at once.")
-        
-        bulk_contact_text = st.text_area(
-            "Multiple Contacts Information",
-            height=200,
-            placeholder="Paste multiple contacts separated by sections, paragraphs, or other delimiters...",
-            label_visibility="visible",
-            key="bulk_contact_text"
-        )
-        
-        bulk_contact_files = st.file_uploader(
-            "Document with Multiple Contacts (Optional)",
-            type=["pdf","doc","docx","txt"],
-            accept_multiple_files=False,
-            label_visibility="visible",
-            key="bulk_contact_files"
-        )
-        
-        parse_bulk_clicked = st.button("🔍 Parse Multiple Contacts", key="parse_bulk")
-        
-        if parse_bulk_clicked:
-            if bulk_contact_text.strip() or bulk_contact_files:
-                # Extract text from file if uploaded
-                file_text = ""
-                if bulk_contact_files:
-                    file = bulk_contact_files[0]
-                    if file.name.lower().endswith('.pdf'):
-                        file_text = extract_text_from_pdf(file)
-                    elif file.name.lower().endswith('.docx'):
-                        file_text = extract_text_from_docx(file)
-                    elif file.name.lower().endswith('.doc'):
-                        file_text = extract_text_from_doc(file)
-                    elif file.name.lower().endswith('.txt'):
-                        file_text = file.read().decode('utf-8')
-                
-                # Combine file text with pasted text
-                combined_text = (bulk_contact_text + "\n\n" + file_text).strip()
-                
-                if combined_text:
-                    with st.spinner("Parsing multiple contacts..."):
-                        try:
-                            contacts_data = parse_multiple_contacts(combined_text)
-                            if contacts_data and len(contacts_data) > 0:
-                                st.session_state.bulk_contacts = contacts_data
-                                st.session_state.show_bulk_form = True
-                                st.session_state.parsing_mode = "bulk"
-                                st.success(f"✅ Found {len(contacts_data)} contact(s)!")
-                            else:
-                                st.error("No contacts could be parsed from the provided text.")
-                        except Exception as e:
-                            st.error(f"Error parsing contacts: {str(e)}")
-                else:
-                    st.error("Please provide contact information to parse.")
+            # Combine file text with pasted text
+            combined_text = (contact_text + "\n\n" + file_text).strip()
+            
+            if combined_text:
+                with st.spinner("Parsing contacts..."):
+                    try:
+                        # Try to parse as multiple contacts first
+                        contacts_data = parse_multiple_contacts(combined_text)
+                        
+                        if contacts_data and len(contacts_data) > 1:
+                            # Multiple contacts found
+                            st.session_state.contacts = contacts_data
+                            st.session_state.show_contacts_form = True
+                            st.session_state.parsing_mode = "multiple"
+                            st.success(f"✅ Found {len(contacts_data)} contacts!")
+                        elif contacts_data and len(contacts_data) == 1:
+                            # Single contact found
+                            st.session_state.contacts = contacts_data
+                            st.session_state.show_contacts_form = True
+                            st.session_state.parsing_mode = "single"
+                            st.success("✅ Found 1 contact!")
+                        else:
+                            st.error("No contacts could be parsed from the provided text.")
+                    except Exception as e:
+                        st.error(f"Error parsing contacts: {str(e)}")
             else:
-                st.error("Please enter contact information or upload a document to parse.")
+                st.error("Please provide contact information to parse.")
+        else:
+            st.error("Please enter contact information or upload a document to parse.")
     
-    # Show form if we have parsed data
-    if st.session_state.get('show_form', False):
-        st.markdown("### Review Parsed Information")
-        with st.form("contact_form"):
-            contact_data = st.session_state.contact_data
-            name = st.text_input("Name", value=contact_data.get("Name", ""))
-            email = st.text_input("Email", value=contact_data.get("Email", ""))
-            phone = st.text_input("Phone", value=contact_data.get("Phone", ""))
-            address = st.text_input("Address", value=contact_data.get("Address", ""))
-            website = st.text_input("Website", value=contact_data.get("Website", ""))
-            organization = st.text_input("Organization", value=contact_data.get("Organization", ""))
-            notes = st.text_area("Notes", value=contact_data.get("Notes", ""), height=100)
+    # Show unified form for all parsed contacts
+    if st.session_state.get('show_contacts_form', False):
+        contacts = st.session_state.contacts
+        is_multiple = len(contacts) > 1
+        
+        if is_multiple:
+            st.markdown(f"### Review {len(contacts)} Contacts")
+            st.markdown("Edit any fields and remove contacts you don't want to save.")
+        else:
+            st.markdown("### Review Contact")
+        
+        # Create editable form for each contact
+        with st.form("contacts_form"):
+            updated_contacts = []
             
-            submitted = st.form_submit_button("Save Contact")
-            
-            if submitted:
-                updated_data = {
+            for i, contact in enumerate(contacts):
+                st.markdown(f"--- **Contact {i+1}** ---")
+                
+                # Add remove button for multiple contacts
+                if is_multiple:
+                    col1, col2 = st.columns([4, 1])
+                    with col1:
+                        st.markdown(f"**{contact.get('Name', 'Unnamed')}**")
+                    with col2:
+                        if st.button(f"🗑️ Remove", key=f"remove_{i}", type="secondary"):
+                            # Remove this contact from the list
+                            contacts.pop(i)
+                            st.session_state.contacts = contacts
+                            if len(contacts) == 0:
+                                st.session_state.show_contacts_form = False
+                            st.rerun()
+                
+                # Editable fields
+                name = st.text_input("Name", value=contact.get("Name", ""), key=f"name_{i}")
+                email = st.text_input("Email", value=contact.get("Email", ""), key=f"email_{i}")
+                phone = st.text_input("Phone", value=contact.get("Phone", ""), key=f"phone_{i}")
+                address = st.text_input("Address", value=contact.get("Address", ""), key=f"addr_{i}")
+                website = st.text_input("Website", value=contact.get("Website", ""), key=f"website_{i}")
+                organization = st.text_input("Organization", value=contact.get("Organization", ""), key=f"org_{i}")
+                notes = st.text_area("Notes", value=contact.get("Notes", ""), height=80, key=f"notes_{i}")
+                
+                # Store updated contact data
+                updated_contact = {
                     "Name": name,
                     "Email": email,
                     "Phone": phone,
@@ -1517,68 +1505,63 @@ elif st.session_state.current_page == 'contact':
                     "Organization": organization,
                     "Notes": notes
                 }
+                updated_contacts.append(updated_contact)
                 
-                success = create_contact_record(updated_data, st.session_state.get('s3_urls', []))
+                st.markdown("---")
+            
+            # Update session state with edited contacts
+            st.session_state.contacts = updated_contacts
+            
+            # Submit button
+            if len(updated_contacts) > 0:
+                # Validate that contacts have at least a name
+                valid_contacts = [c for c in updated_contacts if c.get('Name', '').strip()]
+                invalid_count = len(updated_contacts) - len(valid_contacts)
                 
-                if success:
-                    # Delete S3 files after successful save
-                    for url in st.session_state.get('s3_urls', []):
-                        delete_from_s3(url)
-                    st.success("✅ Contact saved to Airtable!")
-                    # Clear the form
-                    st.session_state.show_form = False
-                    st.session_state.contact_data = None
-                    st.session_state.s3_urls = []
-                else:
-                    st.error("Failed to save contact to Airtable. Please try again.")
-    
-    # Show bulk form if we have parsed multiple contacts
-    if st.session_state.get('show_bulk_form', False):
-        st.markdown("### Review Multiple Contacts")
-        st.markdown(f"**Found {len(st.session_state.bulk_contacts)} contact(s)**")
-        
-        # Show summary of all contacts
-        for i, contact in enumerate(st.session_state.bulk_contacts):
-            with st.expander(f"Contact {i+1}: {contact.get('Name', 'Unnamed')}", expanded=True):
-                st.write(f"**Email:** {contact.get('Email', 'N/A')}")
-                st.write(f"**Phone:** {contact.get('Phone', 'N/A')}")
-                st.write(f"**Organization:** {contact.get('Organization', 'N/A')}")
-                st.write(f"**Address:** {contact.get('Address', 'N/A')}")
-                st.write(f"**Website:** {contact.get('Website', 'N/A')}")
-                st.write(f"**Notes:** {contact.get('Notes', 'N/A')}")
-        
-        with st.form("bulk_contact_form"):
-            st.markdown("**Review the contacts above, then click the button below to save all contacts to Airtable.**")
-            
-            # Validate that contacts have at least a name
-            valid_contacts = [c for c in st.session_state.bulk_contacts if c.get('Name', '').strip()]
-            invalid_count = len(st.session_state.bulk_contacts) - len(valid_contacts)
-            
-            if invalid_count > 0:
-                st.warning(f"⚠️ {invalid_count} contact(s) are missing names and will be skipped.")
-            
-            if len(valid_contacts) == 0:
-                st.error("❌ No valid contacts to save. All contacts must have names.")
-                st.stop()
-            
-            submitted_bulk = st.form_submit_button(f"💾 Save {len(valid_contacts)} Valid Contact(s) to Airtable")
-            
-            if submitted_bulk:
-                with st.spinner("Saving contacts to Airtable..."):
-                    # Create empty list for attachments (bulk contacts typically don't have individual attachments)
-                    result = create_multiple_contact_records(valid_contacts, [])
-                    
-                    if result["success"] > 0:
-                        st.success(f"✅ Successfully saved {result['success']} contact(s) to Airtable!")
-                        if result["failure"] > 0:
-                            st.warning(f"⚠️ {result['failure']} contact(s) failed to save.")
-                        
-                        # Clear the bulk form
-                        st.session_state.show_bulk_form = False
-                        st.session_state.bulk_contacts = None
-                        st.session_state.parsing_mode = None
-                    else:
-                        st.error("❌ Failed to save any contacts to Airtable. Please try again.")
+                if invalid_count > 0:
+                    st.warning(f"⚠️ {invalid_count} contact(s) are missing names and will be skipped.")
+                
+                if len(valid_contacts) == 0:
+                    st.error("❌ No valid contacts to save. All contacts must have names.")
+                    st.stop()
+                
+                submit_text = f"💾 Save {len(valid_contacts)} Contact(s) to Airtable"
+                if is_multiple:
+                    submit_text = f"💾 Save {len(valid_contacts)} Valid Contact(s) to Airtable"
+                
+                submitted = st.form_submit_button(submit_text)
+                
+                if submitted:
+                    with st.spinner("Saving contacts to Airtable..."):
+                        if len(valid_contacts) == 1:
+                            # Single contact - use single contact function
+                            success = create_contact_record(valid_contacts[0], st.session_state.get('s3_urls', []))
+                            if success:
+                                st.success("✅ Contact saved to Airtable!")
+                                # Clear the form
+                                st.session_state.show_contacts_form = False
+                                st.session_state.contacts = []
+                                st.session_state.parsing_mode = None
+                                st.session_state.s3_urls = []
+                            else:
+                                st.error("Failed to save contact to Airtable. Please try again.")
+                        else:
+                            # Multiple contacts - use bulk function
+                            result = create_multiple_contact_records(valid_contacts, [])
+                            
+                            if result["success"] > 0:
+                                st.success(f"✅ Successfully saved {result['success']} contact(s) to Airtable!")
+                                if result["failure"] > 0:
+                                    st.warning(f"⚠️ {result['failure']} contact(s) failed to save.")
+                                
+                                # Clear the form
+                                st.session_state.show_contacts_form = False
+                                st.session_state.contacts = []
+                                st.session_state.parsing_mode = None
+                            else:
+                                st.error("❌ Failed to save any contacts to Airtable. Please try again.")
+            else:
+                st.info("No contacts to save.")
 
 elif st.session_state.current_page == 'property':
     st.markdown("<h1>Property Info</h1>", unsafe_allow_html=True)
