@@ -1462,29 +1462,29 @@ elif st.session_state.current_page == 'contact':
         if is_multiple:
             st.markdown(f"### Review {len(contacts)} Contacts")
             st.markdown("Edit any fields and remove contacts you don't want to save.")
+            
+            # Handle contact removal outside the form
+            for i, contact in enumerate(contacts):
+                col1, col2 = st.columns([4, 1])
+                with col1:
+                    st.markdown(f"**Contact {i+1}: {contact.get('Name', 'Unnamed')}**")
+                with col2:
+                    if st.button(f"🗑️ Remove", key=f"remove_{i}", type="secondary"):
+                        # Remove this contact from the list
+                        contacts.pop(i)
+                        st.session_state.contacts = contacts
+                        if len(contacts) == 0:
+                            st.session_state.show_contacts_form = False
+                        st.rerun()
         else:
             st.markdown("### Review Contact")
         
-        # Create editable form for each contact
+        # Create editable form for contacts
         with st.form("contacts_form"):
             updated_contacts = []
             
             for i, contact in enumerate(contacts):
                 st.markdown(f"--- **Contact {i+1}** ---")
-                
-                # Add remove button for multiple contacts
-                if is_multiple:
-                    col1, col2 = st.columns([4, 1])
-                    with col1:
-                        st.markdown(f"**{contact.get('Name', 'Unnamed')}**")
-                    with col2:
-                        if st.button(f"🗑️ Remove", key=f"remove_{i}", type="secondary"):
-                            # Remove this contact from the list
-                            contacts.pop(i)
-                            st.session_state.contacts = contacts
-                            if len(contacts) == 0:
-                                st.session_state.show_contacts_form = False
-                            st.rerun()
                 
                 # Editable fields
                 name = st.text_input("Name", value=contact.get("Name", ""), key=f"name_{i}")
@@ -1509,9 +1509,6 @@ elif st.session_state.current_page == 'contact':
                 
                 st.markdown("---")
             
-            # Update session state with edited contacts
-            st.session_state.contacts = updated_contacts
-            
             # Submit button
             if len(updated_contacts) > 0:
                 # Validate that contacts have at least a name
@@ -1532,6 +1529,9 @@ elif st.session_state.current_page == 'contact':
                 submitted = st.form_submit_button(submit_text)
                 
                 if submitted:
+                    # Update session state with edited contacts
+                    st.session_state.contacts = updated_contacts
+                    
                     with st.spinner("Saving contacts to Airtable..."):
                         if len(valid_contacts) == 1:
                             # Single contact - use single contact function
