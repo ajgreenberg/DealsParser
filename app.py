@@ -1416,7 +1416,7 @@ elif st.session_state.current_page == 'contact':
         has_file = False
         file_text = ""
         
-                # Safely check if we have a valid file
+        # Safely check if we have a valid file
         try:
             if contact_files and len(contact_files) > 0:
                 has_file = True
@@ -1440,6 +1440,10 @@ elif st.session_state.current_page == 'contact':
             # contact_files is None or doesn't support len()
             has_file = False
             file_text = ""
+        
+        # Debug information
+        st.write(f"Debug: has_text={has_text}, has_file={has_file}, file_text_length={len(file_text) if file_text else 0}")
+        st.write(f"Debug: contact_files type={type(contact_files)}, value={contact_files}")
         
         if has_text or has_file:
             # Combine file text with pasted text
