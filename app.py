@@ -1416,25 +1416,30 @@ elif st.session_state.current_page == 'contact':
         has_file = False
         file_text = ""
         
-        # Safely check if we have a valid file
-        if contact_files is not None and len(contact_files) > 0:
-            has_file = True
-            try:
-                file = contact_files[0]
-                if file.name.lower().endswith('.pdf'):
-                    file_text = extract_text_from_pdf(file)
-                elif file.name.lower().endswith('.docx'):
-                    file_text = extract_text_from_docx(file)
-                elif file.name.lower().endswith('.doc'):
-                    file_text = extract_text_from_doc(file)
-                elif file.name.lower().endswith('.txt'):
-                    file_text = file.read().decode('utf-8')
-                else:
-                    st.error(f"Unsupported file type: {file.name}")
+                # Safely check if we have a valid file
+        try:
+            if contact_files and len(contact_files) > 0:
+                has_file = True
+                try:
+                    file = contact_files[0]
+                    if file.name.lower().endswith('.pdf'):
+                        file_text = extract_text_from_pdf(file)
+                    elif file.name.lower().endswith('.docx'):
+                        file_text = extract_text_from_docx(file)
+                    elif file.name.lower().endswith('.doc'):
+                        file_text = extract_text_from_doc(file)
+                    elif file.name.lower().endswith('.txt'):
+                        file_text = file.read().decode('utf-8')
+                    else:
+                        st.error(f"Unsupported file type: {file.name}")
+                        st.stop()
+                except Exception as e:
+                    st.error(f"Error reading file: {str(e)}")
                     st.stop()
-            except Exception as e:
-                st.error(f"Error reading file: {str(e)}")
-                st.stop()
+        except (TypeError, AttributeError):
+            # contact_files is None or doesn't support len()
+            has_file = False
+            file_text = ""
         
         if has_text or has_file:
             # Combine file text with pasted text
