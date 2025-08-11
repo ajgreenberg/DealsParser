@@ -1450,11 +1450,6 @@ elif st.session_state.current_page == 'contact':
             # contact_files is None or doesn't support expected operations
             has_file = False
             file_text = ""
-            st.write(f"Debug: File check error: {e}")
-        
-        # Debug information
-        st.write(f"Debug: has_text={has_text}, has_file={has_file}, file_text_length={len(file_text) if file_text else 0}")
-        st.write(f"Debug: contact_files type={type(contact_files)}, value={contact_files}")
         
         if has_text or has_file:
             # Combine file text with pasted text
