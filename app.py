@@ -1418,28 +1418,39 @@ elif st.session_state.current_page == 'contact':
         
         # Safely check if we have a valid file
         try:
-            if contact_files and len(contact_files) > 0:
-                has_file = True
-                try:
-                    file = contact_files[0]
-                    if file.name.lower().endswith('.pdf'):
-                        file_text = extract_text_from_pdf(file)
-                    elif file.name.lower().endswith('.docx'):
-                        file_text = extract_text_from_docx(file)
-                    elif file.name.lower().endswith('.doc'):
-                        file_text = extract_text_from_doc(file)
-                    elif file.name.lower().endswith('.txt'):
-                        file_text = file.read().decode('utf-8')
-                    else:
-                        st.error(f"Unsupported file type: {file.name}")
+            # Handle both single file and list of files
+            if contact_files:
+                if hasattr(contact_files, '__iter__') and not hasattr(contact_files, 'name'):
+                    # It's a list/iterable of files
+                    if len(contact_files) > 0:
+                        file = contact_files[0]
+                        has_file = True
+                else:
+                    # It's a single file object
+                    file = contact_files
+                    has_file = True
+                
+                if has_file:
+                    try:
+                        if file.name.lower().endswith('.pdf'):
+                            file_text = extract_text_from_pdf(file)
+                        elif file.name.lower().endswith('.docx'):
+                            file_text = extract_text_from_docx(file)
+                        elif file.name.lower().endswith('.doc'):
+                            file_text = extract_text_from_doc(file)
+                        elif file.name.lower().endswith('.txt'):
+                            file_text = file.read().decode('utf-8')
+                        else:
+                            st.error(f"Unsupported file type: {file.name}")
+                            st.stop()
+                    except Exception as e:
+                        st.error(f"Error reading file: {str(e)}")
                         st.stop()
-                except Exception as e:
-                    st.error(f"Error reading file: {str(e)}")
-                    st.stop()
-        except (TypeError, AttributeError):
-            # contact_files is None or doesn't support len()
+        except (TypeError, AttributeError) as e:
+            # contact_files is None or doesn't support expected operations
             has_file = False
             file_text = ""
+            st.write(f"Debug: File check error: {e}")
         
         # Debug information
         st.write(f"Debug: has_text={has_text}, has_file={has_file}, file_text_length={len(file_text) if file_text else 0}")
