@@ -1402,30 +1402,47 @@ elif st.session_state.current_page == 'contact':
     
     contact_files = st.file_uploader(
         "Document with Contacts (Optional)",
-        type=["pdf","doc","docx","txt","jpg","png"],
+        type=["pdf","doc","docx","txt"],
         accept_multiple_files=False,
-        label_visibility="visible"
+        label_visibility="visible",
+        help="Supported formats: PDF, DOC, DOCX, TXT. Images (JPG/PNG) are not supported for text extraction."
     )
     
     parse_clicked = st.button("🔍 Parse Contacts", use_container_width=True)
     
     if parse_clicked:
-        if contact_text.strip() or contact_files:
+        # Check if we have either text input or a file uploaded
+        has_text = contact_text.strip() != ""
+        has_file = contact_files is not None and len(contact_files) > 0
+        
+        if has_text or has_file:
             # Extract text from file if uploaded
             file_text = ""
-            if contact_files:
-                file = contact_files[0]
-                if file.name.lower().endswith('.pdf'):
-                    file_text = extract_text_from_pdf(file)
-                elif file.name.lower().endswith('.docx'):
-                    file_text = extract_text_from_docx(file)
-                elif file.name.lower().endswith('.doc'):
-                    file_text = extract_text_from_doc(file)
-                elif file.name.lower().endswith('.txt'):
-                    file_text = file.read().decode('utf-8')
+            if has_file:
+                try:
+                    file = contact_files[0]
+                    if file.name.lower().endswith('.pdf'):
+                        file_text = extract_text_from_pdf(file)
+                    elif file.name.lower().endswith('.docx'):
+                        file_text = extract_text_from_docx(file)
+                    elif file.name.lower().endswith('.doc'):
+                        file_text = extract_text_from_doc(file)
+                    elif file.name.lower().endswith('.txt'):
+                        file_text = file.read().decode('utf-8')
+                    else:
+                        st.error(f"Unsupported file type: {file.name}")
+                        st.stop()
+                except Exception as e:
+                    st.error(f"Error reading file: {str(e)}")
+                    st.stop()
             
             # Combine file text with pasted text
-            combined_text = (contact_text + "\n\n" + file_text).strip()
+            if has_text and has_file:
+                combined_text = (contact_text + "\n\n" + file_text).strip()
+            elif has_text:
+                combined_text = contact_text.strip()
+            else:
+                combined_text = file_text.strip()
             
             if combined_text:
                 with st.spinner("Parsing contacts..."):
