@@ -908,6 +908,7 @@ def parse_contact_info(text: str) -> Dict:
         "- Phone (primary phone number)\n"
         "- Address (full address)\n"
         "- Website\n"
+        "- Organization (company or organization name)\n"
         "- Notes (any additional relevant information)\n\n"
         f"Text:\n{text}"
     )
@@ -952,6 +953,7 @@ def create_contact_record(
             "Phone": contact_data.get("Phone", ""),
             "Address": contact_data.get("Address", ""),
             "Website": website,
+            "Org": contact_data.get("Organization", ""),
             "Notes": contact_data.get("Notes", ""),
             "Attachments": [{"url": u} for u in attachments] if attachments else []
         }
@@ -1349,6 +1351,7 @@ elif st.session_state.current_page == 'contact':
             phone = st.text_input("Phone", value=contact_data.get("Phone", ""))
             address = st.text_input("Address", value=contact_data.get("Address", ""))
             website = st.text_input("Website", value=contact_data.get("Website", ""))
+            organization = st.text_input("Organization", value=contact_data.get("Organization", ""))
             notes = st.text_area("Notes", value=contact_data.get("Notes", ""), height=100)
             
             submitted = st.form_submit_button("Save Contact")
@@ -1360,6 +1363,7 @@ elif st.session_state.current_page == 'contact':
                     "Phone": phone,
                     "Address": address,
                     "Website": website,
+                    "Organization": organization,
                     "Notes": notes
                 }
                 
