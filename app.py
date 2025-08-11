@@ -1413,7 +1413,9 @@ elif st.session_state.current_page == 'contact':
     if parse_clicked:
         # Check if we have either text input or a file uploaded
         has_text = contact_text.strip() != ""
-        has_file = contact_files is not None and len(contact_files) > 0
+        has_file = False
+        if contact_files is not None:
+            has_file = len(contact_files) > 0
         
         if has_text or has_file:
             # Extract text from file if uploaded
