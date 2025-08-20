@@ -445,73 +445,8 @@ def delete_from_s3(s3_url: str):
         st.warning(f"Failed to delete file from S3: {str(e)}")
 
 def extract_text_from_pdf(f) -> str:
-    """Extract text from PDF, including OCR for image-based PDFs."""
-    try:
-        # First try to extract text directly
-        doc = fitz.open(stream=f.read(), filetype="pdf")
-        text = "\n".join(page.get_text() for page in doc)
-        
-        # If we got very little text, the PDF might be image-based
-        if len(text.strip()) < 50:  # Less than 50 characters suggests image-based PDF
-            st.info("📷 Detected image-based PDF. Attempting OCR...")
-            
-            # Reset file pointer for OCR processing
-            f.seek(0)
-            
-            # Try to use OCR if available
-            try:
-                # Try to import OCR libraries
-                try:
-                    import pytesseract
-                    from PIL import Image
-                    import io
-                    ocr_available = True
-                except ImportError:
-                    ocr_available = False
-                
-                if ocr_available:
-                    # Convert PDF pages to images and OCR them
-                    doc = fitz.open(stream=f.read(), filetype="pdf")
-                    ocr_text = []
-                    
-                    for page_num in range(len(doc)):
-                        page = doc[page_num]
-                        # Render page to image
-                        pix = page.get_pixmap(matrix=fitz.Matrix(2, 2))  # Higher resolution for better OCR
-                        img_data = pix.tobytes("png")
-                        img = Image.open(io.BytesIO(img_data))
-                        
-                        # Perform OCR
-                        page_text = pytesseract.image_to_string(img)
-                        if page_text.strip():
-                            ocr_text.append(page_text.strip())
-                    
-                    if ocr_text:
-                        text = "\n\n".join(ocr_text)
-                        st.success("✅ OCR completed successfully!")
-                    else:
-                        st.warning("⚠️ OCR didn't extract any text. The images might be too low quality or contain handwritten text.")
-                else:
-                    # OCR not available - provide helpful alternatives
-                    st.warning("📷 Image-based PDF detected, but OCR is not available on this platform.")
-                    st.info("💡 **Alternative Solutions:**")
-                    st.info("1. **Take photos with your phone** - Use your phone's camera app to scan business cards, then paste the text")
-                    st.info("2. **Type manually** - Enter the business card information in the text box above")
-                    st.info("3. **Use text-based PDFs** - Convert your business cards to a text document first")
-                    st.info("4. **Use online OCR tools** - Upload images to free OCR services like Google Drive or OneNote")
-                    
-                    # Try to extract any available text anyway
-                    st.info("🔄 Attempting to extract any available text...")
-                    
-            except Exception as e:
-                st.error(f"❌ OCR failed: {str(e)}")
-                st.info("💡 Try typing the business card information manually in the text box above.")
-        
-        return text
-        
-    except Exception as e:
-        st.error(f"Error extracting text from PDF: {str(e)}")
-        return ""
+    doc = fitz.open(stream=f.read(), filetype="pdf")
+    return "\n".join(page.get_text() for page in doc)
 
 def extract_text_from_docx(f) -> str:
     doc = docx.Document(f)
@@ -1525,22 +1460,7 @@ elif st.session_state.current_page == 'contact':
             else:
                 combined_text = file_text.strip()
             
-            # Debug: Show what we're working with
-            st.write(f"Debug: has_text={has_text}, has_file={has_file}, file_text_length={len(file_text) if file_text else 0}")
-            if file_text:
-                st.write(f"Debug: First 200 chars of file text: '{file_text[:200]}...'")
-            
             if combined_text:
-                # Check if we have enough text to parse
-                if len(combined_text.strip()) < 20:
-                    st.warning("⚠️ Very little text extracted from the PDF.")
-                    st.info("💡 **For business cards and image-based PDFs:**")
-                    st.info("1. **Use your phone's camera app** - Take photos of business cards, then paste the text")
-                    st.info("2. **Type manually** - Enter the business card information in the text box above")
-                    st.info("3. **Convert to text** - Use online tools to convert images to text first")
-                    st.info("4. **Use text-based PDFs** - Create a document with the contact information")
-                    st.stop()
-                
                 with st.spinner("Parsing contacts..."):
                     try:
                         # Try to parse as multiple contacts first
