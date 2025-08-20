@@ -1414,48 +1414,30 @@ elif st.session_state.current_page == 'contact':
         # Check if we have either text input or a file uploaded
         has_text = contact_text.strip() != ""
         has_file = False
-        file_text = ""
-        
-        # Safely check if we have a valid file
-        try:
-            # Handle both single file and list of files
-            if contact_files:
-                if hasattr(contact_files, '__iter__') and not hasattr(contact_files, 'name'):
-                    # It's a list/iterable of files
-                    if len(contact_files) > 0:
-                        file = contact_files[0]
-                        has_file = True
-                else:
-                    # It's a single file object
-                    file = contact_files
-                    has_file = True
-                
-                if has_file:
-                    try:
-                        if file.name.lower().endswith('.pdf'):
-                            file_text = extract_text_from_pdf(file)
-                        elif file.name.lower().endswith('.docx'):
-                            file_text = extract_text_from_docx(file)
-                        elif file.name.lower().endswith('.doc'):
-                            file_text = extract_text_from_doc(file)
-                        elif file.name.lower().endswith('.txt'):
-                            file_text = file.read().decode('utf-8')
-                        else:
-                            st.error(f"Unsupported file type: {file.name}")
-                            st.stop()
-                    except Exception as e:
-                        st.error(f"Error reading file: {str(e)}")
-                        st.stop()
-        except (TypeError, AttributeError) as e:
-            # contact_files is None or doesn't support expected operations
-            has_file = False
-            file_text = ""
-        
-        # Temporary debug to see what's happening
-        st.write(f"Debug: has_text={has_text}, has_file={has_file}, file_text_length={len(file_text) if file_text else 0}")
-        st.write(f"Debug: extracted text: '{file_text[:100]}...'")
+        if contact_files is not None:
+            has_file = len(contact_files) > 0
         
         if has_text or has_file:
+            # Extract text from file if uploaded
+            file_text = ""
+            if has_file:
+                try:
+                    file = contact_files[0]
+                    if file.name.lower().endswith('.pdf'):
+                        file_text = extract_text_from_pdf(file)
+                    elif file.name.lower().endswith('.docx'):
+                        file_text = extract_text_from_docx(file)
+                    elif file.name.lower().endswith('.doc'):
+                        file_text = extract_text_from_doc(file)
+                    elif file.name.lower().endswith('.txt'):
+                        file_text = file.read().decode('utf-8')
+                    else:
+                        st.error(f"Unsupported file type: {file.name}")
+                        st.stop()
+                except Exception as e:
+                    st.error(f"Error reading file: {str(e)}")
+                    st.stop()
+            
             # Combine file text with pasted text
             if has_text and has_file:
                 combined_text = (contact_text + "\n\n" + file_text).strip()
