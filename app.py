@@ -445,8 +445,59 @@ def delete_from_s3(s3_url: str):
         st.warning(f"Failed to delete file from S3: {str(e)}")
 
 def extract_text_from_pdf(f) -> str:
-    doc = fitz.open(stream=f.read(), filetype="pdf")
-    return "\n".join(page.get_text() for page in doc)
+    """Extract text from PDF, including OCR for image-based PDFs."""
+    try:
+        # First try to extract text directly
+        doc = fitz.open(stream=f.read(), filetype="pdf")
+        text = "\n".join(page.get_text() for page in doc)
+        
+        # If we got very little text, the PDF might be image-based
+        if len(text.strip()) < 50:  # Less than 50 characters suggests image-based PDF
+            st.info("📷 Detected image-based PDF. Attempting OCR...")
+            
+            # Reset file pointer for OCR processing
+            f.seek(0)
+            
+            # Try to use OCR if available
+            try:
+                import pytesseract
+                from PIL import Image
+                import io
+                
+                # Convert PDF pages to images and OCR them
+                doc = fitz.open(stream=f.read(), filetype="pdf")
+                ocr_text = []
+                
+                for page_num in range(len(doc)):
+                    page = doc[page_num]
+                    # Render page to image
+                    pix = page.get_pixmap(matrix=fitz.Matrix(2, 2))  # Higher resolution for better OCR
+                    img_data = pix.tobytes("png")
+                    img = Image.open(io.BytesIO(img_data))
+                    
+                    # Perform OCR
+                    page_text = pytesseract.image_to_string(img)
+                    if page_text.strip():
+                        ocr_text.append(page_text.strip())
+                
+                if ocr_text:
+                    text = "\n\n".join(ocr_text)
+                    st.success("✅ OCR completed successfully!")
+                else:
+                    st.warning("⚠️ OCR didn't extract any text. The images might be too low quality or contain handwritten text.")
+                    
+            except ImportError:
+                st.error("❌ OCR not available. Install pytesseract and Pillow for image-based PDF support.")
+                st.info("💡 Tip: For business cards, try taking a photo with your phone's camera app and pasting the text instead.")
+                st.info("💡 Alternative: You can also manually type the business card information in the text box above.")
+            except Exception as e:
+                st.error(f"❌ OCR failed: {str(e)}")
+        
+        return text
+        
+    except Exception as e:
+        st.error(f"Error extracting text from PDF: {str(e)}")
+        return ""
 
 def extract_text_from_docx(f) -> str:
     doc = docx.Document(f)
@@ -1460,6 +1511,11 @@ elif st.session_state.current_page == 'contact':
             else:
                 combined_text = file_text.strip()
             
+            # Debug: Show what we're working with
+            st.write(f"Debug: has_text={has_text}, has_file={has_file}, file_text_length={len(file_text) if file_text else 0}")
+            if file_text:
+                st.write(f"Debug: First 200 chars of file text: '{file_text[:200]}...'")
+            
             if combined_text:
                 with st.spinner("Parsing contacts..."):
                     try:
@@ -1642,3 +1698,4 @@ elif st.session_state.current_page == 'property':
                     st.error("Could not validate this address. Please check the format and try again.")
         else:
             st.error("Please enter a property address.")
+            
