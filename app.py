@@ -1451,6 +1451,9 @@ elif st.session_state.current_page == 'contact':
             has_file = False
             file_text = ""
         
+        # Temporary debug to see what's happening
+        st.write(f"Debug: has_text={has_text}, has_file={has_file}, file_text_length={len(file_text) if file_text else 0}")
+        
         if has_text or has_file:
             # Combine file text with pasted text
             if has_text and has_file:
