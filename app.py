@@ -1453,6 +1453,7 @@ elif st.session_state.current_page == 'contact':
         
         # Temporary debug to see what's happening
         st.write(f"Debug: has_text={has_text}, has_file={has_file}, file_text_length={len(file_text) if file_text else 0}")
+        st.write(f"Debug: extracted text: '{file_text[:100]}...'")
         
         if has_text or has_file:
             # Combine file text with pasted text
