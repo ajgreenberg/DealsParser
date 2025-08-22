@@ -1154,11 +1154,6 @@ elif st.session_state.current_page == 'dealflow':
     if analyze_button:
         status_container = st.empty()
         try:
-            # Prepare combined text once at the beginning
-            combined = ""
-            if source_text or extra_notes.strip():
-                combined = (source_text + "\n\n" + extra_notes).strip()
-            
             for i in range(5):
                 # Update message first
                 status_container.markdown(
@@ -1181,6 +1176,11 @@ elif st.session_state.current_page == 'dealflow':
                         else:
                             uploaded_main.seek(0)
                             source_text = extract_text_from_doc(uploaded_main)
+                    
+                    # Prepare combined text after source_text is available
+                    combined = ""
+                    if source_text or extra_notes.strip():
+                        combined = (source_text + "\n\n" + extra_notes).strip()
                 
                 elif i == 1 and (source_text or extra_notes.strip()):
                     # Process text and generate summary
