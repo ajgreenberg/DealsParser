@@ -1165,8 +1165,11 @@ elif st.session_state.current_page == 'dealflow':
                 time.sleep(0.5)  # Half second delay between messages
                 
                 if i == 0:
-                    # Initial document processing
+                    # Initial document processing - extract text from ALL documents
                     source_text = ""
+                    supporting_text = ""
+                    
+                    # Extract text from main uploaded document
                     if uploaded_main:
                         ext = uploaded_main.name.lower().rsplit(".",1)[-1]
                         if ext == "pdf":
@@ -1177,16 +1180,59 @@ elif st.session_state.current_page == 'dealflow':
                             uploaded_main.seek(0)
                             source_text = extract_text_from_doc(uploaded_main)
                     
-                    # Prepare combined text after source_text is available
+                    # Extract text from all supporting documents
+                    if uploaded_files:
+                        supporting_texts = []
+                        for f in uploaded_files:
+                            try:
+                                f.seek(0)  # Reset file pointer
+                                ext = f.name.lower().rsplit(".",1)[-1]
+                                if ext == "pdf":
+                                    doc_text = extract_text_from_pdf(f)
+                                elif ext == "docx":
+                                    doc_text = extract_text_from_docx(f)
+                                elif ext in ["doc", "txt"]:
+                                    doc_text = extract_text_from_doc(f)
+                                else:
+                                    doc_text = f"Document: {f.name} (unsupported format)"
+                                
+                                if doc_text.strip():
+                                    supporting_texts.append(f"--- {f.name} ---\n{doc_text}")
+                            except Exception as e:
+                                supporting_texts.append(f"--- {f.name} ---\nError reading file: {str(e)}")
+                        
+                        if supporting_texts:
+                            supporting_text = "\n\n".join(supporting_texts)
+                    
+                    # Combine ALL information: main document + supporting documents + deal notes
                     combined = ""
-                    if source_text or extra_notes.strip():
-                        combined = (source_text + "\n\n" + extra_notes).strip()
+                    all_texts = []
+                    
+                    if source_text.strip():
+                        all_texts.append(f"--- Main Document ---\n{source_text}")
+                    if supporting_text.strip():
+                        all_texts.append(f"--- Supporting Documents ---\n{supporting_text}")
+                    if extra_notes.strip():
+                        all_texts.append(f"--- Deal Notes/Email Thread ---\n{extra_notes}")
+                    
+                    if all_texts:
+                        combined = "\n\n".join(all_texts)
+                        
+                        # Show what was processed
+                        st.info(f"📚 **Processing {len(all_texts)} information source(s):**")
+                        if source_text.strip():
+                            st.write(f"• Main Document ({len(source_text)} characters)")
+                        if supporting_text.strip():
+                            st.write(f"• Supporting Documents ({len(supporting_text)} characters)")
+                        if extra_notes.strip():
+                            st.write(f"• Deal Notes/Email Thread ({len(extra_notes)} characters)")
+                        st.write(f"**Total combined text: {len(combined)} characters**")
                 
-                elif i == 1 and (source_text or extra_notes.strip()):
+                elif i == 1 and combined.strip():
                     # Process text and generate summary
                     summary = gpt_extract_summary(combined, DEAL_TYPE_MAP[deal_type])
                 
-                elif i == 2:
+                elif i == 2 and combined.strip():
                     # Process notes and contact info
                     notes_summary = summarize_notes(extra_notes)
                     contact_info = extract_contact_info(combined)
