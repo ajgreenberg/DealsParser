@@ -911,7 +911,8 @@ def create_airtable_record(
     raw_notes: str,
     attachments: List[str],
     deal_type: str,
-    contact_info: str
+    contact_info: str,
+    location: str = ""
 ):
     # Always tag new deals as "Pursuing"
     status = "Pursuing"
@@ -922,8 +923,10 @@ def create_airtable_record(
             "Content-Type": "application/json"
         }
         
-        # Get location and validate address
-        location = data.get("Location", "")
+        # Use passed location or get from data as fallback
+        if not location:
+            location = data.get("Location", "")
+        
         if location and SMARTY_ENABLED:
             address_data = validate_address(location)
             if address_data:
@@ -953,6 +956,9 @@ def create_airtable_record(
             ownership_sale = ""
             mortgage_lender = ""
         
+        # Create hyperlinked Map field with address text
+        map_field = f'<a href="{maps_link}" target="_blank">{validated_location}</a>' if maps_link and validated_location else maps_link
+        
         fields = {
             "Type": [deal_type],
             "Status": status,
@@ -962,8 +968,7 @@ def create_airtable_record(
             "Sponsor": data.get("Sponsor"),
             "Broker": data.get("Broker"),
             "Property Name": data.get("Property Name"),
-            "Location": validated_location,
-            "Map": maps_link,
+            "Map": map_field,
             "Public Records": f"𝗣𝗵𝘆𝘀𝗶𝗰𝗮𝗹 𝗣𝗿𝗼𝗽𝗲𝗿𝘁𝘆: \n{physical_property}\n\n𝗢𝘄𝗻𝗲𝗿𝘀𝗵𝗶𝗽 & 𝗦𝗮𝗹𝗲: \n{ownership_sale}\n\n𝗣𝗮𝗿𝗰𝗲𝗹 & 𝗧𝗮𝘅: \n{parcel_tax}\n\n𝗠𝗼𝗿𝘁𝗴𝗮𝗴𝗲 & 𝗟𝗲𝗻𝗱𝗲𝗿: \n{mortgage_lender}",
             "Asset Class": data.get("Asset Class"),
             "Purchase Price": data.get("Purchase Price"),
@@ -1460,15 +1465,14 @@ elif st.session_state.current_page == 'dealflow':
             
             # Property Details
             property_name = st.text_input("Property Name", value=s.get("Property Name",""))
-            # Use validated address if available, otherwise use extracted location
+            # Store validated address for Map field (no UI input needed)
             if st.session_state.get("address_validated") == True:
                 # Use the validated address from Smarty
                 address_data = st.session_state.get("address_data", {})
-                default_location = address_data.get("formatted_address", s.get("Location",""))
+                location = address_data.get("formatted_address", s.get("Location",""))
             else:
                 # Use extracted location or manual address
-                default_location = manual_address.strip() if manual_address.strip() else s.get("Location","")
-            location = st.text_input("Location", value=default_location)
+                location = manual_address.strip() if manual_address.strip() else s.get("Location","")
             asset_class = st.text_input("Asset Class", value=s.get("Asset Class",""))
             size = st.text_input("Size (Sq Ft or Unit Count)", value=s.get("Square Footage or Unit Count",""))
             
@@ -1547,7 +1551,6 @@ elif st.session_state.current_page == 'dealflow':
             with st.spinner("Saving to Airtable"):
                 updated = {
                     "Property Name":       property_name,
-                    "Location":            location,
                     "Asset Class":         asset_class,
                     "Sponsor":             sponsor,
                     "Broker":              broker,
@@ -1566,7 +1569,8 @@ elif st.session_state.current_page == 'dealflow':
                     raw_notes,
                     st.session_state["attachments"],
                     DEAL_TYPE_MAP[deal_type],
-                    st.session_state["contacts"]
+                    st.session_state["contacts"],
+                    location
                 )
 
 elif st.session_state.current_page == 'contact':
