@@ -469,6 +469,32 @@ def summarize_notes(notes: str) -> str:
     )
     return res.choices[0].message.content.strip()
 
+def extract_address_fallback(text: str) -> str:
+    """Extract address using a more focused approach when main extraction fails."""
+    prompt = (
+        "Extract the complete property address from the following text. "
+        "Look for addresses that include street number, street name, city, state, and zip code. "
+        "Common formats include:\n"
+        "- '123 Main St, City, State 12345'\n"
+        "- '15031-15139 Marlboro Pike, Upper Marlboro, MD 20772'\n"
+        "- '456 Oak Avenue, Springfield, IL 62701'\n\n"
+        "Return ONLY the complete address, or 'NOT_FOUND' if no complete address is found.\n\n"
+        f"Text:\n{text[:2000]}"
+    )
+    
+    res = client.chat.completions.create(
+        model="gpt-3.5-turbo",
+        messages=[{"role": "user", "content": prompt}],
+        temperature=0.1
+    )
+    
+    result = res.choices[0].message.content.strip()
+    
+    if result and result != "NOT_FOUND" and len(result) > 10:
+        return result
+    
+    return ""
+
 def extract_contact_info(text: str) -> str:
     prompt = (
         "Extract the contact information (name, company, phone, and email) of any brokers, "
@@ -495,7 +521,7 @@ def gpt_extract_summary(text: str, deal_type: str) -> Dict:
         f"Text:\n{text[:4000]}\n\n"
         "Return JSON with:\n"
         "- Property Name\n"
-        "- Location\n"
+        "- Location (extract the COMPLETE property address including street number, street name, city, state, and zip code if available. Look for addresses in formats like '123 Main St, City, State 12345' or '15031-15139 Marlboro Pike, Upper Marlboro, MD 20772')\n"
         "- Asset Class\n"
         "- Sponsor\n"
         "- Broker\n"
@@ -522,8 +548,17 @@ def generate_maps_link(address: str) -> str:
     """Generate a Google Maps link from an address."""
     if not address:
         return ""
-    formatted_address = address.replace(' ', '+')
-    return f"https://www.google.com/maps/search/?api=1&query={formatted_address}"
+    
+    # Clean and format the address for better Google Maps results
+    import urllib.parse
+    
+    # Remove extra whitespace and normalize
+    cleaned_address = ' '.join(address.split())
+    
+    # URL encode the address properly
+    encoded_address = urllib.parse.quote(cleaned_address)
+    
+    return f"https://www.google.com/maps/search/?api=1&query={encoded_address}"
 
 def validate_address(address: str) -> Dict:
     """
@@ -534,13 +569,73 @@ def validate_address(address: str) -> Dict:
         return None
         
     try:
-        # Parse address components
-        address_parts = address.split(',')
-        street = address_parts[0].strip()
-        city = address_parts[1].strip() if len(address_parts) > 1 else ""
-        state_zip = address_parts[2].strip().split() if len(address_parts) > 2 else ["", ""]
-        state = state_zip[0] if state_zip else ""
-        zipcode = state_zip[1] if len(state_zip) > 1 else ""
+        # Enhanced address parsing to handle various formats
+        def parse_address(addr):
+            """Parse address into components, handling various formats."""
+            addr = addr.strip()
+            
+            # Handle range addresses like "15031-15139 Marlboro Pike"
+            if '-' in addr and any(char.isdigit() for char in addr.split('-')[0]):
+                # Extract the first number for the range
+                parts = addr.split('-', 1)
+                if len(parts) == 2:
+                    first_num = parts[0].strip()
+                    rest = parts[1].strip()
+                    # Use the first number as the street number
+                    street = f"{first_num} {rest}"
+                else:
+                    street = addr
+            else:
+                street = addr
+            
+            # Split by comma to get components
+            parts = [part.strip() for part in street.split(',')]
+            
+            if len(parts) >= 3:
+                street = parts[0]
+                city = parts[1]
+                state_zip = parts[2].split()
+                state = state_zip[0] if state_zip else ""
+                zipcode = state_zip[1] if len(state_zip) > 1 else ""
+            elif len(parts) == 2:
+                street = parts[0]
+                city_state_zip = parts[1].split()
+                if len(city_state_zip) >= 3:
+                    city = city_state_zip[0]
+                    state = city_state_zip[1]
+                    zipcode = city_state_zip[2]
+                else:
+                    city = parts[1]
+                    state = ""
+                    zipcode = ""
+            else:
+                # Try to parse single line address
+                words = street.split()
+                if len(words) >= 4:
+                    # Look for state abbreviation (2 letters) and zip (5 digits)
+                    for i, word in enumerate(words):
+                        if len(word) == 2 and word.isalpha() and i < len(words) - 1:
+                            if words[i + 1].isdigit() and len(words[i + 1]) == 5:
+                                street = ' '.join(words[:i])
+                                city = ' '.join(words[i-1:i]) if i > 0 else ""
+                                state = word
+                                zipcode = words[i + 1]
+                                break
+                    else:
+                        # Fallback - use first part as street
+                        street = words[0] if words else ""
+                        city = ' '.join(words[1:]) if len(words) > 1 else ""
+                        state = ""
+                        zipcode = ""
+                else:
+                    street = street
+                    city = ""
+                    state = ""
+                    zipcode = ""
+            
+            return street, city, state, zipcode
+        
+        street, city, state, zipcode = parse_address(address)
 
         # Construct API URL with proper encoding
         base_url = "https://us-enrichment.api.smarty.com/lookup/search/property/principal"
@@ -569,10 +664,24 @@ def validate_address(address: str) -> Dict:
                 "raw_data": result
             }
             return property_data
+        else:
+            # If Smarty doesn't find a match, return the original address for Google Maps
+            return {
+                "formatted_address": address,
+                "property_type": "",
+                "raw_data": None
+            }
             
     except requests.exceptions.RequestException as e:
         st.error("Smarty API Error")
         return None
+    except Exception as e:
+        # If parsing fails, return the original address
+        return {
+            "formatted_address": address,
+            "property_type": "",
+            "raw_data": None
+        }
     
     return None
 
@@ -1258,6 +1367,15 @@ elif st.session_state.current_page == 'dealflow':
 
                     # Try to validate address from extracted location
                     location = summary.get("Location", "")
+                    
+                    # If location is incomplete or missing, try fallback extraction
+                    if not location or len(location.split()) < 3:
+                        st.info("🔍 Trying enhanced address extraction...")
+                        fallback_address = extract_address_fallback(combined)
+                        if fallback_address:
+                            location = fallback_address
+                            st.success(f"✅ Found address: {location}")
+                    
                     if location:
                         address_data = validate_address(location)
                         if address_data:
