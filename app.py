@@ -962,6 +962,7 @@ def create_airtable_record(
             "Sponsor": data.get("Sponsor"),
             "Broker": data.get("Broker"),
             "Property Name": data.get("Property Name"),
+            "Location": validated_location,
             "Map": maps_link,
             "Public Records": f"𝗣𝗵𝘆𝘀𝗶𝗰𝗮𝗹 𝗣𝗿𝗼𝗽𝗲𝗿𝘁𝘆: \n{physical_property}\n\n𝗢𝘄𝗻𝗲𝗿𝘀𝗵𝗶𝗽 & 𝗦𝗮𝗹𝗲: \n{ownership_sale}\n\n𝗣𝗮𝗿𝗰𝗲𝗹 & 𝗧𝗮𝘅: \n{parcel_tax}\n\n𝗠𝗼𝗿𝘁𝗴𝗮𝗴𝗲 & 𝗟𝗲𝗻𝗱𝗲𝗿: \n{mortgage_lender}",
             "Asset Class": data.get("Asset Class"),
