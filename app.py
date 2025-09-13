@@ -503,7 +503,6 @@ def gpt_extract_summary(text: str, deal_type: str) -> Dict:
         "- Loan Amount\n"
         "- In-Place Cap Rate\n"
         "- Interest Rate\n"
-        "- Exit Strategy\n"
         "- Square Footage or Unit Count\n"
         "- Key Highlights (bullet points)\n"
         "- Risks or Red Flags (bullet points)\n"
@@ -862,7 +861,6 @@ def create_airtable_record(
             "Loan Amount": data.get("Loan Amount"),
             "In-Place Cap Rate": data.get("In-Place Cap Rate"),
             "Interest Rate": data.get("Interest Rate"),
-            "Exit Strategy": data.get("Exit Strategy"),
             "Size": data.get("Size"),
             "Unit Pricing": data.get("Unit Pricing"),
             "Status Detail": data.get("Status Detail"),
@@ -1365,7 +1363,6 @@ elif st.session_state.current_page == 'dealflow':
             loan_amount = st.text_input("Loan Amount", value=s.get("Loan Amount",""))
             in_cap_rate = st.text_input("In-Place Cap Rate", value=s.get("In-Place Cap Rate",""))
             interest_rate = st.text_input("Interest Rate", value=s.get("Interest Rate",""))
-            exit_strategy = st.text_input("Exit Strategy", value=s.get("Exit Strategy",""))
             
             # Unit Pricing Calculation
             def calculate_unit_pricing(purchase_price, loan_amount, size):
@@ -1397,7 +1394,7 @@ elif st.session_state.current_page == 'dealflow':
                     return "N/A"
             
             unit_pricing = calculate_unit_pricing(purchase_price, loan_amount, size)
-            st.text_input("Unit Pricing", value=unit_pricing, disabled=True, help="Automatically calculated as Purchase Price ÷ Square Footage (or Loan Amount ÷ Square Footage for loan basis)")
+            unit_pricing = st.text_input("Unit Pricing", value=unit_pricing, help="Automatically calculated as Purchase Price ÷ Square Footage (or Loan Amount ÷ Square Footage for loan basis). You can edit this value if needed.")
             
             # Status Detail
             status_detail = st.text_input("Status Detail", value="", placeholder="Enter additional status details...")
@@ -1408,9 +1405,10 @@ elif st.session_state.current_page == 'dealflow':
             summary_text = s.get("Summary", "")
             highlights_text = "\n".join(f"• {highlight}" for highlight in s.get("Key Highlights", []) if highlight.strip())
             risks_text = "\n".join(f"• {risk}" for risk in s.get("Risks or Red Flags", []) if risk.strip())
+            exit_strategy_text = s.get("Exit Strategy", "")
             
             # Create consolidated notes with proper formatting
-            consolidated_notes = f"𝗦𝘂𝗺𝗺𝗮𝗿𝘆:\n{summary_text}\n\n𝗞𝗲𝘆 𝗛𝗶𝗴𝗵𝗹𝗶𝗴𝗵𝘁𝘀:\n{highlights_text}\n\n𝗥𝗶𝘀𝗸𝘀:\n{risks_text}"
+            consolidated_notes = f"𝗦𝘂𝗺𝗺𝗮𝗿𝘆:\n{summary_text}\n\n𝗞𝗲𝘆 𝗛𝗶𝗴𝗵𝗹𝗶𝗴𝗵𝘁𝘀:\n{highlights_text}\n\n𝗥𝗶𝘀𝗸𝘀:\n{risks_text}\n\n𝗘𝘅𝗶𝘁 𝗦𝘁𝗿𝗮𝘁𝗲𝗴𝘆:\n{exit_strategy_text}"
             
             notes = st.text_area("Notes", value=consolidated_notes, height=300)
             
@@ -1439,7 +1437,6 @@ elif st.session_state.current_page == 'dealflow':
                     "Loan Amount":         loan_amount,
                     "In-Place Cap Rate":   in_cap_rate,
                     "Interest Rate":       interest_rate,
-                    "Exit Strategy":       exit_strategy,
                     "Size":                size,
                     "Unit Pricing":        unit_pricing,
                     "Status Detail":       status_detail,
