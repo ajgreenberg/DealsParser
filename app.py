@@ -956,8 +956,9 @@ def create_airtable_record(
             ownership_sale = ""
             mortgage_lender = ""
         
-        # Create hyperlinked Map field with address text
-        map_field = f'<a href="{maps_link}" target="_blank">{validated_location}</a>' if maps_link and validated_location else maps_link
+        # Create Map field with proper URL format for Airtable
+        # Airtable URL fields should contain just the URL, and Airtable will display it as a clickable link
+        map_field = maps_link if maps_link else ""
         
         fields = {
             "Type": [deal_type],
@@ -968,7 +969,8 @@ def create_airtable_record(
             "Sponsor": data.get("Sponsor"),
             "Broker": data.get("Broker"),
             "Property Name": data.get("Property Name"),
-            "Map": map_field,
+            "Address": validated_location,  # Display the readable address
+            "Map": map_field,  # URL field for Google Maps link
             "Public Records": f"𝗣𝗵𝘆𝘀𝗶𝗰𝗮𝗹 𝗣𝗿𝗼𝗽𝗲𝗿𝘁𝘆: \n{physical_property}\n\n𝗢𝘄𝗻𝗲𝗿𝘀𝗵𝗶𝗽 & 𝗦𝗮𝗹𝗲: \n{ownership_sale}\n\n𝗣𝗮𝗿𝗰𝗲𝗹 & 𝗧𝗮𝘅: \n{parcel_tax}\n\n𝗠𝗼𝗿𝘁𝗴𝗮𝗴𝗲 & 𝗟𝗲𝗻𝗱𝗲𝗿: \n{mortgage_lender}",
             "Asset Class": data.get("Asset Class"),
             "Purchase Price": data.get("Purchase Price"),
