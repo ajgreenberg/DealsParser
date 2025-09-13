@@ -481,7 +481,13 @@ def extract_contact_info(text: str) -> str:
         messages=[{"role": "user", "content": prompt}],
         temperature=0.3
     )
-    return res.choices[0].message.content.strip()
+    result = res.choices[0].message.content.strip()
+    
+    # Return blank if no meaningful contact info found
+    if not result or "no contact information" in result.lower() or "no brokers" in result.lower():
+        return ""
+    
+    return result
 
 def gpt_extract_summary(text: str, deal_type: str) -> Dict:
     prompt = (
@@ -496,12 +502,8 @@ def gpt_extract_summary(text: str, deal_type: str) -> Dict:
         "- Purchase Price\n"
         "- Loan Amount\n"
         "- In-Place Cap Rate\n"
-        "- Stabilized Cap Rate\n"
         "- Interest Rate\n"
-        "- Term\n"
         "- Exit Strategy\n"
-        "- Projected IRR\n"
-        "- Hold Period\n"
         "- Square Footage or Unit Count\n"
         "- Key Highlights (bullet points)\n"
         "- Risks or Red Flags (bullet points)\n"
@@ -844,7 +846,7 @@ def create_airtable_record(
             mortgage_lender = ""
         
         fields = {
-            "Deal Type": [deal_type],
+            "Type": [deal_type],
             "Status": status,
             "Notes": data.get("Notes"),
             "Raw Notes": raw_notes,
@@ -859,13 +861,11 @@ def create_airtable_record(
             "Purchase Price": data.get("Purchase Price"),
             "Loan Amount": data.get("Loan Amount"),
             "In-Place Cap Rate": data.get("In-Place Cap Rate"),
-            "Stabilized Cap Rate": data.get("Stabilized Cap Rate"),
             "Interest Rate": data.get("Interest Rate"),
-            "Term": data.get("Term"),
             "Exit Strategy": data.get("Exit Strategy"),
-            "Projected IRR": data.get("Projected IRR"),
-            "Hold Period": data.get("Hold Period"),
             "Size": data.get("Size"),
+            "Unit Pricing": data.get("Unit Pricing"),
+            "Status Detail": data.get("Status Detail"),
         }
         
         # Add attachments with enhanced format
@@ -1364,12 +1364,43 @@ elif st.session_state.current_page == 'dealflow':
             purchase_price = st.text_input("Purchase Price", value=s.get("Purchase Price",""))
             loan_amount = st.text_input("Loan Amount", value=s.get("Loan Amount",""))
             in_cap_rate = st.text_input("In-Place Cap Rate", value=s.get("In-Place Cap Rate",""))
-            stab_cap_rate = st.text_input("Stabilized Cap Rate", value=s.get("Stabilized Cap Rate",""))
             interest_rate = st.text_input("Interest Rate", value=s.get("Interest Rate",""))
-            term = st.text_input("Term", value=s.get("Term",""))
-            proj_irr = st.text_input("Projected IRR", value=s.get("Projected IRR",""))
-            hold_period = st.text_input("Hold Period", value=s.get("Hold Period",""))
             exit_strategy = st.text_input("Exit Strategy", value=s.get("Exit Strategy",""))
+            
+            # Unit Pricing Calculation
+            def calculate_unit_pricing(purchase_price, loan_amount, size):
+                """Calculate unit pricing based on purchase price or loan amount and size."""
+                try:
+                    # Extract numeric values from strings
+                    def extract_number(text):
+                        if not text:
+                            return None
+                        # Remove common currency symbols and commas
+                        cleaned = re.sub(r'[$,]', '', str(text))
+                        # Extract first number found
+                        numbers = re.findall(r'[\d,]+\.?\d*', cleaned)
+                        if numbers:
+                            return float(numbers[0].replace(',', ''))
+                        return None
+                    
+                    price_num = extract_number(purchase_price)
+                    loan_num = extract_number(loan_amount)
+                    size_num = extract_number(size)
+                    
+                    if size_num and size_num > 0:
+                        if price_num and price_num > 0:
+                            return f"${price_num/size_num:.2f} PSF"
+                        elif loan_num and loan_num > 0:
+                            return f"${loan_num/size_num:.2f} PSF Loan Basis"
+                    return "N/A"
+                except:
+                    return "N/A"
+            
+            unit_pricing = calculate_unit_pricing(purchase_price, loan_amount, size)
+            st.text_input("Unit Pricing", value=unit_pricing, disabled=True, help="Automatically calculated as Purchase Price ÷ Square Footage (or Loan Amount ÷ Square Footage for loan basis)")
+            
+            # Status Detail
+            status_detail = st.text_input("Status Detail", value="", placeholder="Enter additional status details...")
 
             st.markdown("---")
             
@@ -1407,13 +1438,11 @@ elif st.session_state.current_page == 'dealflow':
                     "Purchase Price":      purchase_price,
                     "Loan Amount":         loan_amount,
                     "In-Place Cap Rate":   in_cap_rate,
-                    "Stabilized Cap Rate": stab_cap_rate,
                     "Interest Rate":       interest_rate,
-                    "Term":                term,
                     "Exit Strategy":       exit_strategy,
-                    "Projected IRR":       proj_irr,
-                    "Hold Period":         hold_period,
                     "Size":                size,
+                    "Unit Pricing":        unit_pricing,
+                    "Status Detail":       status_detail,
                     "Public Records":      public_records,
                     "Notes":               notes
                 }
