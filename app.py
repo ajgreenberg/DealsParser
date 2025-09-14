@@ -975,6 +975,10 @@ def create_airtable_record(
             "Status Detail": data.get("Status Detail"),
         }
         
+        # Add Owners field if user is selected
+        if st.session_state.get('selected_user'):
+            fields["Owners"] = [st.session_state['selected_user']]
+        
         # Add attachments with enhanced format
         if attachments:
             attachment_list = []
@@ -1109,6 +1113,10 @@ def create_contact_record(
             "Attachments": [{"url": u} for u in attachments] if attachments else []
         }
         
+        # Add Owners field if user is selected
+        if st.session_state.get('selected_user'):
+            fields["Owners"] = [st.session_state['selected_user']]
+        
         resp = requests.post(
             f"https://api.airtable.com/v0/{AIRTABLE_BASE_ID}/Contacts",
             headers=headers,
@@ -1140,6 +1148,40 @@ def create_multiple_contact_records(contacts: List[Dict], attachments: List[str]
             failure_count += 1
     
     return {"success": success_count, "failure": failure_count}
+
+def fetch_users():
+    """Fetch list of users from the Users table."""
+    try:
+        headers = {
+            "Authorization": f"Bearer {AIRTABLE_PAT}",
+            "Content-Type": "application/json"
+        }
+        
+        # Fetch all records from Users table
+        resp = requests.get(
+            f"https://api.airtable.com/v0/{AIRTABLE_BASE_ID}/Users",
+            headers=headers
+        )
+        
+        if resp.status_code == 200:
+            data = resp.json()
+            users = []
+            for record in data.get('records', []):
+                # Extract user name and record ID
+                fields = record.get('fields', {})
+                user_name = fields.get('Name', '')
+                if user_name:
+                    users.append({
+                        'id': record['id'],
+                        'name': user_name
+                    })
+            return users
+        else:
+            st.error(f"Could not fetch users: {resp.text}")
+            return []
+    except Exception as e:
+        st.error(f"Error fetching users: {str(e)}")
+        return []
 
 def list_airtable_fields():
     """List all available fields in the Airtable base to help identify field names."""
@@ -1185,10 +1227,38 @@ if 'parsing_mode' not in st.session_state:
     st.session_state.parsing_mode = None
 if 's3_urls' not in st.session_state:
     st.session_state.s3_urls = []
+if 'selected_user' not in st.session_state:
+    st.session_state.selected_user = None
 
 # Home page with big buttons
 if st.session_state.current_page == 'home':
     st.markdown("<h1 style='text-align: center;'>Real Estate AI Tools</h1>", unsafe_allow_html=True)
+    
+    # User selection
+    st.markdown("### Select User")
+    users = fetch_users()
+    if users:
+        user_options = [f"{user['name']}" for user in users]
+        user_mapping = {f"{user['name']}": user['id'] for user in users}
+        
+        selected_user_name = st.selectbox(
+            "Choose your name:",
+            options=user_options,
+            index=0 if not st.session_state.selected_user else user_options.index(st.session_state.selected_user) if st.session_state.selected_user in user_options else 0,
+            help="Select your name to tag deals and contacts you upload"
+        )
+        
+        if selected_user_name:
+            st.session_state.selected_user = user_mapping[selected_user_name]
+            st.session_state.selected_user_name = selected_user_name
+            st.success(f"✅ Logged in as: {selected_user_name}")
+        else:
+            st.warning("Please select a user to continue.")
+    else:
+        st.error("Could not load users. Please check your Airtable configuration.")
+        st.stop()
+    
+    st.markdown("---")
     
     # Create two columns for the main buttons
     col1, col2, col3 = st.columns(3)
@@ -1226,6 +1296,10 @@ if st.session_state.current_page == 'home':
 
 elif st.session_state.current_page == 'dealflow':
     st.markdown("<h1>DealFlow AI</h1>", unsafe_allow_html=True)
+    
+    # Show current user
+    if st.session_state.get('selected_user_name'):
+        st.info(f"👤 Logged in as: {st.session_state['selected_user_name']}")
     
     if st.button("← Back", key="back_dealflow", type="secondary"):
         st.session_state.current_page = 'home'
@@ -1571,6 +1645,11 @@ elif st.session_state.current_page == 'dealflow':
 
 elif st.session_state.current_page == 'contact':
     st.markdown("<h1>Contact AI</h1>", unsafe_allow_html=True)
+    
+    # Show current user
+    if st.session_state.get('selected_user_name'):
+        st.info(f"👤 Logged in as: {st.session_state['selected_user_name']}")
+    
     col1, col2 = st.columns([1, 4])
     with col1:
         if st.button("← Back", key="back_contact", type="secondary"):
@@ -1792,6 +1871,11 @@ elif st.session_state.current_page == 'contact':
 
 elif st.session_state.current_page == 'property':
     st.markdown("<h1>Property Info</h1>", unsafe_allow_html=True)
+    
+    # Show current user
+    if st.session_state.get('selected_user_name'):
+        st.info(f"👤 Logged in as: {st.session_state['selected_user_name']}")
+    
     if st.button("← Back", key="back_property", type="secondary"):
         st.session_state.current_page = 'home'
         st.rerun()
