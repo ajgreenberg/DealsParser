@@ -1165,7 +1165,14 @@ def generate_oauth_url():
     # Generate state parameter for security - use a more stable approach
     import secrets
     state = secrets.token_urlsafe(32)
+    
+    # Store state in both session state and URL parameters for persistence
     st.session_state.oauth_state = state
+    
+    # Also store in URL parameters as backup
+    current_params = st.query_params.to_dict()
+    current_params['oauth_state'] = state
+    st.query_params.update(**current_params)
     
     params = {
         'client_id': GOOGLE_CLIENT_ID,
@@ -1362,11 +1369,21 @@ if not st.session_state.authenticated:
     if 'code' in query_params and 'state' in query_params:
         # Verify state parameter with better error handling
         received_state = query_params['state']
+        
+        # Try to get stored state from multiple sources
         stored_state = st.session_state.get('oauth_state')
+        url_state = query_params.get('oauth_state')
+        
+        # Use URL state as fallback if session state is lost
+        if not stored_state and url_state:
+            stored_state = url_state
+            st.session_state.oauth_state = stored_state
         
         # Debug information
         st.write(f"Debug: Received state: {received_state}")
-        st.write(f"Debug: Stored state: {stored_state}")
+        st.write(f"Debug: Stored state (session): {st.session_state.get('oauth_state')}")
+        st.write(f"Debug: Stored state (URL): {url_state}")
+        st.write(f"Debug: Using state: {stored_state}")
         
         if not stored_state:
             st.error("OAuth session expired. Please try signing in again.")
@@ -1406,9 +1423,17 @@ if not st.session_state.authenticated:
     # Add a retry button if there was an OAuth error
     if 'code' in query_params and 'state' in query_params:
         if st.button("🔄 Try Again", type="secondary"):
-            # Clear OAuth state and regenerate
+            # Clear OAuth state from both session and URL
             if 'oauth_state' in st.session_state:
                 del st.session_state['oauth_state']
+            
+            # Clear OAuth-related URL parameters
+            current_params = st.query_params.to_dict()
+            params_to_remove = ['code', 'state', 'oauth_state']
+            for param in params_to_remove:
+                if param in current_params:
+                    del current_params[param]
+            st.query_params.update(**current_params)
             st.rerun()
     
     oauth_url = generate_oauth_url()
