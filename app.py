@@ -1460,71 +1460,63 @@ if not st.session_state.authenticated:
             else:
                 st.error("Failed to authenticate with Google.")
     
-    # Show login page with improved layout
-    # Create two columns: hero image on left, login on right
-    col1, col2 = st.columns([2, 1])
+    # Show login page with clean layout
+    # Add hero image
+    try:
+        st.image("https://raw.githubusercontent.com/ajgreenberg/DealsParser/main/images/DealFlowAI%20Hero.png", use_container_width=True)
+    except:
+        # Fallback if image not found
+        st.markdown("![DealFlow AI Hero](https://raw.githubusercontent.com/ajgreenberg/DealsParser/main/images/DealFlowAI%20Hero.png)")
     
-    with col1:
-        # Add hero image
-        try:
-            st.image("https://raw.githubusercontent.com/ajgreenberg/DealsParser/main/images/DealFlowAI%20Hero.png", use_container_width=True)
-        except:
-            # Fallback if image not found
-            st.markdown("![DealFlow AI Hero](https://raw.githubusercontent.com/ajgreenberg/DealsParser/main/images/DealFlowAI%20Hero.png)")
+    # Login section below hero image
+    st.markdown("### 🔐 Sign In")
+    st.markdown("Access your DealFlow AI tools")
     
-    with col2:
-        # Login section
-        st.markdown("### 🔐 Sign In")
-        st.markdown("Access your DealFlow AI tools")
-        
-        # Add a retry button if there was an OAuth error
-        if 'code' in query_params and 'state' in query_params:
-            if st.button("🔄 Try Again", type="secondary", use_container_width=True):
-                # Clear OAuth state from session
-                if 'oauth_state' in st.session_state:
-                    del st.session_state['oauth_state']
-                
-                # Clear OAuth-related URL parameters
-                current_params = st.query_params.to_dict()
-                params_to_remove = ['code', 'state', 'oauth_state']
-                for param in params_to_remove:
-                    if param in current_params:
-                        del current_params[param]
-                st.query_params.update(**current_params)
-                
-                # Clean up any cache files
-                try:
-                    import tempfile
-                    import os
-                    import glob
-                    temp_dir = tempfile.gettempdir()
-                    state_files = glob.glob(os.path.join(temp_dir, "oauth_state_*.txt"))
-                    for state_file in state_files:
-                        try:
-                            os.remove(state_file)
-                        except:
-                            pass
-                except:
-                    pass
-                
-                st.rerun()
-        
-        oauth_url = generate_oauth_url()
-        if oauth_url:
-            # Make the login button more prominent
-            st.markdown(f"""
-            <div style="text-align: center; margin: 20px 0;">
-                <a href="{oauth_url}" style="display: inline-block; background-color: #4285f4; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: 500; font-size: 16px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
-                    <img src="https://developers.google.com/identity/images/g-logo.png" style="width: 20px; height: 20px; margin-right: 8px; vertical-align: middle;">
-                    Sign in with Google
-                </a>
-            </div>
-            """, unsafe_allow_html=True)
-        else:
-            st.error("OAuth configuration error. Please check your Google OAuth settings.")
-        
-        # Authorization notice
-        st.info("🔒 **Authorized Users Only**\n\nOnly users added to the Team table by an administrator can access this application.")
+    # Add a retry button if there was an OAuth error
+    if 'code' in query_params and 'state' in query_params:
+        if st.button("🔄 Try Again", type="secondary", use_container_width=True):
+            # Clear OAuth state from session
+            if 'oauth_state' in st.session_state:
+                del st.session_state['oauth_state']
+            
+            # Clear OAuth-related URL parameters
+            current_params = st.query_params.to_dict()
+            params_to_remove = ['code', 'state', 'oauth_state']
+            for param in params_to_remove:
+                if param in current_params:
+                    del current_params[param]
+            st.query_params.update(**current_params)
+            
+            # Clean up any cache files
+            try:
+                import tempfile
+                import os
+                import glob
+                temp_dir = tempfile.gettempdir()
+                state_files = glob.glob(os.path.join(temp_dir, "oauth_state_*.txt"))
+                for state_file in state_files:
+                    try:
+                        os.remove(state_file)
+                    except:
+                        pass
+            except:
+                pass
+            
+            st.rerun()
+    
+    oauth_url = generate_oauth_url()
+    if oauth_url:
+        # Make the login button more prominent
+        st.markdown(f"""
+        <div style="text-align: center; margin: 20px 0;">
+            <a href="{oauth_url}" style="display: inline-block; background-color: #4285f4; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: 500; font-size: 16px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+                <img src="https://developers.google.com/identity/images/g-logo.png" style="width: 20px; height: 20px; margin-right: 8px; vertical-align: middle;">
+                Sign in with Google
+            </a>
+        </div>
+        """, unsafe_allow_html=True)
+    else:
+        st.error("OAuth configuration error. Please check your Google OAuth settings.")
     
     st.stop()
 
