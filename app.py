@@ -1528,13 +1528,6 @@ if not st.session_state.authenticated:
 if st.session_state.current_page == 'home':
     st.markdown("<h1 style='text-align: center;'>DealFlow AI</h1>", unsafe_allow_html=True)
     
-    # Add hero image
-    try:
-        st.image("https://raw.githubusercontent.com/ajgreenberg/DealsParser/main/images/DealFlowAI%20Hero.png", use_container_width=True)
-    except:
-        # Fallback if image not found
-        st.markdown("![DealFlow AI Hero](https://raw.githubusercontent.com/ajgreenberg/DealsParser/main/images/DealFlowAI%20Hero.png)")
-    
     # Show current user and logout option
     col1, col2 = st.columns([3, 1])
     with col1:
