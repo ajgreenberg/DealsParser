@@ -1464,7 +1464,11 @@ if not st.session_state.authenticated:
     st.markdown("<h1 style='text-align: center;'>DealFlow AI</h1>", unsafe_allow_html=True)
     
     # Add hero image
-    st.image("DealsParser/images/DealFlowAI Hero.png", use_column_width=True)
+    try:
+        st.image("https://raw.githubusercontent.com/[username]/DealsParser/main/images/DealFlowAI%20Hero.png", use_container_width=True)
+    except:
+        # Fallback if image not found
+        st.markdown("![DealFlow AI Hero](https://raw.githubusercontent.com/[username]/DealsParser/main/images/DealFlowAI%20Hero.png)")
     
     st.markdown("### Sign In Required")
     st.markdown("Please sign in with your Google account to access the tools.")
@@ -1516,7 +1520,11 @@ if st.session_state.current_page == 'home':
     st.markdown("<h1 style='text-align: center;'>DealFlow AI</h1>", unsafe_allow_html=True)
     
     # Add hero image
-    st.image("DealsParser/images/DealFlowAI Hero.png", use_column_width=True)
+    try:
+        st.image("https://raw.githubusercontent.com/[username]/DealsParser/main/images/DealFlowAI%20Hero.png", use_container_width=True)
+    except:
+        # Fallback if image not found
+        st.markdown("![DealFlow AI Hero](https://raw.githubusercontent.com/[username]/DealsParser/main/images/DealFlowAI%20Hero.png)")
     
     # Show current user and logout option
     col1, col2 = st.columns([3, 1])
