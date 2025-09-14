@@ -1465,10 +1465,10 @@ if not st.session_state.authenticated:
     
     # Add hero image
     try:
-        st.image("https://raw.githubusercontent.com/[username]/DealsParser/main/images/DealFlowAI%20Hero.png", use_container_width=True)
+        st.image("https://raw.githubusercontent.com/ajgreenberg/DealsParser/main/images/DealFlowAI%20Hero.png", use_container_width=True)
     except:
         # Fallback if image not found
-        st.markdown("![DealFlow AI Hero](https://raw.githubusercontent.com/[username]/DealsParser/main/images/DealFlowAI%20Hero.png)")
+        st.markdown("![DealFlow AI Hero](https://raw.githubusercontent.com/ajgreenberg/DealsParser/main/images/DealFlowAI%20Hero.png)")
     
     st.markdown("### Sign In Required")
     st.markdown("Please sign in with your Google account to access the tools.")
