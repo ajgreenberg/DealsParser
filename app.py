@@ -1266,18 +1266,16 @@ def find_user_in_airtable(user_info):
 
 def logout_user():
     """Logout the current user and clear session state."""
+    # Set logout flag to prevent OAuth processing
+    st.session_state.logout_requested = True
+    
     # Clear session state
     for key in ['authenticated', 'user_info', 'selected_user', 'selected_user_name', 'oauth_state']:
         if key in st.session_state:
             del st.session_state[key]
     
-    # Clear OAuth-related URL parameters
-    current_params = st.query_params.to_dict()
-    params_to_remove = ['code', 'state', 'oauth_state']
-    for param in params_to_remove:
-        if param in current_params:
-            del current_params[param]
-    st.query_params.update(**current_params)
+    # Clear OAuth-related URL parameters completely
+    st.query_params.clear()
     
     # Clean up any cache files
     try:
@@ -1293,6 +1291,10 @@ def logout_user():
                 pass
     except:
         pass
+    
+    # Clear the logout flag after cleanup
+    if 'logout_requested' in st.session_state:
+        del st.session_state['logout_requested']
     
     st.rerun()
 
@@ -1384,6 +1386,10 @@ if 'oauth_state' not in st.session_state:
     st.session_state.oauth_state = None
 
 # OAuth Authentication Check
+# Clear logout flag if it exists (from previous logout)
+if 'logout_requested' in st.session_state:
+    del st.session_state['logout_requested']
+
 if not st.session_state.authenticated:
     # Check if we have OAuth credentials
     if not GOOGLE_CLIENT_ID or not GOOGLE_CLIENT_SECRET:
@@ -1392,7 +1398,7 @@ if not st.session_state.authenticated:
     
     # Check for OAuth callback
     query_params = st.query_params
-    if 'code' in query_params and 'state' in query_params:
+    if 'code' in query_params and 'state' in query_params and not st.session_state.get('logout_requested', False):
         # Verify state parameter with better error handling
         received_state = query_params['state']
         
