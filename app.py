@@ -1530,10 +1530,10 @@ if st.session_state.current_page == 'home':
     
     # Add hero image
     try:
-        st.image("https://raw.githubusercontent.com/[username]/DealsParser/main/images/DealFlowAI%20Hero.png", use_container_width=True)
+        st.image("https://raw.githubusercontent.com/ajgreenberg/DealsParser/main/images/DealFlowAI%20Hero.png", use_container_width=True)
     except:
         # Fallback if image not found
-        st.markdown("![DealFlow AI Hero](https://raw.githubusercontent.com/[username]/DealsParser/main/images/DealFlowAI%20Hero.png)")
+        st.markdown("![DealFlow AI Hero](https://raw.githubusercontent.com/ajgreenberg/DealsParser/main/images/DealFlowAI%20Hero.png)")
     
     # Show current user and logout option
     col1, col2 = st.columns([3, 1])
