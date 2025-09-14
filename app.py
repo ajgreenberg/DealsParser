@@ -1162,8 +1162,9 @@ def generate_oauth_url():
     if not GOOGLE_CLIENT_ID:
         return None
     
-    # Generate state parameter for security
-    state = base64.urlsafe_b64encode(hashlib.sha256(f"{random.random()}{time.time()}".encode()).digest()).decode()
+    # Generate state parameter for security - use a more stable approach
+    import secrets
+    state = secrets.token_urlsafe(32)
     st.session_state.oauth_state = state
     
     params = {
@@ -1359,9 +1360,19 @@ if not st.session_state.authenticated:
     # Check for OAuth callback
     query_params = st.query_params
     if 'code' in query_params and 'state' in query_params:
-        # Verify state parameter
-        if query_params['state'] != st.session_state.oauth_state:
-            st.error("Invalid OAuth state. Please try again.")
+        # Verify state parameter with better error handling
+        received_state = query_params['state']
+        stored_state = st.session_state.get('oauth_state')
+        
+        # Debug information
+        st.write(f"Debug: Received state: {received_state}")
+        st.write(f"Debug: Stored state: {stored_state}")
+        
+        if not stored_state:
+            st.error("OAuth session expired. Please try signing in again.")
+            st.stop()
+        elif received_state != stored_state:
+            st.error("Invalid OAuth state. This may be due to a security issue or session timeout. Please try signing in again.")
             st.stop()
         
         # Exchange code for token
@@ -1391,6 +1402,14 @@ if not st.session_state.authenticated:
     st.markdown("<h1 style='text-align: center;'>Real Estate AI Tools</h1>", unsafe_allow_html=True)
     st.markdown("### Sign In Required")
     st.markdown("Please sign in with your Google account to access the tools.")
+    
+    # Add a retry button if there was an OAuth error
+    if 'code' in query_params and 'state' in query_params:
+        if st.button("🔄 Try Again", type="secondary"):
+            # Clear OAuth state and regenerate
+            if 'oauth_state' in st.session_state:
+                del st.session_state['oauth_state']
+            st.rerun()
     
     oauth_url = generate_oauth_url()
     if oauth_url:
