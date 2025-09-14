@@ -1468,11 +1468,11 @@ if not st.session_state.authenticated:
         # Fallback if image not found
         st.markdown("![DealFlow AI Hero](https://raw.githubusercontent.com/ajgreenberg/DealsParser/main/images/DealFlowAI%20Hero.png)")
     
-    # Login section below hero image - centered and aligned
+    # Login section below hero image - centered and compact
     st.markdown("""
-    <div style="text-align: center; margin: 30px 0;">
-        <h3 style="margin-bottom: 8px;">🔐 Sign In</h3>
-        <p style="margin-bottom: 20px; color: #666;">Access your DealFlow AI tools</p>
+    <div style="text-align: center; margin: 15px 0;">
+        <h3 style="margin-bottom: 5px;">🔐 Sign In</h3>
+        <p style="margin-bottom: 15px; color: #666;">Access your DealFlow AI tools</p>
     </div>
     """, unsafe_allow_html=True)
     
@@ -1512,7 +1512,7 @@ if not st.session_state.authenticated:
     if oauth_url:
         # Make the login button more prominent and centered
         st.markdown(f"""
-        <div style="text-align: center; margin: 20px 0;">
+        <div style="text-align: center; margin: 10px 0;">
             <a href="{oauth_url}" style="display: inline-block; background-color: #4285f4; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: 500; font-size: 16px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
                 <img src="https://developers.google.com/identity/images/g-logo.png" style="width: 20px; height: 20px; margin-right: 8px; vertical-align: middle;">
                 Sign in with Google
