@@ -1229,62 +1229,84 @@ def find_user_in_airtable(user_info):
             "Content-Type": "application/json"
         }
         
-        # Debug: Show user info being processed
-        st.write(f"Debug: Processing user: {user_info.get('name', 'Unknown')} ({user_info.get('email', 'No email')})")
-        
-        # First, check if Users table is accessible
-        test_url = f"https://api.airtable.com/v0/{AIRTABLE_BASE_ID}/Users"
+        # First, check if Team table is accessible
+        test_url = f"https://api.airtable.com/v0/{AIRTABLE_BASE_ID}/Team"
         test_response = requests.get(test_url, headers=headers, params={'maxRecords': 1})
-        st.write(f"Debug: Users table accessibility test - Status: {test_response.status_code}")
         if test_response.status_code != 200:
-            st.write(f"Debug: Users table error: {test_response.text}")
-            st.error(f"Cannot access Users table. Please check if the 'Users' table exists in your Airtable base. Error: {test_response.text}")
+            st.error(f"Cannot access Team table. Please check if the 'Team' table exists in your Airtable base. Error: {test_response.text}")
             return None
         
         # Search for existing user by email
-        search_url = f"https://api.airtable.com/v0/{AIRTABLE_BASE_ID}/Users"
+        search_url = f"https://api.airtable.com/v0/{AIRTABLE_BASE_ID}/Team"
         params = {
             'filterByFormula': f"{{Email}} = '{user_info.get('email', '')}'"
         }
         
-        st.write(f"Debug: Searching for user with email: {user_info.get('email', '')}")
         response = requests.get(search_url, headers=headers, params=params)
         
         if response.status_code == 200:
             data = response.json()
-            st.write(f"Debug: Search response: {len(data.get('records', []))} records found")
             if data.get('records'):
                 # User exists, return their info
                 record = data['records'][0]
-                st.write(f"Debug: Found existing user: {record['id']}")
                 return {
                     'id': record['id'],
                     'name': record['fields'].get('Name', user_info.get('name', '')),
                     'email': record['fields'].get('Email', user_info.get('email', ''))
                 }
             else:
-                # User not found in Users table
-                st.write("Debug: User not found in Users table")
+                # User not found in Team table
                 return None
         else:
-            st.write(f"Debug: Search failed with status {response.status_code}: {response.text}")
             return None
         
     except Exception as e:
         st.error(f"Error searching for user in Airtable: {str(e)}")
         return None
 
+def logout_user():
+    """Logout the current user and clear session state."""
+    # Clear session state
+    for key in ['authenticated', 'user_info', 'selected_user', 'selected_user_name', 'oauth_state']:
+        if key in st.session_state:
+            del st.session_state[key]
+    
+    # Clear OAuth-related URL parameters
+    current_params = st.query_params.to_dict()
+    params_to_remove = ['code', 'state', 'oauth_state']
+    for param in params_to_remove:
+        if param in current_params:
+            del current_params[param]
+    st.query_params.update(**current_params)
+    
+    # Clean up any cache files
+    try:
+        import tempfile
+        import os
+        import glob
+        temp_dir = tempfile.gettempdir()
+        state_files = glob.glob(os.path.join(temp_dir, "oauth_state_*.txt"))
+        for state_file in state_files:
+            try:
+                os.remove(state_file)
+            except:
+                pass
+    except:
+        pass
+    
+    st.rerun()
+
 def fetch_users():
-    """Fetch list of users from the Users table."""
+    """Fetch list of users from the Team table."""
     try:
         headers = {
             "Authorization": f"Bearer {AIRTABLE_PAT}",
             "Content-Type": "application/json"
         }
         
-        # Fetch all records from Users table
+        # Fetch all records from Team table
         resp = requests.get(
-            f"https://api.airtable.com/v0/{AIRTABLE_BASE_ID}/Users",
+            f"https://api.airtable.com/v0/{AIRTABLE_BASE_ID}/Team",
             headers=headers
         )
         
@@ -1402,11 +1424,6 @@ if not st.session_state.authenticated:
             except Exception as e:
                 st.write(f"Debug: Could not check file cache: {e}")
         
-        # Debug information
-        st.write(f"Debug: Received state: {received_state}")
-        st.write(f"Debug: Stored state (session): {st.session_state.get('oauth_state')}")
-        st.write(f"Debug: Using state: {stored_state}")
-        
         if not stored_state:
             st.error("OAuth session expired. Please try signing in again.")
             st.stop()
@@ -1431,17 +1448,17 @@ if not st.session_state.authenticated:
                         st.success(f"✅ Welcome, {airtable_user['name']}!")
                         st.rerun()
                     else:
-                        st.error("❌ Access Denied: Your email address is not authorized to access this application. Please contact your administrator to be added to the Users table.")
+                        st.error("❌ Access Denied: Your email address is not authorized to access this application. Please contact your administrator to be added to the Team table.")
                 else:
                     st.error("Failed to get user information.")
             else:
                 st.error("Failed to authenticate with Google.")
     
     # Show login page
-    st.markdown("<h1 style='text-align: center;'>Real Estate AI Tools</h1>", unsafe_allow_html=True)
+    st.markdown("<h1 style='text-align: center;'>DealFlow AI</h1>", unsafe_allow_html=True)
     st.markdown("### Sign In Required")
     st.markdown("Please sign in with your Google account to access the tools.")
-    st.info("🔒 **Authorized Users Only**: Only users who have been added to the Users table by an administrator can access this application.")
+    st.info("🔒 **Authorized Users Only**: Only users who have been added to the Team table by an administrator can access this application.")
     
     # Add a retry button if there was an OAuth error
     if 'code' in query_params and 'state' in query_params:
@@ -1486,7 +1503,7 @@ if not st.session_state.authenticated:
 
 # Home page with big buttons (only shown if authenticated)
 if st.session_state.current_page == 'home':
-    st.markdown("<h1 style='text-align: center;'>Real Estate AI Tools</h1>", unsafe_allow_html=True)
+    st.markdown("<h1 style='text-align: center;'>DealFlow AI</h1>", unsafe_allow_html=True)
     
     # Show current user and logout option
     col1, col2 = st.columns([3, 1])
@@ -1494,11 +1511,7 @@ if st.session_state.current_page == 'home':
         st.info(f"👤 Logged in as: {st.session_state.selected_user_name}")
     with col2:
         if st.button("🚪 Logout", type="secondary"):
-            # Clear session state
-            for key in ['authenticated', 'user_info', 'selected_user', 'selected_user_name', 'oauth_state']:
-                if key in st.session_state:
-                    del st.session_state[key]
-            st.rerun()
+            logout_user()
     
     st.markdown("---")
     
@@ -1539,9 +1552,14 @@ if st.session_state.current_page == 'home':
 elif st.session_state.current_page == 'dealflow':
     st.markdown("<h1>DealFlow AI</h1>", unsafe_allow_html=True)
     
-    # Show current user
-    if st.session_state.get('selected_user_name'):
-        st.info(f"👤 Logged in as: {st.session_state['selected_user_name']}")
+    # Show current user and logout option
+    col1, col2 = st.columns([3, 1])
+    with col1:
+        if st.session_state.get('selected_user_name'):
+            st.info(f"👤 Logged in as: {st.session_state['selected_user_name']}")
+    with col2:
+        if st.button("🚪 Logout", key="logout_dealflow", type="secondary"):
+            logout_user()
     
     if st.button("← Back", key="back_dealflow", type="secondary"):
         st.session_state.current_page = 'home'
@@ -1888,9 +1906,14 @@ elif st.session_state.current_page == 'dealflow':
 elif st.session_state.current_page == 'contact':
     st.markdown("<h1>Contact AI</h1>", unsafe_allow_html=True)
     
-    # Show current user
-    if st.session_state.get('selected_user_name'):
-        st.info(f"👤 Logged in as: {st.session_state['selected_user_name']}")
+    # Show current user and logout option
+    col1, col2 = st.columns([3, 1])
+    with col1:
+        if st.session_state.get('selected_user_name'):
+            st.info(f"👤 Logged in as: {st.session_state['selected_user_name']}")
+    with col2:
+        if st.button("🚪 Logout", key="logout_contact", type="secondary"):
+            logout_user()
     
     col1, col2 = st.columns([1, 4])
     with col1:
@@ -2114,9 +2137,14 @@ elif st.session_state.current_page == 'contact':
 elif st.session_state.current_page == 'property':
     st.markdown("<h1>Property Info</h1>", unsafe_allow_html=True)
     
-    # Show current user
-    if st.session_state.get('selected_user_name'):
-        st.info(f"👤 Logged in as: {st.session_state['selected_user_name']}")
+    # Show current user and logout option
+    col1, col2 = st.columns([3, 1])
+    with col1:
+        if st.session_state.get('selected_user_name'):
+            st.info(f"👤 Logged in as: {st.session_state['selected_user_name']}")
+    with col2:
+        if st.button("🚪 Logout", key="logout_property", type="secondary"):
+            logout_user()
     
     if st.button("← Back", key="back_property", type="secondary"):
         st.session_state.current_page = 'home'
