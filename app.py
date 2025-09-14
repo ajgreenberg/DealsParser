@@ -1221,58 +1221,57 @@ def get_user_info(access_token):
         return response.json()
     return None
 
-def find_or_create_user_in_airtable(user_info):
-    """Find existing user in Airtable or create new one."""
+def find_user_in_airtable(user_info):
+    """Find existing user in Airtable. Only existing users are allowed to login."""
     try:
         headers = {
             "Authorization": f"Bearer {AIRTABLE_PAT}",
             "Content-Type": "application/json"
         }
         
-        # First, try to find existing user by email
+        # Debug: Show user info being processed
+        st.write(f"Debug: Processing user: {user_info.get('name', 'Unknown')} ({user_info.get('email', 'No email')})")
+        
+        # First, check if Users table is accessible
+        test_url = f"https://api.airtable.com/v0/{AIRTABLE_BASE_ID}/Users"
+        test_response = requests.get(test_url, headers=headers, params={'maxRecords': 1})
+        st.write(f"Debug: Users table accessibility test - Status: {test_response.status_code}")
+        if test_response.status_code != 200:
+            st.write(f"Debug: Users table error: {test_response.text}")
+            st.error(f"Cannot access Users table. Please check if the 'Users' table exists in your Airtable base. Error: {test_response.text}")
+            return None
+        
+        # Search for existing user by email
         search_url = f"https://api.airtable.com/v0/{AIRTABLE_BASE_ID}/Users"
         params = {
             'filterByFormula': f"{{Email}} = '{user_info.get('email', '')}'"
         }
         
+        st.write(f"Debug: Searching for user with email: {user_info.get('email', '')}")
         response = requests.get(search_url, headers=headers, params=params)
         
         if response.status_code == 200:
             data = response.json()
+            st.write(f"Debug: Search response: {len(data.get('records', []))} records found")
             if data.get('records'):
                 # User exists, return their info
                 record = data['records'][0]
+                st.write(f"Debug: Found existing user: {record['id']}")
                 return {
                     'id': record['id'],
                     'name': record['fields'].get('Name', user_info.get('name', '')),
                     'email': record['fields'].get('Email', user_info.get('email', ''))
                 }
-        
-        # User doesn't exist, create new one
-        create_url = f"https://api.airtable.com/v0/{AIRTABLE_BASE_ID}/Users"
-        new_user_data = {
-            "fields": {
-                "Name": user_info.get('name', ''),
-                "Email": user_info.get('email', ''),
-                "Google ID": user_info.get('id', ''),
-                "Picture": user_info.get('picture', '')
-            }
-        }
-        
-        create_response = requests.post(create_url, headers=headers, json=new_user_data)
-        
-        if create_response.status_code == 200:
-            record = create_response.json()
-            return {
-                'id': record['id'],
-                'name': record['fields'].get('Name', ''),
-                'email': record['fields'].get('Email', '')
-            }
-        
-        return None
+            else:
+                # User not found in Users table
+                st.write("Debug: User not found in Users table")
+                return None
+        else:
+            st.write(f"Debug: Search failed with status {response.status_code}: {response.text}")
+            return None
         
     except Exception as e:
-        st.error(f"Error managing user in Airtable: {str(e)}")
+        st.error(f"Error searching for user in Airtable: {str(e)}")
         return None
 
 def fetch_users():
@@ -1422,8 +1421,8 @@ if not st.session_state.authenticated:
                 # Get user info
                 user_info = get_user_info(token_data['access_token'])
                 if user_info:
-                    # Find or create user in Airtable
-                    airtable_user = find_or_create_user_in_airtable(user_info)
+                    # Find existing user in Airtable
+                    airtable_user = find_user_in_airtable(user_info)
                     if airtable_user:
                         st.session_state.authenticated = True
                         st.session_state.user_info = user_info
@@ -1432,7 +1431,7 @@ if not st.session_state.authenticated:
                         st.success(f"✅ Welcome, {airtable_user['name']}!")
                         st.rerun()
                     else:
-                        st.error("Failed to create user account. Please contact administrator.")
+                        st.error("❌ Access Denied: Your email address is not authorized to access this application. Please contact your administrator to be added to the Users table.")
                 else:
                     st.error("Failed to get user information.")
             else:
@@ -1442,6 +1441,7 @@ if not st.session_state.authenticated:
     st.markdown("<h1 style='text-align: center;'>Real Estate AI Tools</h1>", unsafe_allow_html=True)
     st.markdown("### Sign In Required")
     st.markdown("Please sign in with your Google account to access the tools.")
+    st.info("🔒 **Authorized Users Only**: Only users who have been added to the Users table by an administrator can access this application.")
     
     # Add a retry button if there was an OAuth error
     if 'code' in query_params and 'state' in query_params:
