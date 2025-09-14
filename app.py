@@ -1462,6 +1462,10 @@ if not st.session_state.authenticated:
     
     # Show login page
     st.markdown("<h1 style='text-align: center;'>DealFlow AI</h1>", unsafe_allow_html=True)
+    
+    # Add hero image
+    st.image("DealsParser/images/DealFlowAI Hero.png", use_column_width=True)
+    
     st.markdown("### Sign In Required")
     st.markdown("Please sign in with your Google account to access the tools.")
     st.info("🔒 **Authorized Users Only**: Only users who have been added to the Team table by an administrator can access this application.")
@@ -1510,6 +1514,9 @@ if not st.session_state.authenticated:
 # Home page with big buttons (only shown if authenticated)
 if st.session_state.current_page == 'home':
     st.markdown("<h1 style='text-align: center;'>DealFlow AI</h1>", unsafe_allow_html=True)
+    
+    # Add hero image
+    st.image("DealsParser/images/DealFlowAI Hero.png", use_column_width=True)
     
     # Show current user and logout option
     col1, col2 = st.columns([3, 1])
