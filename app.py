@@ -12,6 +12,9 @@ from datetime import datetime
 import random
 import time
 import urllib.parse
+import hashlib
+import hmac
+import base64
 
 # --- Custom CSS for Apple-like styling ---
 st.set_page_config(
@@ -407,6 +410,11 @@ try:
 except Exception as e:
     SMARTY_ENABLED = False
     st.warning(f"Error checking Smarty credentials: {str(e)}. Address validation will be disabled.")
+
+# OAuth Configuration
+GOOGLE_CLIENT_ID = st.secrets.get("GOOGLE_CLIENT_ID")
+GOOGLE_CLIENT_SECRET = st.secrets.get("GOOGLE_CLIENT_SECRET")
+REDIRECT_URI = st.secrets.get("REDIRECT_URI", "http://localhost:8501")
 
 s3 = boto3.client(
     "s3",
@@ -1149,6 +1157,111 @@ def create_multiple_contact_records(contacts: List[Dict], attachments: List[str]
     
     return {"success": success_count, "failure": failure_count}
 
+def generate_oauth_url():
+    """Generate Google OAuth URL."""
+    if not GOOGLE_CLIENT_ID:
+        return None
+    
+    # Generate state parameter for security
+    state = base64.urlsafe_b64encode(hashlib.sha256(f"{random.random()}{time.time()}".encode()).digest()).decode()
+    st.session_state.oauth_state = state
+    
+    params = {
+        'client_id': GOOGLE_CLIENT_ID,
+        'redirect_uri': REDIRECT_URI,
+        'scope': 'openid email profile',
+        'response_type': 'code',
+        'state': state,
+        'access_type': 'offline',
+        'prompt': 'select_account'
+    }
+    
+    query_string = urllib.parse.urlencode(params)
+    return f"https://accounts.google.com/o/oauth2/v2/auth?{query_string}"
+
+def exchange_code_for_token(code):
+    """Exchange authorization code for access token."""
+    if not GOOGLE_CLIENT_SECRET:
+        return None
+    
+    token_url = "https://oauth2.googleapis.com/token"
+    data = {
+        'client_id': GOOGLE_CLIENT_ID,
+        'client_secret': GOOGLE_CLIENT_SECRET,
+        'code': code,
+        'grant_type': 'authorization_code',
+        'redirect_uri': REDIRECT_URI
+    }
+    
+    response = requests.post(token_url, data=data)
+    if response.status_code == 200:
+        return response.json()
+    return None
+
+def get_user_info(access_token):
+    """Get user information from Google."""
+    user_info_url = "https://www.googleapis.com/oauth2/v2/userinfo"
+    headers = {'Authorization': f'Bearer {access_token}'}
+    
+    response = requests.get(user_info_url, headers=headers)
+    if response.status_code == 200:
+        return response.json()
+    return None
+
+def find_or_create_user_in_airtable(user_info):
+    """Find existing user in Airtable or create new one."""
+    try:
+        headers = {
+            "Authorization": f"Bearer {AIRTABLE_PAT}",
+            "Content-Type": "application/json"
+        }
+        
+        # First, try to find existing user by email
+        search_url = f"https://api.airtable.com/v0/{AIRTABLE_BASE_ID}/Users"
+        params = {
+            'filterByFormula': f"{{Email}} = '{user_info.get('email', '')}'"
+        }
+        
+        response = requests.get(search_url, headers=headers, params=params)
+        
+        if response.status_code == 200:
+            data = response.json()
+            if data.get('records'):
+                # User exists, return their info
+                record = data['records'][0]
+                return {
+                    'id': record['id'],
+                    'name': record['fields'].get('Name', user_info.get('name', '')),
+                    'email': record['fields'].get('Email', user_info.get('email', ''))
+                }
+        
+        # User doesn't exist, create new one
+        create_url = f"https://api.airtable.com/v0/{AIRTABLE_BASE_ID}/Users"
+        new_user_data = {
+            "fields": {
+                "Name": user_info.get('name', ''),
+                "Email": user_info.get('email', ''),
+                "Google ID": user_info.get('id', ''),
+                "Picture": user_info.get('picture', '')
+            }
+        }
+        
+        create_response = requests.post(create_url, headers=headers, json=new_user_data)
+        
+        if create_response.status_code == 200:
+            record = create_response.json()
+            return {
+                'id': record['id'],
+                'name': record['fields'].get('Name', ''),
+                'email': record['fields'].get('Email', '')
+            }
+        
+        return None
+        
+    except Exception as e:
+        st.error(f"Error managing user in Airtable: {str(e)}")
+        return None
+
 def fetch_users():
     """Fetch list of users from the Users table."""
     try:
@@ -1218,7 +1331,7 @@ def list_airtable_fields():
 if 'current_page' not in st.session_state:
     st.session_state.current_page = 'home'
 
-# Initialize session state variables for Contact AI
+# Initialize session state variables
 if 'show_contacts_form' not in st.session_state:
     st.session_state.show_contacts_form = False
 if 'contacts' not in st.session_state:
@@ -1229,34 +1342,80 @@ if 's3_urls' not in st.session_state:
     st.session_state.s3_urls = []
 if 'selected_user' not in st.session_state:
     st.session_state.selected_user = None
+if 'authenticated' not in st.session_state:
+    st.session_state.authenticated = False
+if 'user_info' not in st.session_state:
+    st.session_state.user_info = None
+if 'oauth_state' not in st.session_state:
+    st.session_state.oauth_state = None
 
-# Home page with big buttons
+# OAuth Authentication Check
+if not st.session_state.authenticated:
+    # Check if we have OAuth credentials
+    if not GOOGLE_CLIENT_ID or not GOOGLE_CLIENT_SECRET:
+        st.error("OAuth not configured. Please add GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET to your secrets.")
+        st.stop()
+    
+    # Check for OAuth callback
+    query_params = st.query_params
+    if 'code' in query_params and 'state' in query_params:
+        # Verify state parameter
+        if query_params['state'] != st.session_state.oauth_state:
+            st.error("Invalid OAuth state. Please try again.")
+            st.stop()
+        
+        # Exchange code for token
+        with st.spinner("Authenticating..."):
+            token_data = exchange_code_for_token(query_params['code'])
+            if token_data:
+                # Get user info
+                user_info = get_user_info(token_data['access_token'])
+                if user_info:
+                    # Find or create user in Airtable
+                    airtable_user = find_or_create_user_in_airtable(user_info)
+                    if airtable_user:
+                        st.session_state.authenticated = True
+                        st.session_state.user_info = user_info
+                        st.session_state.selected_user = airtable_user['id']
+                        st.session_state.selected_user_name = airtable_user['name']
+                        st.success(f"✅ Welcome, {airtable_user['name']}!")
+                        st.rerun()
+                    else:
+                        st.error("Failed to create user account. Please contact administrator.")
+                else:
+                    st.error("Failed to get user information.")
+            else:
+                st.error("Failed to authenticate with Google.")
+    
+    # Show login page
+    st.markdown("<h1 style='text-align: center;'>Real Estate AI Tools</h1>", unsafe_allow_html=True)
+    st.markdown("### Sign In Required")
+    st.markdown("Please sign in with your Google account to access the tools.")
+    
+    oauth_url = generate_oauth_url()
+    if oauth_url:
+        st.markdown(f"[![Sign in with Google](https://developers.google.com/identity/images/g-logo.png)]({oauth_url})")
+        st.markdown(f"[Sign in with Google]({oauth_url})")
+    else:
+        st.error("OAuth configuration error. Please check your Google OAuth settings.")
+    
+    st.stop()
+
+# Home page with big buttons (only shown if authenticated)
 if st.session_state.current_page == 'home':
     st.markdown("<h1 style='text-align: center;'>Real Estate AI Tools</h1>", unsafe_allow_html=True)
     
-    # User selection
-    st.markdown("### Select User")
-    users = fetch_users()
-    if users:
-        user_options = [f"{user['name']}" for user in users]
-        user_mapping = {f"{user['name']}": user['id'] for user in users}
-        
-        selected_user_name = st.selectbox(
-            "Choose your name:",
-            options=user_options,
-            index=0 if not st.session_state.selected_user else user_options.index(st.session_state.selected_user) if st.session_state.selected_user in user_options else 0,
-            help="Select your name to tag deals and contacts you upload"
-        )
-        
-        if selected_user_name:
-            st.session_state.selected_user = user_mapping[selected_user_name]
-            st.session_state.selected_user_name = selected_user_name
-            st.success(f"✅ Logged in as: {selected_user_name}")
-        else:
-            st.warning("Please select a user to continue.")
-    else:
-        st.error("Could not load users. Please check your Airtable configuration.")
-        st.stop()
+    # Show current user and logout option
+    col1, col2 = st.columns([3, 1])
+    with col1:
+        st.info(f"👤 Logged in as: {st.session_state.selected_user_name}")
+    with col2:
+        if st.button("🚪 Logout", type="secondary"):
+            # Clear session state
+            for key in ['authenticated', 'user_info', 'selected_user', 'selected_user_name', 'oauth_state']:
+                if key in st.session_state:
+                    del st.session_state[key]
+            st.rerun()
     
     st.markdown("---")
     
