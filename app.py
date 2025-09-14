@@ -1166,13 +1166,18 @@ def generate_oauth_url():
     import secrets
     state = secrets.token_urlsafe(32)
     
-    # Store state in both session state and URL parameters for persistence
+    # Store state in session state
     st.session_state.oauth_state = state
     
-    # Also store in URL parameters as backup
-    current_params = st.query_params.to_dict()
-    current_params['oauth_state'] = state
-    st.query_params.update(**current_params)
+    # Also store in a simple file-based cache as backup
+    try:
+        import tempfile
+        import os
+        cache_file = os.path.join(tempfile.gettempdir(), f"oauth_state_{hash(state) % 10000}.txt")
+        with open(cache_file, 'w') as f:
+            f.write(state)
+    except Exception as e:
+        st.write(f"Warning: Could not create state cache: {e}")
     
     params = {
         'client_id': GOOGLE_CLIENT_ID,
@@ -1372,17 +1377,35 @@ if not st.session_state.authenticated:
         
         # Try to get stored state from multiple sources
         stored_state = st.session_state.get('oauth_state')
-        url_state = query_params.get('oauth_state')
         
-        # Use URL state as fallback if session state is lost
-        if not stored_state and url_state:
-            stored_state = url_state
-            st.session_state.oauth_state = stored_state
+        # If session state is lost, try to recover from file cache
+        if not stored_state:
+            try:
+                import tempfile
+                import os
+                import glob
+                # Look for any oauth state files
+                temp_dir = tempfile.gettempdir()
+                state_files = glob.glob(os.path.join(temp_dir, "oauth_state_*.txt"))
+                
+                for state_file in state_files:
+                    try:
+                        with open(state_file, 'r') as f:
+                            cached_state = f.read().strip()
+                            if cached_state == received_state:
+                                stored_state = cached_state
+                                st.session_state.oauth_state = stored_state
+                                # Clean up the cache file
+                                os.remove(state_file)
+                                break
+                    except:
+                        continue
+            except Exception as e:
+                st.write(f"Debug: Could not check file cache: {e}")
         
         # Debug information
         st.write(f"Debug: Received state: {received_state}")
         st.write(f"Debug: Stored state (session): {st.session_state.get('oauth_state')}")
-        st.write(f"Debug: Stored state (URL): {url_state}")
         st.write(f"Debug: Using state: {stored_state}")
         
         if not stored_state:
@@ -1423,7 +1446,7 @@ if not st.session_state.authenticated:
     # Add a retry button if there was an OAuth error
     if 'code' in query_params and 'state' in query_params:
         if st.button("🔄 Try Again", type="secondary"):
-            # Clear OAuth state from both session and URL
+            # Clear OAuth state from session
             if 'oauth_state' in st.session_state:
                 del st.session_state['oauth_state']
             
@@ -1434,6 +1457,22 @@ if not st.session_state.authenticated:
                 if param in current_params:
                     del current_params[param]
             st.query_params.update(**current_params)
+            
+            # Clean up any cache files
+            try:
+                import tempfile
+                import os
+                import glob
+                temp_dir = tempfile.gettempdir()
+                state_files = glob.glob(os.path.join(temp_dir, "oauth_state_*.txt"))
+                for state_file in state_files:
+                    try:
+                        os.remove(state_file)
+                    except:
+                        pass
+            except:
+                pass
+            
             st.rerun()
     
     oauth_url = generate_oauth_url()
