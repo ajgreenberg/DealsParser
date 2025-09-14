@@ -1468,9 +1468,13 @@ if not st.session_state.authenticated:
         # Fallback if image not found
         st.markdown("![DealFlow AI Hero](https://raw.githubusercontent.com/ajgreenberg/DealsParser/main/images/DealFlowAI%20Hero.png)")
     
-    # Login section below hero image
-    st.markdown("### 🔐 Sign In")
-    st.markdown("Access your DealFlow AI tools")
+    # Login section below hero image - centered and aligned
+    st.markdown("""
+    <div style="text-align: center; margin: 30px 0;">
+        <h3 style="margin-bottom: 8px;">🔐 Sign In</h3>
+        <p style="margin-bottom: 20px; color: #666;">Access your DealFlow AI tools</p>
+    </div>
+    """, unsafe_allow_html=True)
     
     # Add a retry button if there was an OAuth error
     if 'code' in query_params and 'state' in query_params:
@@ -1506,7 +1510,7 @@ if not st.session_state.authenticated:
     
     oauth_url = generate_oauth_url()
     if oauth_url:
-        # Make the login button more prominent
+        # Make the login button more prominent and centered
         st.markdown(f"""
         <div style="text-align: center; margin: 20px 0;">
             <a href="{oauth_url}" style="display: inline-block; background-color: #4285f4; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: 500; font-size: 16px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
