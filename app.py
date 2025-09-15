@@ -924,6 +924,13 @@ def create_airtable_record(
     # Always tag new deals as "Pursuing"
     status = "Pursuing"
     
+    # Add comprehensive debugging
+    st.write(f"Debug - data type: {type(data)}, value: {data}")
+    st.write(f"Debug - raw_notes type: {type(raw_notes)}, value: {raw_notes}")
+    st.write(f"Debug - attachments type: {type(attachments)}, value: {attachments}")
+    st.write(f"Debug - deal_type type: {type(deal_type)}, value: {deal_type}")
+    st.write(f"Debug - contact_info type: {type(contact_info)}, value: {contact_info}")
+    
     # Add null checks and debugging
     if data is None:
         st.error("Error: Data parameter is None")
@@ -945,7 +952,9 @@ def create_airtable_record(
         }
         
         # Get location and validate address
+        st.write(f"Debug - About to call data.get('Location')")
         location = data.get("Location", "")
+        st.write(f"Debug - location extracted: {location}")
         if location and SMARTY_ENABLED:
             address_data = validate_address(location)
             if address_data:
@@ -975,27 +984,31 @@ def create_airtable_record(
             ownership_sale = ""
             mortgage_lender = ""
         
+        st.write(f"Debug - About to create fields dictionary")
+        st.write(f"Debug - data is still: {type(data)}")
+        
         fields = {
             "Type": [deal_type],
             "Status": status,
-            "Notes": data.get("Notes"),
+            "Notes": data.get("Notes") if data else "",
             "Raw Notes": raw_notes,
             "Contact Info": contact_info,
-            "Sponsor": data.get("Sponsor"),
-            "Broker": data.get("Broker"),
-            "Property Name": data.get("Property Name"),
+            "Sponsor": data.get("Sponsor") if data else "",
+            "Broker": data.get("Broker") if data else "",
+            "Property Name": data.get("Property Name") if data else "",
             "Location": validated_location,
             "Map": maps_link,
             "Public Records": f"𝗣𝗵𝘆𝘀𝗶𝗰𝗮𝗹 𝗣𝗿𝗼𝗽𝗲𝗿𝘁𝘆: \n{physical_property}\n\n𝗢𝘄𝗻𝗲𝗿𝘀𝗵𝗶𝗽 & 𝗦𝗮𝗹𝗲: \n{ownership_sale}\n\n𝗣𝗮𝗿𝗰𝗲𝗹 & 𝗧𝗮𝘅: \n{parcel_tax}\n\n𝗠𝗼𝗿𝘁𝗴𝗮𝗴𝗲 & 𝗟𝗲𝗻𝗱𝗲𝗿: \n{mortgage_lender}",
-            "Asset Class": data.get("Asset Class"),
-            "Purchase Price": data.get("Purchase Price"),
-            "Loan Amount": data.get("Loan Amount"),
-            "In-Place Cap Rate": data.get("In-Place Cap Rate"),
-            "Interest Rate": data.get("Interest Rate"),
-            "Size": data.get("Size"),
-            "Unit Pricing": data.get("Unit Pricing"),
-            "Status Detail": data.get("Status Detail"),
+            "Asset Class": data.get("Asset Class") if data else "",
+            "Purchase Price": data.get("Purchase Price") if data else "",
+            "Loan Amount": data.get("Loan Amount") if data else "",
+            "In-Place Cap Rate": data.get("In-Place Cap Rate") if data else "",
+            "Interest Rate": data.get("Interest Rate") if data else "",
+            "Size": data.get("Size") if data else "",
+            "Unit Pricing": data.get("Unit Pricing") if data else "",
+            "Status Detail": data.get("Status Detail") if data else "",
         }
+        st.write(f"Debug - Fields dictionary created successfully")
         
         # Add Owners field if user is selected
         if st.session_state.get('selected_user'):
