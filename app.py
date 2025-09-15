@@ -924,6 +924,20 @@ def create_airtable_record(
     # Always tag new deals as "Pursuing"
     status = "Pursuing"
     
+    # Add null checks and debugging
+    if data is None:
+        st.error("Error: Data parameter is None")
+        return
+    
+    if contact_info is None:
+        contact_info = ""
+    
+    if attachments is None:
+        attachments = []
+    
+    if raw_notes is None:
+        raw_notes = ""
+    
     try:
         headers = {
             "Authorization": f"Bearer {AIRTABLE_PAT}",
@@ -1371,11 +1385,15 @@ if 'current_page' not in st.session_state:
 if 'show_contacts_form' not in st.session_state:
     st.session_state.show_contacts_form = False
 if 'contacts' not in st.session_state:
-    st.session_state.contacts = []
+    st.session_state.contacts = ""
 if 'parsing_mode' not in st.session_state:
     st.session_state.parsing_mode = None
 if 's3_urls' not in st.session_state:
     st.session_state.s3_urls = []
+if 'attachments' not in st.session_state:
+    st.session_state.attachments = []
+if 'raw_notes' not in st.session_state:
+    st.session_state.raw_notes = ""
 if 'selected_user' not in st.session_state:
     st.session_state.selected_user = None
 if 'authenticated' not in st.session_state:
@@ -1918,12 +1936,18 @@ elif st.session_state.current_page == 'dealflow':
                     "Public Records":      public_records,
                     "Notes":               notes
                 }
+                
+                # Ensure all parameters are not None
+                raw_notes = st.session_state.get("raw_notes", "")
+                attachments = st.session_state.get("attachments", [])
+                contacts = st.session_state.get("contacts", "")
+                
                 create_airtable_record(
                     updated,
                     raw_notes,
-                    st.session_state["attachments"],
+                    attachments,
                     DEAL_TYPE_MAP[deal_type],
-                    st.session_state["contacts"]
+                    contacts
                 )
 
 elif st.session_state.current_page == 'contact':
