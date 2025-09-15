@@ -783,6 +783,10 @@ def format_ownership_info(address_data):
 
 def format_physical_property(result):
     """Format physical property information from Smarty API response."""
+    st.write(f"Debug - format_physical_property called with result type: {type(result)}")
+    if result is None:
+        st.write("Debug - result is None in format_physical_property")
+        return ""
     attrs = result.get('attributes', {})
     
     def format_number(value, decimals=2):
@@ -804,6 +808,10 @@ def format_physical_property(result):
 
 def format_parcel_tax_info(result):
     """Format parcel and tax information from Smarty API response."""
+    st.write(f"Debug - format_parcel_tax_info called with result type: {type(result)}")
+    if result is None:
+        st.write("Debug - result is None in format_parcel_tax_info")
+        return ""
     attrs = result.get('attributes', {})
     
     def format_currency(value):
@@ -834,6 +842,10 @@ def format_parcel_tax_info(result):
 
 def format_ownership_sale_info(result):
     """Format ownership and sale information from Smarty API response."""
+    st.write(f"Debug - format_ownership_sale_info called with result type: {type(result)}")
+    if result is None:
+        st.write("Debug - result is None in format_ownership_sale_info")
+        return ""
     attrs = result.get('attributes', {})
     
     def format_date(date_str):
@@ -870,6 +882,10 @@ def format_ownership_sale_info(result):
 
 def format_mortgage_lender_info(result):
     """Format mortgage and lender information from Smarty API response."""
+    st.write(f"Debug - format_mortgage_lender_info called with result type: {type(result)}")
+    if result is None:
+        st.write("Debug - result is None in format_mortgage_lender_info")
+        return ""
     attrs = result.get('attributes', {})
     
     def format_currency(value):
@@ -956,18 +972,26 @@ def create_airtable_record(
         location = data.get("Location", "")
         st.write(f"Debug - location extracted: {location}")
         if location and SMARTY_ENABLED:
+            st.write(f"Debug - About to validate address")
             address_data = validate_address(location)
+            st.write(f"Debug - address_data type: {type(address_data)}, value: {address_data}")
             if address_data:
                 # Address validation successful
+                st.write(f"Debug - Address validation successful")
                 validated_location = address_data.get('formatted_address', location)
                 maps_link = generate_maps_link(validated_location)
                 
                 # Format property information using new functions
                 result = address_data.get('raw_data', {})
+                st.write(f"Debug - result type: {type(result)}, value: {result}")
                 
+                st.write(f"Debug - About to format physical property")
                 physical_property = format_physical_property(result)
+                st.write(f"Debug - About to format parcel tax")
                 parcel_tax = format_parcel_tax_info(result)
+                st.write(f"Debug - About to format ownership sale")
                 ownership_sale = format_ownership_sale_info(result)
+                st.write(f"Debug - About to format mortgage lender")
                 mortgage_lender = format_mortgage_lender_info(result)
             else:
                 maps_link = generate_maps_link(location)
