@@ -1623,7 +1623,7 @@ if not st.session_state.authenticated:
         # Make the login button more prominent and centered
         st.markdown(f"""
         <div style="text-align: center; margin: 10px 0;">
-            <a href="{oauth_url}" target="_self" style="display: inline-block; background-color: #4285f4; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: 500; font-size: 16px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+            <a href="{oauth_url}" style="display: inline-block; background-color: #4285f4; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: 500; font-size: 16px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
                 <img src="https://developers.google.com/identity/images/g-logo.png" style="width: 20px; height: 20px; margin-right: 8px; vertical-align: middle;">
                 Sign in with Google
             </a>
