@@ -15,6 +15,8 @@ import urllib.parse
 import hashlib
 import hmac
 import base64
+import tempfile
+import os
 
 # --- Custom CSS for Apple-like styling ---
 st.set_page_config(
@@ -415,6 +417,7 @@ except Exception as e:
 GOOGLE_CLIENT_ID = st.secrets.get("GOOGLE_CLIENT_ID")
 GOOGLE_CLIENT_SECRET = st.secrets.get("GOOGLE_CLIENT_SECRET")
 REDIRECT_URI = st.secrets.get("REDIRECT_URI", "http://localhost:8501")
+
 
 s3 = boto3.client(
     "s3",
@@ -1034,6 +1037,18 @@ def create_airtable_record(
             st.error(f"Airtable error: {resp.text}")
         else:
             st.success("✅ Deal saved to Airtable!")
+            
+            # Add link to view in Airtable
+            st.markdown("""
+            <div style="text-align: center; margin: 15px 0;">
+                <a href="https://airtable.com/appvfD3RKkfDQ6f8j/tblS3TYknfDGYArnc/viwRajkGcrF0dCzDD?blocks=hide" 
+                   target="_blank" 
+                   style="display: inline-block; background-color: #18BFFF; color: white; padding: 10px 20px; text-decoration: none; border-radius: 6px; font-weight: 500; font-size: 14px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+                    📊 View in Airtable
+                </a>
+            </div>
+            """, unsafe_allow_html=True)
+            
             # Note: S3 files are not automatically deleted to ensure Airtable can access them
             # You may want to set up a separate cleanup process for old files
     except Exception as e:
@@ -1178,6 +1193,7 @@ def create_multiple_contact_records(contacts: List[Dict], attachments: List[str]
             failure_count += 1
     
     return {"success": success_count, "failure": failure_count}
+
 
 def generate_oauth_url():
     """Generate Google OAuth URL."""
@@ -1458,9 +1474,77 @@ if not st.session_state.authenticated:
         
         if not stored_state:
             st.error("OAuth session expired. Please try signing in again.")
+            
+            # Add clear cache button
+            col1, col2 = st.columns([2, 1])
+            with col1:
+                if st.button("🔄 Clear Cache & Try Again", type="primary"):
+                    # Clear all OAuth-related session state
+                    for key in ['oauth_state', 'authenticated', 'user_info', 'selected_user', 'selected_user_name']:
+                        if key in st.session_state:
+                            del st.session_state[key]
+                    
+                    # Clear URL parameters
+                    st.query_params.clear()
+                    
+                    # Clean up cache files
+                    try:
+                        import tempfile
+                        import os
+                        import glob
+                        temp_dir = tempfile.gettempdir()
+                        state_files = glob.glob(os.path.join(temp_dir, "oauth_state_*.txt"))
+                        for state_file in state_files:
+                            try:
+                                os.remove(state_file)
+                            except:
+                                pass
+                    except:
+                        pass
+                    
+                    st.rerun()
+            with col2:
+                if st.button("🏠 Back to Login", type="secondary"):
+                    st.query_params.clear()
+                    st.rerun()
+            
             st.stop()
         elif received_state != stored_state:
             st.error("Invalid OAuth state. This may be due to a security issue or session timeout. Please try signing in again.")
+            
+            # Add clear cache button
+            col1, col2 = st.columns([2, 1])
+            with col1:
+                if st.button("🔄 Clear Cache & Try Again", type="primary", key="clear_cache_invalid"):
+                    # Clear all OAuth-related session state
+                    for key in ['oauth_state', 'authenticated', 'user_info', 'selected_user', 'selected_user_name']:
+                        if key in st.session_state:
+                            del st.session_state[key]
+                    
+                    # Clear URL parameters
+                    st.query_params.clear()
+                    
+                    # Clean up cache files
+                    try:
+                        import tempfile
+                        import os
+                        import glob
+                        temp_dir = tempfile.gettempdir()
+                        state_files = glob.glob(os.path.join(temp_dir, "oauth_state_*.txt"))
+                        for state_file in state_files:
+                            try:
+                                os.remove(state_file)
+                            except:
+                                pass
+                    except:
+                        pass
+                    
+                    st.rerun()
+            with col2:
+                if st.button("🏠 Back to Login", type="secondary", key="back_to_login_invalid"):
+                    st.query_params.clear()
+                    st.rerun()
+            
             st.stop()
         
         # Exchange code for token
@@ -1539,7 +1623,7 @@ if not st.session_state.authenticated:
         # Make the login button more prominent and centered
         st.markdown(f"""
         <div style="text-align: center; margin: 10px 0;">
-            <a href="{oauth_url}" style="display: inline-block; background-color: #4285f4; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: 500; font-size: 16px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+            <a href="{oauth_url}" target="_self" style="display: inline-block; background-color: #4285f4; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: 500; font-size: 16px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
                 <img src="https://developers.google.com/identity/images/g-logo.png" style="width: 20px; height: 20px; margin-right: 8px; vertical-align: middle;">
                 Sign in with Google
             </a>
@@ -1564,7 +1648,7 @@ if st.session_state.current_page == 'home':
     
     st.markdown("---")
     
-    # Create two columns for the main buttons
+    # Create three columns for the main buttons
     col1, col2, col3 = st.columns(3)
     
     with col1:
@@ -2164,6 +2248,18 @@ elif st.session_state.current_page == 'contact':
                             success = create_contact_record(valid_contacts[0], st.session_state.get('s3_urls', []))
                             if success:
                                 st.success("✅ Contact saved to Airtable!")
+                                
+                                # Add link to view in Airtable
+                                st.markdown("""
+                                <div style="text-align: center; margin: 15px 0;">
+                                    <a href="https://airtable.com/appvfD3RKkfDQ6f8j/tbl3EY7dpNcyBo6qG/viwLn1h08dtcJA62V?blocks=hide" 
+                                       target="_blank" 
+                                       style="display: inline-block; background-color: #18BFFF; color: white; padding: 10px 20px; text-decoration: none; border-radius: 6px; font-weight: 500; font-size: 14px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+                                        📊 View in Airtable
+                                    </a>
+                                </div>
+                                """, unsafe_allow_html=True)
+                                
                                 # Clear the form
                                 st.session_state.show_contacts_form = False
                                 st.session_state.contacts = []
@@ -2177,6 +2273,18 @@ elif st.session_state.current_page == 'contact':
                             
                             if result["success"] > 0:
                                 st.success(f"✅ Successfully saved {result['success']} contact(s) to Airtable!")
+                                
+                                # Add link to view in Airtable
+                                st.markdown("""
+                                <div style="text-align: center; margin: 15px 0;">
+                                    <a href="https://airtable.com/appvfD3RKkfDQ6f8j/tbl3EY7dpNcyBo6qG/viwLn1h08dtcJA62V?blocks=hide" 
+                                       target="_blank" 
+                                       style="display: inline-block; background-color: #18BFFF; color: white; padding: 10px 20px; text-decoration: none; border-radius: 6px; font-weight: 500; font-size: 14px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+                                        📊 View in Airtable
+                                    </a>
+                                </div>
+                                """, unsafe_allow_html=True)
+                                
                                 if result["failure"] > 0:
                                     st.warning(f"⚠️ {result['failure']} contact(s) failed to save.")
                                 
