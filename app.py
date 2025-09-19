@@ -1038,10 +1038,14 @@ def create_airtable_record(
         else:
             st.success("✅ Deal saved to Airtable!")
             
-            # Add link to view in Airtable
-            st.markdown("""
+            # Add link to view in Airtable - use custom URL if available
+            deals_url = st.session_state.get('deals_pipeline_url', 'https://airtable.com/appvfD3RKkfDQ6f8j/tblS3TYknfDGYArnc/viwRajkGcrF0dCzDD?blocks=hide')
+            if not deals_url:
+                deals_url = 'https://airtable.com/appvfD3RKkfDQ6f8j/tblS3TYknfDGYArnc/viwRajkGcrF0dCzDD?blocks=hide'
+            
+            st.markdown(f"""
             <div style="text-align: center; margin: 15px 0;">
-                <a href="https://airtable.com/appvfD3RKkfDQ6f8j/tblS3TYknfDGYArnc/viwRajkGcrF0dCzDD?blocks=hide" 
+                <a href="{deals_url}" 
                    target="_blank" 
                    style="display: inline-block; background-color: #18BFFF; color: white; padding: 10px 20px; text-decoration: none; border-radius: 6px; font-weight: 500; font-size: 14px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
                     📊 View in Airtable
@@ -1290,7 +1294,9 @@ def find_user_in_airtable(user_info):
                 return {
                     'id': record['id'],
                     'name': record['fields'].get('Name', user_info.get('name', '')),
-                    'email': record['fields'].get('Email', user_info.get('email', ''))
+                    'email': record['fields'].get('Email', user_info.get('email', '')),
+                    'deals_pipeline_url': record['fields'].get('Deals Pipeline', ''),
+                    'contacts_list_url': record['fields'].get('Contacts List', '')
                 }
             else:
                 # User not found in Team table
@@ -1561,6 +1567,8 @@ if not st.session_state.authenticated:
                         st.session_state.user_info = user_info
                         st.session_state.selected_user = airtable_user['id']
                         st.session_state.selected_user_name = airtable_user['name']
+                        st.session_state.deals_pipeline_url = airtable_user.get('deals_pipeline_url', '')
+                        st.session_state.contacts_list_url = airtable_user.get('contacts_list_url', '')
                         st.success(f"✅ Welcome, {airtable_user['name']}!")
                         st.rerun()
                     else:
@@ -2249,10 +2257,14 @@ elif st.session_state.current_page == 'contact':
                             if success:
                                 st.success("✅ Contact saved to Airtable!")
                                 
-                                # Add link to view in Airtable
-                                st.markdown("""
+                                # Add link to view in Airtable - use custom URL if available
+                                contacts_url = st.session_state.get('contacts_list_url', 'https://airtable.com/appvfD3RKkfDQ6f8j/tbl3EY7dpNcyBo6qG/viwLn1h08dtcJA62V?blocks=hide')
+                                if not contacts_url:
+                                    contacts_url = 'https://airtable.com/appvfD3RKkfDQ6f8j/tbl3EY7dpNcyBo6qG/viwLn1h08dtcJA62V?blocks=hide'
+                                
+                                st.markdown(f"""
                                 <div style="text-align: center; margin: 15px 0;">
-                                    <a href="https://airtable.com/appvfD3RKkfDQ6f8j/tbl3EY7dpNcyBo6qG/viwLn1h08dtcJA62V?blocks=hide" 
+                                    <a href="{contacts_url}" 
                                        target="_blank" 
                                        style="display: inline-block; background-color: #18BFFF; color: white; padding: 10px 20px; text-decoration: none; border-radius: 6px; font-weight: 500; font-size: 14px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
                                         📊 View in Airtable
@@ -2274,10 +2286,14 @@ elif st.session_state.current_page == 'contact':
                             if result["success"] > 0:
                                 st.success(f"✅ Successfully saved {result['success']} contact(s) to Airtable!")
                                 
-                                # Add link to view in Airtable
-                                st.markdown("""
+                                # Add link to view in Airtable - use custom URL if available
+                                contacts_url = st.session_state.get('contacts_list_url', 'https://airtable.com/appvfD3RKkfDQ6f8j/tbl3EY7dpNcyBo6qG/viwLn1h08dtcJA62V?blocks=hide')
+                                if not contacts_url:
+                                    contacts_url = 'https://airtable.com/appvfD3RKkfDQ6f8j/tbl3EY7dpNcyBo6qG/viwLn1h08dtcJA62V?blocks=hide'
+                                
+                                st.markdown(f"""
                                 <div style="text-align: center; margin: 15px 0;">
-                                    <a href="https://airtable.com/appvfD3RKkfDQ6f8j/tbl3EY7dpNcyBo6qG/viwLn1h08dtcJA62V?blocks=hide" 
+                                    <a href="{contacts_url}" 
                                        target="_blank" 
                                        style="display: inline-block; background-color: #18BFFF; color: white; padding: 10px 20px; text-decoration: none; border-radius: 6px; font-weight: 500; font-size: 14px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
                                         📊 View in Airtable
