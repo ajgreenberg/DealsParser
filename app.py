@@ -987,7 +987,7 @@ def create_airtable_record(
             mortgage_lender = ""
         
         fields = {
-            "Type": [deal_type],
+            "Type": deal_type,
             "Status": status,
             "Notes": data.get("Notes") if data else "",
             "Raw Notes": raw_notes,
