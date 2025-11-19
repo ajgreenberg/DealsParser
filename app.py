@@ -1971,6 +1971,80 @@ elif st.session_state.current_page == 'dealflow':
         elif st.session_state.get("address_validated") == True:
             pass
         
+        # Contact Selection Section (outside form so we can use buttons)
+        st.markdown("---")
+        st.markdown("### 📇 Link Contacts to Deal")
+        parsed_contacts = st.session_state.get("parsed_contacts", [])
+        
+        # Initialize contacts to link list if not exists (fallback, should be set during analysis)
+        if "contacts_to_link" not in st.session_state:
+            # Filter out contacts without names and initialize with all valid contacts
+            valid_contacts = [c for c in parsed_contacts if c.get("Name", "").strip()]
+            st.session_state.contacts_to_link = valid_contacts.copy()
+        
+        if parsed_contacts:
+            # Filter out contacts without names
+            valid_contacts = [c for c in parsed_contacts if c.get("Name", "").strip()]
+            
+            if valid_contacts:
+                contacts_to_link = st.session_state.get("contacts_to_link", [])
+                st.info(f"Found {len(valid_contacts)} contact(s) in the documents. All will be linked by default. Remove any you don't want to link:")
+                
+                # Display contacts with delete buttons
+                contacts_to_remove = []
+                for i, contact in enumerate(contacts_to_link):
+                    col1, col2 = st.columns([5, 1])
+                    with col1:
+                        name = contact.get("Name", "Unknown")
+                        email = contact.get("Email", "")
+                        org = contact.get("Organization", "")
+                        
+                        # Create display text
+                        display_parts = [f"**{name}**"]
+                        if email:
+                            display_parts.append(f"📧 {email}")
+                        if org:
+                            display_parts.append(f"🏢 {org}")
+                        
+                        st.markdown(" | ".join(display_parts))
+                        
+                        # Show more details in expander
+                        with st.expander(f"View details for {name}", expanded=False):
+                            st.write(f"**Name:** {contact.get('Name', 'N/A')}")
+                            st.write(f"**Email:** {contact.get('Email', 'N/A')}")
+                            st.write(f"**Phone:** {contact.get('Phone', 'N/A')}")
+                            st.write(f"**Organization:** {contact.get('Organization', 'N/A')}")
+                            st.write(f"**Address:** {contact.get('Address', 'N/A')}")
+                            st.write(f"**Website:** {contact.get('Website', 'N/A')}")
+                            if contact.get('Notes'):
+                                st.write(f"**Notes:** {contact.get('Notes', 'N/A')}")
+                    
+                    with col2:
+                        if st.button("🗑️ Remove", key=f"remove_contact_{i}", type="secondary"):
+                            contacts_to_remove.append(i)
+                
+                # Remove contacts that were marked for deletion
+                if contacts_to_remove:
+                    # Sort in reverse order to remove from end first
+                    contacts_to_remove.sort(reverse=True)
+                    for idx in contacts_to_remove:
+                        if 0 <= idx < len(st.session_state.contacts_to_link):
+                            st.session_state.contacts_to_link.pop(idx)
+                    st.rerun()
+                
+                if len(contacts_to_link) == 0:
+                    st.info("No contacts will be linked to this deal. All contacts have been removed.")
+                else:
+                    st.success(f"✅ {len(contacts_to_link)} contact(s) will be linked to this deal")
+            else:
+                st.info("Contacts were found but none have valid names. No contact will be linked.")
+                st.session_state.contacts_to_link = []
+        else:
+            st.info("No contacts were detected in the documents. You can still save the deal without linking a contact.")
+            st.session_state.contacts_to_link = []
+        
+        st.markdown("---")
+        
         with st.form("edit_form", clear_on_submit=False):
             s = st.session_state["summary"]
             
@@ -2056,78 +2130,6 @@ elif st.session_state.current_page == 'dealflow':
             
             public_records = st.text_area("Public Records", value=combined_public_records, height=400)
             raw_notes = st.text_area("Raw Notes", value=st.session_state.get("raw_notes",""), height=120)
-            
-            # Contact Selection Section
-            st.markdown("---")
-            st.markdown("### 📇 Link Contacts to Deal")
-            parsed_contacts = st.session_state.get("parsed_contacts", [])
-            
-            # Initialize contacts to link list if not exists (fallback, should be set during analysis)
-            if "contacts_to_link" not in st.session_state:
-                # Filter out contacts without names and initialize with all valid contacts
-                valid_contacts = [c for c in parsed_contacts if c.get("Name", "").strip()]
-                st.session_state.contacts_to_link = valid_contacts.copy()
-            
-            if parsed_contacts:
-                # Filter out contacts without names
-                valid_contacts = [c for c in parsed_contacts if c.get("Name", "").strip()]
-                
-                if valid_contacts:
-                    contacts_to_link = st.session_state.get("contacts_to_link", [])
-                    st.info(f"Found {len(valid_contacts)} contact(s) in the documents. All will be linked by default. Remove any you don't want to link:")
-                    
-                    # Display contacts with delete buttons
-                    contacts_to_remove = []
-                    for i, contact in enumerate(contacts_to_link):
-                        col1, col2 = st.columns([5, 1])
-                        with col1:
-                            name = contact.get("Name", "Unknown")
-                            email = contact.get("Email", "")
-                            org = contact.get("Organization", "")
-                            
-                            # Create display text
-                            display_parts = [f"**{name}**"]
-                            if email:
-                                display_parts.append(f"📧 {email}")
-                            if org:
-                                display_parts.append(f"🏢 {org}")
-                            
-                            st.markdown(" | ".join(display_parts))
-                            
-                            # Show more details in expander
-                            with st.expander(f"View details for {name}", expanded=False):
-                                st.write(f"**Name:** {contact.get('Name', 'N/A')}")
-                                st.write(f"**Email:** {contact.get('Email', 'N/A')}")
-                                st.write(f"**Phone:** {contact.get('Phone', 'N/A')}")
-                                st.write(f"**Organization:** {contact.get('Organization', 'N/A')}")
-                                st.write(f"**Address:** {contact.get('Address', 'N/A')}")
-                                st.write(f"**Website:** {contact.get('Website', 'N/A')}")
-                                if contact.get('Notes'):
-                                    st.write(f"**Notes:** {contact.get('Notes', 'N/A')}")
-                        
-                        with col2:
-                            if st.button("🗑️ Remove", key=f"remove_contact_{i}", type="secondary"):
-                                contacts_to_remove.append(i)
-                    
-                    # Remove contacts that were marked for deletion
-                    if contacts_to_remove:
-                        # Sort in reverse order to remove from end first
-                        contacts_to_remove.sort(reverse=True)
-                        for idx in contacts_to_remove:
-                            if 0 <= idx < len(st.session_state.contacts_to_link):
-                                st.session_state.contacts_to_link.pop(idx)
-                        st.rerun()
-                    
-                    if len(contacts_to_link) == 0:
-                        st.info("No contacts will be linked to this deal. All contacts have been removed.")
-                    else:
-                        st.success(f"✅ {len(contacts_to_link)} contact(s) will be linked to this deal")
-                else:
-                    st.info("Contacts were found but none have valid names. No contact will be linked.")
-                    st.session_state.contacts_to_link = []
-            else:
-                st.info("No contacts were detected in the documents. You can still save the deal without linking a contact.")
-                st.session_state.contacts_to_link = []
             
             submitted = st.form_submit_button("Save to Airtable")
 
