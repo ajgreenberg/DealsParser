@@ -1725,7 +1725,8 @@ elif st.session_state.current_page == 'dealflow':
     # Map display values to Airtable values
     DEAL_TYPE_MAP = {
         "🏢 Equity": "Equity",
-        "🏦 Debt": "Debt"
+        "🏦 Debt": "Debt",
+        "📞 Cold Call": "Cold Call"
     }
     
     deal_type = st.radio("Select Deal Type", list(DEAL_TYPE_MAP.keys()), horizontal=True, label_visibility="visible")
