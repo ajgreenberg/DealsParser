@@ -945,7 +945,8 @@ def create_airtable_record(
     raw_notes: str,
     attachments: List[str],
     deal_type: str,
-    contact_info: str
+    contact_info: str,
+    contact_id: str = None
 ):
     # Always tag new deals as "Pursuing"
     status = "Pursuing"
@@ -1027,6 +1028,14 @@ def create_airtable_record(
         if st.session_state.get('selected_user'):
             fields["Owners"] = [st.session_state['selected_user']]
         
+        # Add linked contacts if provided (can be a single ID or list of IDs)
+        if contact_id:
+            # Handle both single contact ID and list of contact IDs
+            if isinstance(contact_id, list):
+                fields["Contacts"] = contact_id
+            else:
+                fields["Contacts"] = [contact_id]
+        
         # Add attachments with enhanced format
         if attachments:
             attachment_list = []
@@ -1054,9 +1063,14 @@ def create_airtable_record(
             st.success("✅ Deal saved to Airtable!")
             
             # Add link to view in Airtable - use custom URL if available
-            deals_url = st.session_state.get('deals_pipeline_url', 'https://airtable.com/appvfD3RKkfDQ6f8j/tblS3TYknfDGYArnc/viwRajkGcrF0dCzDD?blocks=hide')
-            if not deals_url:
-                deals_url = 'https://airtable.com/appvfD3RKkfDQ6f8j/tblS3TYknfDGYArnc/viwRajkGcrF0dCzDD?blocks=hide'
+            # Special case: If AJ Greenberg user and Cold Call deal type, use Cold Call view
+            selected_user_name = st.session_state.get('selected_user_name', '')
+            if selected_user_name == 'AJ Greenberg' and deal_type == 'Cold Call':
+                deals_url = 'https://airtable.com/appvfD3RKkfDQ6f8j/tblS3TYknfDGYArnc/viwxDzs7WA5JJHqkf'
+            else:
+                deals_url = st.session_state.get('deals_pipeline_url', 'https://airtable.com/appvfD3RKkfDQ6f8j/tblS3TYknfDGYArnc/viwRajkGcrF0dCzDD?blocks=hide')
+                if not deals_url:
+                    deals_url = 'https://airtable.com/appvfD3RKkfDQ6f8j/tblS3TYknfDGYArnc/viwRajkGcrF0dCzDD?blocks=hide'
             
             st.markdown(f"""
             <div style="text-align: center; margin: 15px 0;">
@@ -1154,7 +1168,7 @@ def create_contact_record(
     contact_data: Dict,
     attachments: List[str]
 ):
-    """Create a new record in the Contacts table."""
+    """Create a new record in the Contacts table. Returns the record ID if successful, None otherwise."""
     try:
         headers = {
             "Authorization": f"Bearer {AIRTABLE_PAT}",
@@ -1189,11 +1203,14 @@ def create_contact_record(
         
         if resp.status_code not in (200, 201):
             st.error(f"Airtable error: {resp.text}")
-            return False
-        return True
+            return None
+        
+        # Return the record ID
+        response_data = resp.json()
+        return response_data.get('id')
     except Exception as e:
         st.error(f"Error creating contact: {str(e)}")
-        return False
+        return None
 
 def create_multiple_contact_records(contacts: List[Dict], attachments: List[str]) -> Dict[str, int]:
     """Create multiple contact records in Airtable and return success/failure counts."""
@@ -1834,6 +1851,8 @@ elif st.session_state.current_page == 'dealflow':
                     # Process notes and contact info
                     notes_summary = summarize_notes(extra_notes)
                     contact_info = extract_contact_info(combined)
+                    # Also parse contacts for linking to deal
+                    parsed_contacts = parse_multiple_contacts(combined)
                 
                 elif i == 3:
                     # Handle attachments
@@ -1847,11 +1866,17 @@ elif st.session_state.current_page == 'dealflow':
                 
                 elif i == 4:
                     # Update session state
+                    parsed_contacts_list = parsed_contacts if 'parsed_contacts' in locals() else []
+                    # Initialize contacts_to_link with all valid contacts from new parsing
+                    valid_contacts = [c for c in parsed_contacts_list if c.get("Name", "").strip()]
+                    
                     st.session_state.update({
                         "summary": summary,
                         "raw_notes": extra_notes,
                         "notes_summary": notes_summary,
                         "contacts": contact_info,
+                        "parsed_contacts": parsed_contacts_list,
+                        "contacts_to_link": valid_contacts.copy(),  # Reset with new contacts
                         "attachments": s3_urls,
                         "deal_type": DEAL_TYPE_MAP[deal_type] if deal_type else ""  # Map to Airtable value
                     })
@@ -2032,10 +2057,109 @@ elif st.session_state.current_page == 'dealflow':
             public_records = st.text_area("Public Records", value=combined_public_records, height=400)
             raw_notes = st.text_area("Raw Notes", value=st.session_state.get("raw_notes",""), height=120)
             
+            # Contact Selection Section
+            st.markdown("---")
+            st.markdown("### 📇 Link Contacts to Deal")
+            parsed_contacts = st.session_state.get("parsed_contacts", [])
+            
+            # Initialize contacts to link list if not exists (fallback, should be set during analysis)
+            if "contacts_to_link" not in st.session_state:
+                # Filter out contacts without names and initialize with all valid contacts
+                valid_contacts = [c for c in parsed_contacts if c.get("Name", "").strip()]
+                st.session_state.contacts_to_link = valid_contacts.copy()
+            
+            if parsed_contacts:
+                # Filter out contacts without names
+                valid_contacts = [c for c in parsed_contacts if c.get("Name", "").strip()]
+                
+                if valid_contacts:
+                    contacts_to_link = st.session_state.get("contacts_to_link", [])
+                    st.info(f"Found {len(valid_contacts)} contact(s) in the documents. All will be linked by default. Remove any you don't want to link:")
+                    
+                    # Display contacts with delete buttons
+                    contacts_to_remove = []
+                    for i, contact in enumerate(contacts_to_link):
+                        col1, col2 = st.columns([5, 1])
+                        with col1:
+                            name = contact.get("Name", "Unknown")
+                            email = contact.get("Email", "")
+                            org = contact.get("Organization", "")
+                            
+                            # Create display text
+                            display_parts = [f"**{name}**"]
+                            if email:
+                                display_parts.append(f"📧 {email}")
+                            if org:
+                                display_parts.append(f"🏢 {org}")
+                            
+                            st.markdown(" | ".join(display_parts))
+                            
+                            # Show more details in expander
+                            with st.expander(f"View details for {name}", expanded=False):
+                                st.write(f"**Name:** {contact.get('Name', 'N/A')}")
+                                st.write(f"**Email:** {contact.get('Email', 'N/A')}")
+                                st.write(f"**Phone:** {contact.get('Phone', 'N/A')}")
+                                st.write(f"**Organization:** {contact.get('Organization', 'N/A')}")
+                                st.write(f"**Address:** {contact.get('Address', 'N/A')}")
+                                st.write(f"**Website:** {contact.get('Website', 'N/A')}")
+                                if contact.get('Notes'):
+                                    st.write(f"**Notes:** {contact.get('Notes', 'N/A')}")
+                        
+                        with col2:
+                            if st.button("🗑️ Remove", key=f"remove_contact_{i}", type="secondary"):
+                                contacts_to_remove.append(i)
+                    
+                    # Remove contacts that were marked for deletion
+                    if contacts_to_remove:
+                        # Sort in reverse order to remove from end first
+                        contacts_to_remove.sort(reverse=True)
+                        for idx in contacts_to_remove:
+                            if 0 <= idx < len(st.session_state.contacts_to_link):
+                                st.session_state.contacts_to_link.pop(idx)
+                        st.rerun()
+                    
+                    if len(contacts_to_link) == 0:
+                        st.info("No contacts will be linked to this deal. All contacts have been removed.")
+                    else:
+                        st.success(f"✅ {len(contacts_to_link)} contact(s) will be linked to this deal")
+                else:
+                    st.info("Contacts were found but none have valid names. No contact will be linked.")
+                    st.session_state.contacts_to_link = []
+            else:
+                st.info("No contacts were detected in the documents. You can still save the deal without linking a contact.")
+                st.session_state.contacts_to_link = []
+            
             submitted = st.form_submit_button("Save to Airtable")
 
         if submitted:
             with st.spinner("Saving to Airtable"):
+                # First, save all contacts that should be linked
+                contact_ids = []
+                contacts_to_link = st.session_state.get("contacts_to_link", [])
+                
+                if contacts_to_link:
+                    contact_attachments = st.session_state.get("attachments", [])
+                    saved_count = 0
+                    failed_count = 0
+                    
+                    for contact in contacts_to_link:
+                        contact_name = contact.get("Name", "Unknown")
+                        with st.spinner(f"Saving contact '{contact_name}'..."):
+                            contact_id = create_contact_record(contact, contact_attachments)
+                            
+                            if contact_id:
+                                contact_ids.append(contact_id)
+                                saved_count += 1
+                            else:
+                                failed_count += 1
+                                st.warning(f"⚠️ Failed to save contact '{contact_name}', but continuing...")
+                    
+                    if saved_count > 0:
+                        st.success(f"✅ Successfully saved {saved_count} contact(s)!")
+                    if failed_count > 0:
+                        st.warning(f"⚠️ {failed_count} contact(s) failed to save, but deal will still be saved.")
+                
+                # Now save the deal
                 updated = {
                     "Property Name":       property_name,
                     "Location":            location,
@@ -2063,7 +2187,8 @@ elif st.session_state.current_page == 'dealflow':
                     raw_notes,
                     attachments,
                     DEAL_TYPE_MAP[deal_type],
-                    contacts
+                    contacts,
+                    contact_ids if contact_ids else None  # Pass list of contact IDs to link the deal
                 )
 
 elif st.session_state.current_page == 'contact':
