@@ -946,10 +946,14 @@ def create_airtable_record(
     attachments: List[str],
     deal_type: str,
     contact_info: str,
-    contact_id: str = None
+    contact_id: str = None,
+    is_cold_call: bool = False
 ):
-    # Always tag new deals as "Pursuing"
-    status = "Pursuing"
+    # Set status based on Cold Call toggle
+    if is_cold_call:
+        status = "Cold Call"
+    else:
+        status = "Pursuing"
     
     # Add null checks
     if data is None:
@@ -1063,9 +1067,9 @@ def create_airtable_record(
             st.success("✅ Deal saved to Airtable!")
             
             # Add link to view in Airtable - use custom URL if available
-            # Special case: If AJ Greenberg user and Cold Call deal type, use Cold Call view
+            # Special case: If AJ Greenberg user and Cold Call status, use Cold Call view
             selected_user_name = st.session_state.get('selected_user_name', '')
-            if selected_user_name == 'AJ Greenberg' and deal_type == 'Cold Call':
+            if selected_user_name == 'AJ Greenberg' and status == 'Cold Call':
                 deals_url = 'https://airtable.com/appvfD3RKkfDQ6f8j/tblS3TYknfDGYArnc/viwxDzs7WA5JJHqkf'
             else:
                 deals_url = st.session_state.get('deals_pipeline_url', 'https://airtable.com/appvfD3RKkfDQ6f8j/tblS3TYknfDGYArnc/viwRajkGcrF0dCzDD?blocks=hide')
@@ -1742,11 +1746,13 @@ elif st.session_state.current_page == 'dealflow':
     # Map display values to Airtable values
     DEAL_TYPE_MAP = {
         "🏢 Equity": "Equity",
-        "🏦 Debt": "Debt",
-        "📞 Cold Call": "Cold Call"
+        "🏦 Debt": "Debt"
     }
     
     deal_type = st.radio("Select Deal Type", list(DEAL_TYPE_MAP.keys()), horizontal=True, label_visibility="visible")
+    
+    # Separate Cold Call toggle
+    is_cold_call = st.checkbox("📞 Cold Call", value=False, help="Check this if this is a cold call deal. This will set the Status to 'Cold Call' instead of 'Pursuing'.")
     
     uploaded_main = st.file_uploader("Upload Deal Memo", type=["pdf","doc","docx"], 
         label_visibility="visible")
@@ -2190,7 +2196,8 @@ elif st.session_state.current_page == 'dealflow':
                     attachments,
                     DEAL_TYPE_MAP[deal_type],
                     contacts,
-                    contact_ids if contact_ids else None  # Pass list of contact IDs to link the deal
+                    contact_ids if contact_ids else None,  # Pass list of contact IDs to link the deal
+                    is_cold_call  # Pass Cold Call toggle status
                 )
 
 elif st.session_state.current_page == 'contact':
