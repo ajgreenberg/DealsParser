@@ -62,6 +62,37 @@ To add more counties or update URLs:
 2. Add URL patterns to `URL_PATTERNS` if applicable
 3. Run URL tests to verify changes
 
+## Deployment
+
+### Railway (Recommended for Production)
+
+This app is configured for deployment on Railway, which provides:
+- 24/7 uptime (no sleep mode)
+- Better performance and reliability
+- Easy environment variable management
+- Custom domain support
+
+See [RAILWAY_DEPLOYMENT.md](RAILWAY_DEPLOYMENT.md) for detailed deployment instructions.
+
+### Local Development
+
+1. Install dependencies:
+```bash
+pip install -r requirements.txt
+```
+
+2. Set up Streamlit secrets (create `.streamlit/secrets.toml`):
+```toml
+OPENAI_API_KEY = "your_key"
+AIRTABLE_PAT = "your_token"
+# ... other secrets
+```
+
+3. Run the app:
+```bash
+streamlit run app.py
+```
+
 ## License
 
 MIT License 

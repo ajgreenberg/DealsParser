@@ -5,10 +5,24 @@ from pydantic import BaseModel
 from fastapi.responses import JSONResponse
 import uvicorn
 from threading import Thread
+import os
 
-# Set up Airtable credentials securely using Streamlit's Secrets
-AIRTABLE_BASE_ID = st.secrets["AIRTABLE_BASE_ID"]
-AIRTABLE_API_KEY = st.secrets["AIRTABLE_API_KEY"]
+# Helper function to get config from environment variables (Railway) or Streamlit secrets (local)
+def get_config(key: str, default: str = None):
+    """Get configuration from environment variable or Streamlit secrets."""
+    # Try environment variable first (for Railway/production)
+    value = os.getenv(key)
+    if value:
+        return value
+    # Fall back to Streamlit secrets (for local development)
+    try:
+        return st.secrets.get(key, default)
+    except:
+        return default
+
+# Set up Airtable credentials securely using environment variables or Streamlit's Secrets
+AIRTABLE_BASE_ID = get_config("AIRTABLE_BASE_ID")
+AIRTABLE_API_KEY = get_config("AIRTABLE_API_KEY") or get_config("AIRTABLE_PAT")  # Support both keys
 AIRTABLE_TABLE_NAME = "Contacts"
 AIRTABLE_URL = f"https://api.airtable.com/v0/{AIRTABLE_BASE_ID}/{AIRTABLE_TABLE_NAME}"
 

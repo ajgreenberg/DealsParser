@@ -1,7 +1,6 @@
 import streamlit as st
 import fitz
 import docx
-import textract
 from openai import OpenAI
 import requests
 import json
@@ -387,36 +386,45 @@ def get_loading_message(stage: int) -> str:
     return messages.get(stage, "Processing")
 
 # --- Config and Clients ---
-client = OpenAI(api_key=st.secrets["OPENAI_API_KEY"])
-AIRTABLE_PAT         = st.secrets["AIRTABLE_PAT"]
-AIRTABLE_BASE_ID     = st.secrets["AIRTABLE_BASE_ID"]
-AIRTABLE_TABLE_NAME  = st.secrets["AIRTABLE_TABLE_NAME"]
-AIRTABLE_CONTACTS_TABLE = st.secrets["AIRTABLE_CONTACTS_TABLE"]
-AWS_ACCESS_KEY_ID    = st.secrets["AWS_ACCESS_KEY_ID"]
-AWS_SECRET_ACCESS_KEY= st.secrets["AWS_SECRET_ACCESS_KEY"]
-S3_BUCKET            = st.secrets["S3_BUCKET"]
-S3_REGION            = st.secrets["S3_REGION"]
+# Helper function to get config from environment variables (Railway) or Streamlit secrets (local)
+def get_config(key: str, default: str = None):
+    """Get configuration from environment variable or Streamlit secrets."""
+    # Try environment variable first (for Railway/production)
+    value = os.getenv(key)
+    if value:
+        return value
+    # Fall back to Streamlit secrets (for local development)
+    try:
+        return st.secrets.get(key, default)
+    except:
+        return default
 
-# Debug Smarty secrets
-try:
-    # Check if keys exist in secrets
-    all_secrets = st.secrets.to_dict()
-    
-    SMARTY_AUTH_ID = st.secrets.get("SMARTY_AUTH_ID")
-    SMARTY_AUTH_TOKEN = st.secrets.get("SMARTY_AUTH_TOKEN")
-    
-    SMARTY_ENABLED = bool(SMARTY_AUTH_ID and SMARTY_AUTH_TOKEN)
-    if not SMARTY_ENABLED:
-        st.warning("Smarty API credentials not found in secrets. Address validation will be disabled.")
-    
-except Exception as e:
-    SMARTY_ENABLED = False
-    st.warning(f"Error checking Smarty credentials: {str(e)}. Address validation will be disabled.")
+# Get all configuration values
+OPENAI_API_KEY = get_config("OPENAI_API_KEY")
+AIRTABLE_PAT = get_config("AIRTABLE_PAT")
+AIRTABLE_BASE_ID = get_config("AIRTABLE_BASE_ID")
+AIRTABLE_TABLE_NAME = get_config("AIRTABLE_TABLE_NAME")
+AIRTABLE_CONTACTS_TABLE = get_config("AIRTABLE_CONTACTS_TABLE")
+AWS_ACCESS_KEY_ID = get_config("AWS_ACCESS_KEY_ID")
+AWS_SECRET_ACCESS_KEY = get_config("AWS_SECRET_ACCESS_KEY")
+S3_BUCKET = get_config("S3_BUCKET")
+S3_REGION = get_config("S3_REGION")
+SMARTY_AUTH_ID = get_config("SMARTY_AUTH_ID")
+SMARTY_AUTH_TOKEN = get_config("SMARTY_AUTH_TOKEN")
+GOOGLE_CLIENT_ID = get_config("GOOGLE_CLIENT_ID")
+GOOGLE_CLIENT_SECRET = get_config("GOOGLE_CLIENT_SECRET")
+REDIRECT_URI = get_config("REDIRECT_URI", "http://localhost:8501")
 
-# OAuth Configuration
-GOOGLE_CLIENT_ID = st.secrets.get("GOOGLE_CLIENT_ID")
-GOOGLE_CLIENT_SECRET = st.secrets.get("GOOGLE_CLIENT_SECRET")
-REDIRECT_URI = st.secrets.get("REDIRECT_URI", "http://localhost:8501")
+# Initialize OpenAI client
+client = OpenAI(api_key=OPENAI_API_KEY)
+
+# Check Smarty configuration
+SMARTY_ENABLED = bool(SMARTY_AUTH_ID and SMARTY_AUTH_TOKEN)
+if not SMARTY_ENABLED:
+    try:
+        st.warning("Smarty API credentials not found. Address validation will be disabled.")
+    except:
+        pass  # Streamlit not initialized yet
 
 
 s3 = boto3.client(
@@ -464,7 +472,14 @@ def extract_text_from_docx(f) -> str:
     return "\n".join(p.text for p in doc.paragraphs)
 
 def extract_text_from_doc(f) -> str:
-    return textract.process(f.name).decode("utf-8")
+    """
+    Extract text from .doc files.
+    Note: .doc is an older Microsoft Word format. python-docx only supports .docx.
+    For .doc files, users should convert to .docx format for best results.
+    """
+    # python-docx only works with .docx files, not .doc
+    # Return a helpful message suggesting conversion
+    return "[Error: .doc file format is not fully supported. Please convert your file to .docx format and upload again. You can do this by opening the file in Microsoft Word and saving as .docx.]"
 
 def summarize_notes(notes: str) -> str:
     if not notes.strip():
