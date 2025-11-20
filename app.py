@@ -1086,6 +1086,24 @@ def create_airtable_record(
             </div>
             """, unsafe_allow_html=True)
             
+            # Add button to submit another deal
+            st.markdown("<br>", unsafe_allow_html=True)
+            col1, col2, col3 = st.columns([1, 2, 1])
+            with col2:
+                if st.button("🔄 Submit Another Deal", use_container_width=True, type="primary"):
+                    # Clear all session state related to the deal
+                    keys_to_clear = [
+                        "summary", "raw_notes", "notes_summary", "contacts", 
+                        "parsed_contacts", "contacts_to_link", "attachments",
+                        "deal_type", "Physical Property", "Parcel & Tax",
+                        "Ownership & Sale", "Mortgage & Lender", "address_validated",
+                        "address_data", "extracted_location"
+                    ]
+                    for key in keys_to_clear:
+                        if key in st.session_state:
+                            del st.session_state[key]
+                    st.rerun()
+            
             # Note: S3 files are not automatically deleted to ensure Airtable can access them
             # You may want to set up a separate cleanup process for old files
     except Exception as e:
