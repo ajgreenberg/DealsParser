@@ -1063,6 +1063,7 @@ def create_airtable_record(
         
         if resp.status_code not in (200, 201):
             st.error(f"Airtable error: {resp.text}")
+            return False
         else:
             st.success("✅ Deal saved to Airtable!")
             
@@ -1086,39 +1087,15 @@ def create_airtable_record(
             </div>
             """, unsafe_allow_html=True)
             
-            # Add button to submit another deal
-            st.markdown("<br>", unsafe_allow_html=True)
-            col1, col2, col3 = st.columns([1, 2, 1])
-            with col2:
-                if st.button("🔄 Submit Another Deal", use_container_width=True, type="primary", key="submit_another_deal"):
-                    # Clear all session state related to the deal
-                    keys_to_clear = [
-                        "summary", "raw_notes", "notes_summary", "contacts", 
-                        "parsed_contacts", "contacts_to_link", "attachments",
-                        "deal_type", "Physical Property", "Parcel & Tax",
-                        "Ownership & Sale", "Mortgage & Lender", "address_validated",
-                        "address_data", "extracted_location", "selected_contact_index"
-                    ]
-                    # Clear all keys
-                    for key in keys_to_clear:
-                        st.session_state.pop(key, None)
-                    
-                    # Force a full page refresh by using query params
-                    st.query_params.clear()
-                    
-                    # Scroll to top and rerun
-                    st.markdown("""
-                    <script>
-                        window.scrollTo({top: 0, behavior: 'instant'});
-                    </script>
-                    """, unsafe_allow_html=True)
-                    time.sleep(0.1)  # Small delay to ensure state is cleared
-                    st.rerun()
+            # Set flag to show "Submit Another Deal" button
+            st.session_state.deal_saved = True
+            return True
             
             # Note: S3 files are not automatically deleted to ensure Airtable can access them
             # You may want to set up a separate cleanup process for old files
     except Exception as e:
         st.error(f"Error creating Airtable record: {str(e)}")
+        return False
 
 def parse_contact_info(text: str) -> Dict:
     """Parse contact information from text using GPT."""
@@ -2029,38 +2006,27 @@ elif st.session_state.current_page == 'dealflow':
                 contacts_to_link = st.session_state.get("contacts_to_link", [])
                 st.info(f"Found {len(valid_contacts)} contact(s) in the documents. All will be linked by default. Remove any you don't want to link:")
                 
-                # Display contacts with delete buttons
+                # Display contacts with editable fields and delete buttons
                 contacts_to_remove = []
                 for i, contact in enumerate(contacts_to_link):
+                    st.markdown(f"### Contact {i+1}")
                     col1, col2 = st.columns([5, 1])
                     with col1:
-                        name = contact.get("Name", "Unknown")
-                        email = contact.get("Email", "")
-                        org = contact.get("Organization", "")
-                        
-                        # Create display text
-                        display_parts = [f"**{name}**"]
-                        if email:
-                            display_parts.append(f"📧 {email}")
-                        if org:
-                            display_parts.append(f"🏢 {org}")
-                        
-                        st.markdown(" | ".join(display_parts))
-                        
-                        # Show more details in expander
-                        with st.expander(f"View details for {name}", expanded=False):
-                            st.write(f"**Name:** {contact.get('Name', 'N/A')}")
-                            st.write(f"**Email:** {contact.get('Email', 'N/A')}")
-                            st.write(f"**Phone:** {contact.get('Phone', 'N/A')}")
-                            st.write(f"**Organization:** {contact.get('Organization', 'N/A')}")
-                            st.write(f"**Address:** {contact.get('Address', 'N/A')}")
-                            st.write(f"**Website:** {contact.get('Website', 'N/A')}")
-                            if contact.get('Notes'):
-                                st.write(f"**Notes:** {contact.get('Notes', 'N/A')}")
+                        # Editable contact fields
+                        contact["Name"] = st.text_input("Name", value=contact.get("Name", ""), key=f"contact_name_{i}")
+                        contact["Email"] = st.text_input("Email", value=contact.get("Email", ""), key=f"contact_email_{i}")
+                        contact["Phone"] = st.text_input("Phone", value=contact.get("Phone", ""), key=f"contact_phone_{i}")
+                        contact["Organization"] = st.text_input("Organization", value=contact.get("Organization", ""), key=f"contact_org_{i}")
+                        contact["Address"] = st.text_input("Address", value=contact.get("Address", ""), key=f"contact_address_{i}")
+                        contact["Website"] = st.text_input("Website", value=contact.get("Website", ""), key=f"contact_website_{i}")
+                        contact["Notes"] = st.text_area("Notes", value=contact.get("Notes", ""), key=f"contact_notes_{i}", height=80)
                     
                     with col2:
+                        st.markdown("<br>", unsafe_allow_html=True)  # Add spacing
                         if st.button("🗑️ Remove", key=f"remove_contact_{i}", type="secondary"):
                             contacts_to_remove.append(i)
+                    
+                    st.markdown("---")
                 
                 # Remove contacts that were marked for deletion
                 if contacts_to_remove:
@@ -2070,6 +2036,27 @@ elif st.session_state.current_page == 'dealflow':
                         if 0 <= idx < len(st.session_state.contacts_to_link):
                             st.session_state.contacts_to_link.pop(idx)
                     st.rerun()
+                
+                # Update contacts_to_link with edited values
+                for i, contact in enumerate(contacts_to_link):
+                    # Get updated values from form fields
+                    if f"contact_name_{i}" in st.session_state:
+                        contact["Name"] = st.session_state[f"contact_name_{i}"]
+                    if f"contact_email_{i}" in st.session_state:
+                        contact["Email"] = st.session_state[f"contact_email_{i}"]
+                    if f"contact_phone_{i}" in st.session_state:
+                        contact["Phone"] = st.session_state[f"contact_phone_{i}"]
+                    if f"contact_org_{i}" in st.session_state:
+                        contact["Organization"] = st.session_state[f"contact_org_{i}"]
+                    if f"contact_address_{i}" in st.session_state:
+                        contact["Address"] = st.session_state[f"contact_address_{i}"]
+                    if f"contact_website_{i}" in st.session_state:
+                        contact["Website"] = st.session_state[f"contact_website_{i}"]
+                    if f"contact_notes_{i}" in st.session_state:
+                        contact["Notes"] = st.session_state[f"contact_notes_{i}"]
+                
+                # Update session state with edited contacts
+                st.session_state.contacts_to_link = contacts_to_link
                 
                 if len(contacts_to_link) == 0:
                     st.info("No contacts will be linked to this deal. All contacts have been removed.")
@@ -2179,14 +2166,14 @@ elif st.session_state.current_page == 'dealflow':
                 contacts_to_link = st.session_state.get("contacts_to_link", [])
                 
                 if contacts_to_link:
-                    contact_attachments = st.session_state.get("attachments", [])
+                    # Don't pass attachments to contacts - only to deals
                     saved_count = 0
                     failed_count = 0
                     
                     for contact in contacts_to_link:
                         contact_name = contact.get("Name", "Unknown")
                         with st.spinner(f"Saving contact '{contact_name}'..."):
-                            contact_id = create_contact_record(contact, contact_attachments)
+                            contact_id = create_contact_record(contact, [])  # Empty attachments list
                             
                             if contact_id:
                                 contact_ids.append(contact_id)
@@ -2223,7 +2210,7 @@ elif st.session_state.current_page == 'dealflow':
                 attachments = st.session_state.get("attachments", [])
                 contacts = st.session_state.get("contacts", "")
                 
-                create_airtable_record(
+                deal_saved = create_airtable_record(
                     updated,
                     raw_notes,
                     attachments,
@@ -2232,6 +2219,40 @@ elif st.session_state.current_page == 'dealflow':
                     contact_ids if contact_ids else None,  # Pass list of contact IDs to link the deal
                     is_cold_call  # Pass Cold Call toggle status
                 )
+                
+                # Show "Submit Another Deal" button after successful save
+                if deal_saved:
+                    st.markdown("<br>", unsafe_allow_html=True)
+                    col1, col2, col3 = st.columns([1, 2, 1])
+                    with col2:
+                        if st.button("🔄 Submit Another Deal", use_container_width=True, type="primary", key="submit_another_deal_btn"):
+                            # Clear all session state related to the deal
+                            keys_to_clear = [
+                                "summary", "raw_notes", "notes_summary", "contacts", 
+                                "parsed_contacts", "contacts_to_link", "attachments",
+                                "deal_type", "Physical Property", "Parcel & Tax",
+                                "Ownership & Sale", "Mortgage & Lender", "address_validated",
+                                "address_data", "extracted_location", "selected_contact_index",
+                                "deal_saved"
+                            ]
+                            # Clear all keys
+                            for key in keys_to_clear:
+                                st.session_state.pop(key, None)
+                            
+                            # Also clear any contact form fields
+                            for key in list(st.session_state.keys()):
+                                if key.startswith("contact_"):
+                                    st.session_state.pop(key, None)
+                            
+                            # Scroll to top and rerun
+                            st.markdown("""
+                            <script>
+                                window.scrollTo({top: 0, behavior: 'instant'});
+                            </script>
+                            """, unsafe_allow_html=True)
+                            
+                            # Rerun to refresh the page
+                            st.rerun()
 
 elif st.session_state.current_page == 'contact':
     st.markdown("<h1>Contact AI</h1>", unsafe_allow_html=True)
