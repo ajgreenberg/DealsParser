@@ -1090,18 +1090,29 @@ def create_airtable_record(
             st.markdown("<br>", unsafe_allow_html=True)
             col1, col2, col3 = st.columns([1, 2, 1])
             with col2:
-                if st.button("🔄 Submit Another Deal", use_container_width=True, type="primary"):
+                if st.button("🔄 Submit Another Deal", use_container_width=True, type="primary", key="submit_another_deal"):
                     # Clear all session state related to the deal
                     keys_to_clear = [
                         "summary", "raw_notes", "notes_summary", "contacts", 
                         "parsed_contacts", "contacts_to_link", "attachments",
                         "deal_type", "Physical Property", "Parcel & Tax",
                         "Ownership & Sale", "Mortgage & Lender", "address_validated",
-                        "address_data", "extracted_location"
+                        "address_data", "extracted_location", "selected_contact_index"
                     ]
+                    # Clear all keys
                     for key in keys_to_clear:
-                        if key in st.session_state:
-                            del st.session_state[key]
+                        st.session_state.pop(key, None)
+                    
+                    # Force a full page refresh by using query params
+                    st.query_params.clear()
+                    
+                    # Scroll to top and rerun
+                    st.markdown("""
+                    <script>
+                        window.scrollTo({top: 0, behavior: 'instant'});
+                    </script>
+                    """, unsafe_allow_html=True)
+                    time.sleep(0.1)  # Small delay to ensure state is cleared
                     st.rerun()
             
             # Note: S3 files are not automatically deleted to ensure Airtable can access them
@@ -1954,8 +1965,12 @@ elif st.session_state.current_page == 'dealflow':
         finally:
             status_container.empty()
 
+    # Check if we should show the form or the initial upload interface
+    # If "summary" is in session state, show the form. Otherwise, show upload interface.
+    show_form = "summary" in st.session_state
+    
     # Editable form + upload
-    if "summary" in st.session_state:
+    if show_form:
         st.markdown("<h2>Review & Edit Deal Details</h2>", unsafe_allow_html=True)
         
         # Show address input if validation failed
