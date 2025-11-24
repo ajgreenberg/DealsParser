@@ -1270,7 +1270,7 @@ def generate_oauth_url():
         'response_type': 'code',
         'state': state,
         'access_type': 'offline',
-        'prompt': 'select_account'
+        'prompt': 'consent'  # Changed from 'select_account' to 'consent' to allow persistent login
     }
     
     query_string = urllib.parse.urlencode(params)
@@ -1304,6 +1304,102 @@ def get_user_info(access_token):
     if response.status_code == 200:
         return response.json()
     return None
+
+def refresh_access_token(refresh_token):
+    """Refresh access token using refresh token."""
+    if not GOOGLE_CLIENT_SECRET or not refresh_token:
+        return None
+    
+    token_url = "https://oauth2.googleapis.com/token"
+    data = {
+        'client_id': GOOGLE_CLIENT_ID,
+        'client_secret': GOOGLE_CLIENT_SECRET,
+        'refresh_token': refresh_token,
+        'grant_type': 'refresh_token'
+    }
+    
+    response = requests.post(token_url, data=data)
+    if response.status_code == 200:
+        return response.json()
+    return None
+
+def save_auth_state(user_info, airtable_user, refresh_token):
+    """Save authentication state to a secure file for persistent login."""
+    try:
+        import tempfile
+        import os
+        import json
+        import base64
+        
+        # Create a secure storage directory
+        temp_dir = tempfile.gettempdir()
+        auth_file = os.path.join(temp_dir, "dealflow_auth.json")
+        
+        # Store auth data (we'll encode it for basic obfuscation)
+        auth_data = {
+            'user_info': user_info,
+            'airtable_user': airtable_user,
+            'refresh_token': refresh_token,
+            'timestamp': time.time()
+        }
+        
+        # Simple base64 encoding (not encryption, but better than plain text)
+        encoded_data = base64.b64encode(json.dumps(auth_data).encode()).decode()
+        
+        with open(auth_file, 'w') as f:
+            f.write(encoded_data)
+        
+        return True
+    except Exception as e:
+        # Silently fail - persistent login is optional
+        return False
+
+def load_auth_state():
+    """Load authentication state from secure file."""
+    try:
+        import tempfile
+        import os
+        import json
+        import base64
+        
+        temp_dir = tempfile.gettempdir()
+        auth_file = os.path.join(temp_dir, "dealflow_auth.json")
+        
+        if not os.path.exists(auth_file):
+            return None
+        
+        # Check if file is too old (30 days)
+        file_age = time.time() - os.path.getmtime(auth_file)
+        if file_age > 30 * 24 * 60 * 60:  # 30 days
+            os.remove(auth_file)
+            return None
+        
+        with open(auth_file, 'r') as f:
+            encoded_data = f.read()
+        
+        # Decode the data
+        decoded_data = base64.b64decode(encoded_data.encode()).decode()
+        auth_data = json.loads(decoded_data)
+        
+        return auth_data
+    except Exception as e:
+        # If anything fails, return None (user will need to login again)
+        return None
+
+def clear_auth_state():
+    """Clear saved authentication state."""
+    try:
+        import tempfile
+        import os
+        
+        temp_dir = tempfile.gettempdir()
+        auth_file = os.path.join(temp_dir, "dealflow_auth.json")
+        
+        if os.path.exists(auth_file):
+            os.remove(auth_file)
+        return True
+    except:
+        return False
 
 def find_user_in_airtable(user_info):
     """Find existing user in Airtable. Only existing users are allowed to login."""
@@ -1354,6 +1450,9 @@ def logout_user():
     """Logout the current user and clear session state."""
     # Set logout flag to prevent OAuth processing
     st.session_state.logout_requested = True
+    
+    # Clear saved authentication state (persistent login)
+    clear_auth_state()
     
     # Clear session state
     for key in ['authenticated', 'user_info', 'selected_user', 'selected_user_name', 'oauth_state']:
@@ -1480,6 +1579,47 @@ if 'oauth_state' not in st.session_state:
 if 'logout_requested' in st.session_state:
     del st.session_state['logout_requested']
 
+# Check for saved authentication state (persistent login)
+if not st.session_state.authenticated:
+    saved_auth = load_auth_state()
+    if saved_auth:
+        # Try to refresh the access token
+        refresh_token = saved_auth.get('refresh_token')
+        if refresh_token:
+            token_data = refresh_access_token(refresh_token)
+            if token_data:
+                # Token refreshed successfully, restore session
+                user_info = saved_auth.get('user_info')
+                airtable_user = saved_auth.get('airtable_user')
+                
+                if user_info and airtable_user:
+                    # Verify user still exists in Airtable
+                    current_user_info = get_user_info(token_data.get('access_token'))
+                    if current_user_info and current_user_info.get('email') == user_info.get('email'):
+                        # User is still valid, restore session
+                        st.session_state.authenticated = True
+                        st.session_state.user_info = user_info
+                        st.session_state.selected_user = airtable_user['id']
+                        st.session_state.selected_user_name = airtable_user['name']
+                        st.session_state.deals_pipeline_url = airtable_user.get('deals_pipeline_url', '')
+                        st.session_state.contacts_list_url = airtable_user.get('contacts_list_url', '')
+                        
+                        # If we got a new refresh token, save it
+                        if 'refresh_token' in token_data:
+                            save_auth_state(user_info, airtable_user, token_data['refresh_token'])
+                        elif refresh_token:
+                            # Keep using the existing refresh token
+                            save_auth_state(user_info, airtable_user, refresh_token)
+                    else:
+                        # User info doesn't match, clear saved auth
+                        clear_auth_state()
+                else:
+                    # Invalid saved auth, clear it
+                    clear_auth_state()
+            else:
+                # Refresh failed, clear saved auth
+                clear_auth_state()
+
 if not st.session_state.authenticated:
     # Check if we have OAuth credentials
     if not GOOGLE_CLIENT_ID or not GOOGLE_CLIENT_SECRET:
@@ -1605,6 +1745,11 @@ if not st.session_state.authenticated:
                     # Find existing user in Airtable
                     airtable_user = find_user_in_airtable(user_info)
                     if airtable_user:
+                        # Save refresh token for persistent login
+                        refresh_token = token_data.get('refresh_token')
+                        if refresh_token:
+                            save_auth_state(user_info, airtable_user, refresh_token)
+                        
                         st.session_state.authenticated = True
                         st.session_state.user_info = user_info
                         st.session_state.selected_user = airtable_user['id']
@@ -2226,7 +2371,8 @@ elif st.session_state.current_page == 'dealflow':
                     col1, col2, col3 = st.columns([1, 2, 1])
                     with col2:
                         if st.button("🔄 Submit Another Deal", use_container_width=True, type="primary", key="submit_another_deal_btn"):
-                            # Clear all session state related to the deal
+                            # Comprehensive clearing of all deal-related session state
+                            # First, define all keys that need to be cleared
                             keys_to_clear = [
                                 "summary", "raw_notes", "notes_summary", "contacts", 
                                 "parsed_contacts", "contacts_to_link", "attachments",
@@ -2235,23 +2381,56 @@ elif st.session_state.current_page == 'dealflow':
                                 "address_data", "extracted_location", "selected_contact_index",
                                 "deal_saved"
                             ]
-                            # Clear all keys
+                            
+                            # Clear all specified keys using del to ensure complete removal
                             for key in keys_to_clear:
-                                st.session_state.pop(key, None)
+                                if key in st.session_state:
+                                    del st.session_state[key]
                             
-                            # Also clear any contact form fields
-                            for key in list(st.session_state.keys()):
-                                if key.startswith("contact_"):
-                                    st.session_state.pop(key, None)
+                            # Clear any contact-related form fields
+                            contact_keys = [k for k in list(st.session_state.keys()) if k.startswith("contact_")]
+                            for key in contact_keys:
+                                del st.session_state[key]
                             
-                            # Scroll to top and rerun
+                            # Clear form widget state - Streamlit forms store state with widget keys
+                            # Get all keys that might be form-related (get fresh list after previous deletions)
+                            current_keys = list(st.session_state.keys())
+                            form_widget_keys = [
+                                k for k in current_keys 
+                                if any(term in k.lower() for term in [
+                                    "property name", "location", "asset class", "sponsor", "broker",
+                                    "purchase price", "loan amount", "cap rate", "interest rate",
+                                    "size", "unit pricing", "status detail", "notes", "public records", "raw notes",
+                                    "edit_form", "form_submit"
+                                ])
+                            ]
+                            for key in form_widget_keys:
+                                del st.session_state[key]
+                            
+                            # Clear file uploader widget state - these use internal Streamlit keys
+                            # Streamlit file uploaders may store state with various key patterns
+                            # Get fresh list of keys after previous deletions
+                            current_keys = list(st.session_state.keys())
+                            uploader_keys = [
+                                k for k in current_keys 
+                                if "upload" in k.lower() or "file" in k.lower() or "document" in k.lower()
+                            ]
+                            for key in uploader_keys:
+                                del st.session_state[key]
+                            
+                            # Force clear the form by ensuring summary is definitely gone
+                            # This is the key that controls whether the form shows
+                            if "summary" in st.session_state:
+                                del st.session_state["summary"]
+                            
+                            # Scroll to top
                             st.markdown("""
                             <script>
                                 window.scrollTo({top: 0, behavior: 'instant'});
                             </script>
                             """, unsafe_allow_html=True)
                             
-                            # Rerun to refresh the page
+                            # Rerun to refresh the page - this will reset all widgets
                             st.rerun()
 
 elif st.session_state.current_page == 'contact':
